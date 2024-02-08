@@ -75,22 +75,30 @@ class GenerateTrackers():
         self.create_site_folders()
 
     def synchronize_dates(self,sheet):
-        if sheet in ['Cognition Report','Blood Report']:
-            combined_path = (f'{self.absolute_path}'
-            f'site_outputs/{self.test_prefix}{self.site_name}/combined/{self.site_name}_Output.xlsx')
-            if os.path.exists(combined_path):
-                combined_df = pd.read_excel(combined_path,keep_default_na=False)
-                merged_df = pd.merge(self.dataframe, combined_df[['General Flag',\
-                'Subject', 'Timepoint', 'Date Flag Detected',\
-                'Time since Flag Detected','Date Resolved']], 
-                        on=['General Flag', 'Subject', 'Timepoint','Specific Flags'], 
-                        how='left', 
-                        suffixes=('', '_new'))
-                for sync_col in ['Date Flag Detected',\
-                'Time since Flag Detected','Date Resolved']:
-                    self.dataframe[f'{sync_col}'] = merged_df[f'{sync_col}_new'].where(\
-                    pd.notnull(merged_df[f'{sync_col}_new']), self.dataframe[f'{sync_col}'])
-       
+        for combined_sheet in ['Main Report','Secondary Report']:
+            if sheet in ['Cognition Report','Blood Report']:
+                combined_path = (f'{self.absolute_path}'
+                f'site_outputs/{self.test_prefix}{self.site_name}/combined/{self.site_name}_Output.xlsx')
+                if os.path.exists(combined_path):
+                    combined_df = pd.read_excel(combined_path,\
+                    keep_default_na=False,sheet_name=combined_sheet)
+                    merged_df = pd.merge(self.dataframe, combined_df, 
+                            on=['General Flag', 'Subject', 'Timepoint','Specific Flags'], 
+                            how='left', 
+                            suffixes=('', '_new'))
+                    for sync_col in ['Date Flag Detected',\
+                    'Time since Flag Detected']:
+                        self.dataframe[f'{sync_col}'] = merged_df[f'{sync_col}_new'].where(\
+                        pd.notnull(merged_df[f'{sync_col}_new']), self.dataframe[f'{sync_col}'])
+
+                    non_blank_date_resolved = (pd.notnull(\
+                    self.dataframe['Date Resolved'])) & (self.dataframe['Date Resolved'] != '')
+                    self.dataframe.loc[non_blank_date_resolved, 'Date Resolved'] = \
+                    self.dataframe.loc[non_blank_date_resolved, f'Date Resolved'].where(
+                        pd.notnull(merged_df.loc[non_blank_date_resolved, f'Date Resolved_new']),
+                        merged_df.loc[non_blank_date_resolved, f'Date Resolved_new']
+                    )
+                    
     def compare_dataframes(self,sheet,filename):
         """Compares the new errors to the errors from the
         previous output in order to determine what has been
@@ -163,9 +171,11 @@ class GenerateTrackers():
                 rows_to_move.append(row)
                 self.dataframe = self.dataframe.drop(index)
 
-        self.dataframe = self.dataframe.append(rows_to_move, ignore_index=True)
+        self.dataframe =\
+        self.dataframe.append(rows_to_move, ignore_index=True)
 
-    def save_to_excel(self,df,sheet,filename = '',backup_path = '', save_backup =True,compare = True):
+    def save_to_excel(self,df,sheet,filename = '',
+    backup_path = '', save_backup =True,compare = True):
         """Function to update excel sheet and account for 
         which files/sheets already exist
 
@@ -194,10 +204,10 @@ class GenerateTrackers():
         self.save_backup = save_backup
         if os.path.exists(filename) and\
         self.sheet_title in pd.ExcelFile(filename).sheet_names:
+            self.synchronize_dates(sheet)
             if compare:
                 self.compare_dataframes(sheet,filename)
                 self.move_datarame_rows()
-            self.synchronize_dates(sheet)
 
             if self.site_name == 'PRESCIENT':
                 self.dataframe = self.dataframe[["Subject","Timepoint",\
@@ -217,7 +227,6 @@ class GenerateTrackers():
             with pd.ExcelWriter(filename, mode='a',\
             engine='openpyxl',if_sheet_exists = 'replace') as writer:
                 self.dataframe.to_excel(writer, sheet_name=sheet, index=False)
-
             self.workbook = load_workbook(filename)
             worksheet = self.workbook[sheet]
         else:
@@ -226,8 +235,6 @@ class GenerateTrackers():
             self.workbook = load_workbook(filename)
             worksheet = self.workbook[sheet]
     
-        
-
         self.format_tracker(filename,sheet)
 
     def color_error_rows(self,cell,worksheet):
