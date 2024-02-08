@@ -38,7 +38,9 @@ class ProcessVariables():
 
         self.timepoint = timepoint
         self.missing_code_list =  ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
-        '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,'-99.0']
+        '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,\
+        '-99.0',999,999.0,'999','999.0'] #TODO: make sure these can never be legitimate values
+
         self.read_dataframes(dataframe)
         self.initialize_penn_data()
         self.create_timepoint_dict()
@@ -122,7 +124,8 @@ class ProcessVariables():
 
         self.modify_csv_mismatch_df()
         
-        self.iq_conversion_df = pd.read_csv(f'{self.absolute_path}cognition/iq_tscore_conversion.csv',\
+        self.iq_conversion_df = pd.read_csv(\
+        f'{self.absolute_path}cognition/iq_tscore_conversion.csv',\
         keep_default_na=False)
         self.iq_conversion_df.iloc[0] =\
         self.iq_conversion_df.iloc[0].apply(self.convert_range_to_list)
@@ -211,7 +214,9 @@ class ProcessVariables():
         'psychs_p9ac32_fu_hc','psychs_p9ac32','psychs_p1p8_fu','psychs_p9ac32_fu',\
         'digital_biomarkers_mindlamp_checkin','sofas_followup']
         self.unique_date_variable_names = ['chrmri_entry_date',\
-        'chrsofas_interview_date_fu','chrcrit_date','chric_consent_date']
+        'chrsofas_interview_date_fu','chrcrit_date',\
+        'chric_consent_date','chrcbccs_review_date',\
+        'chrgpc_date','chrsofas_interview_date_fu','chrap_date']
 
     def initialize_penn_data(self):
         self.penn_data_summary_df = []
@@ -540,7 +545,8 @@ class ProcessVariables():
             if 'app' in x and 'psychs' in x:
                 self.specific_value_check_dictionary[x] =\
                 {'correlated_variable':x,'checked_value_list':[0,0.0,'0','0.0'],\
-                'branching_logic':"",'negative':False, 'message': f'value is 0','report':'Main Report'}
+                'branching_logic':"",'negative':False,\
+                'message': f'value is 0','report':'Main Report'}
 
     def branching_logic_redcap_to_python(self,variable,form,branching_logic):
         """This function focuses on converting the syntax
