@@ -18,19 +18,20 @@ import json
 from io import BytesIO
 import ast
 
+
 class GenerateTrackers():
     """Class to generate combined trackers
     for each network, then split up the trackers
     for specific sites"""
 
     def __init__(self,dataframe, site_name, sheet_title):
-        self.location = ''
-        self.test_prefix = 'Tests/'
+        self.location = 'pnl_server'
+        self.test_prefix = ''
         if self.location =='pnl_server':
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
             self.combined_cognition_folder = ''
             self.penn_path = '/data/predict1/data_from_nda/'
-            self.absolute_path = '/PHShome/ob001/anaconda3/all_forms_qc/'
+            self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
         else:
             self.combined_df_folder = ''
             self.penn_path = ''
@@ -70,12 +71,26 @@ class GenerateTrackers():
 
     def run_script(self):
         self.create_site_folders(True)
-        #self.reformat_dataframe()
         self.save_to_excel(self.dataframe,self.sheet_title)
-        #if self.sheet_title == 'Scid Report' and self.site_name == 'PRESCIENT':
         self.create_site_folders()
 
-
+    def synchronize_dates(self,sheet):
+        if sheet in ['Cognition Report','Blood Report']:
+            combined_path = (f'{self.absolute_path}'
+            f'site_outputs/{self.test_prefix}{self.site_name}/combined/{self.site_name}_Output.xlsx')
+            if os.path.exists(combined_path):
+                combined_df = pd.read_excel(combined_path,keep_default_na=False)
+                merged_df = pd.merge(self.dataframe, combined_df[['General Flag',\
+                'Subject', 'Timepoint', 'Date Flag Detected',\
+                'Time since Flag Detected','Date Resolved']], 
+                        on=['General Flag', 'Subject', 'Timepoint','Specific Flags'], 
+                        how='left', 
+                        suffixes=('', '_new'))
+                for sync_col in ['Date Flag Detected',\
+                'Time since Flag Detected','Date Resolved']:
+                    self.dataframe[f'{sync_col}'] = merged_df[f'{sync_col}_new'].where(\
+                    pd.notnull(merged_df[f'{sync_col}_new']), self.dataframe[f'{sync_col}'])
+       
     def compare_dataframes(self,sheet,filename):
         """Compares the new errors to the errors from the
         previous output in order to determine what has been
@@ -100,9 +115,7 @@ class GenerateTrackers():
 
         for i, old_df_row in old_dataframe.iterrows():
             match = False
-            # Loop through rows of df2
             for j, new_df_row in self.dataframe.iterrows():
-                # Compare values of the three columns
                 if (old_df_row['Subject'] == new_df_row['Subject']) and\
                 (old_df_row['Timepoint'] == new_df_row['Timepoint']) and\
                 (old_df_row['General Flag'].split(':')[0].replace(' ','')\
@@ -166,21 +179,25 @@ class GenerateTrackers():
 
         self.dataframe = df
         if sheet == 'Scid Report':
-            report_str = 'SCID_'
+            report_str = ''
         else:
             report_str = ''
         if filename == '':
             filename =\
-            f'{self.absolute_path}site_outputs/{self.test_prefix}{self.site_name}/combined/{self.site_name}_{report_str}Output.xlsx'
+            (f'{self.absolute_path}site_outputs/{self.test_prefix}'
+            f'{self.site_name}/combined/{self.site_name}_{report_str}Output.xlsx')
             backup_path =\
-            f'{self.absolute_path}Backups/{self.site_name}_{report_str}Output_BACKUP_{datetime.date.today()}.xlsx'
+            (f'{self.absolute_path}Backups/{self.site_name}'
+            f'_{report_str}Output_BACKUP_{datetime.date.today()}.xlsx')
         self.dataframe = self.dataframe.sort_values(by='Subject', key=lambda x: x.str[:2]).sort_values(by='Subject')
         self.backup_path = backup_path
         self.save_backup = save_backup
-        if os.path.exists(filename) and self.sheet_title in pd.ExcelFile(filename).sheet_names:
+        if os.path.exists(filename) and\
+        self.sheet_title in pd.ExcelFile(filename).sheet_names:
             if compare:
                 self.compare_dataframes(sheet,filename)
                 self.move_datarame_rows()
+            self.synchronize_dates(sheet)
 
             if self.site_name == 'PRESCIENT':
                 self.dataframe = self.dataframe[["Subject","Timepoint",\
@@ -191,7 +208,6 @@ class GenerateTrackers():
 
             with pd.ExcelWriter(filename, mode='a',\
             engine='openpyxl',if_sheet_exists = 'replace') as writer:
- 
                 #writer.book = load_workbook(filename)
                 self.dataframe.to_excel(writer, sheet_name=sheet, index=False)
             self.workbook = load_workbook(filename)
@@ -209,14 +225,14 @@ class GenerateTrackers():
                 self.dataframe.to_excel(writer, sheet_name=sheet, index=False)
             self.workbook = load_workbook(filename)
             worksheet = self.workbook[sheet]
+    
+        
 
         self.format_tracker(filename,sheet)
-
 
     def color_error_rows(self,cell,worksheet):
         """Determined color of row depending on 
         how long it has been since the error was detected
-
 
         Parameters
         ---------------------
@@ -232,7 +248,7 @@ class GenerateTrackers():
                 self.error_color = self.blue_fill
         elif header_value == 'Sent to Site':
             if cell.value != '':
-                cell_border = self.thick_purple_border
+                cell_border = self.thin_border
             else:
                 cell_border = self.thin_border
         elif header_value == 'Date Flag Detected':
@@ -265,7 +281,6 @@ class GenerateTrackers():
                 self.error_color = PatternFill(\
                 start_color='de9590', end_color='de9590', fill_type='gray125')
         return cell
-
 
     def format_tracker(self,filename,sheet):
         """Adds additional formatting to output
@@ -343,7 +358,6 @@ class GenerateTrackers():
                     continue     
         for col in range(1, worksheet.max_column + 1):
             worksheet.cell(row=1, column=col).fill = self.grey_fill
-
         self.adjust_column_length(worksheet,filename)
 
 
@@ -424,7 +438,7 @@ class GenerateTrackers():
         dbx = self.collect_dropbox_credentials()
 
         if download_combined:
-            for network in ['PRONET','PRESCIENT']:
+            for network in ['PRONET']:
                 dropbox_path = f'/Apps/Automated QC Trackers/{self.test_prefix}{network}/combined'
                 for entry in dbx.files_list_folder(dropbox_path).entries:
                     _, res = dbx.files_download(dropbox_path + f'/{entry.name}')
@@ -455,9 +469,10 @@ class GenerateTrackers():
                     for site in site_list:
                         print(site)
                         site_full_name = self.site_full_name_translations[site]
-                        site_path = f'{self.absolute_path}site_outputs/{self.test_prefix}{network}/{site_full_name}/{entry.name}'
+                        site_folder = f'{self.absolute_path}site_outputs/{self.test_prefix}{network}/{site_full_name}'
+                        site_path = site_folder + f'/{entry.name}'
                         if self.sheet_title == 'Main Report':
-                            self.save_site_output(combined_path,site,site_path)
+                            self.save_site_output(combined_path,site,site_path,site_folder)
                             self.remove_output_columns(site_path)
                             with open(site_path, 'rb') as f:
                                 dbx.files_upload(f.read(),\
@@ -473,11 +488,9 @@ class GenerateTrackers():
             ws.delete_cols(column_to_remove)
             wb.save(path)
 
-
-    def save_site_output(self,combined_path,site_prefix,site_path):
+    def save_site_output(self,combined_path,site_prefix,site_path,site_folder):
         """Function to remove all subjects
         not in site and save it to the site folder
-
 
         Parameters
         --------------
@@ -485,6 +498,9 @@ class GenerateTrackers():
         site_prefix: Site
         site_path: path to new site folder
         """
+
+        if not os.path.exists(site_folder):
+            os.makedirs(site_folder)
 
         wb = load_workbook(combined_path)
         ws = wb['Main Report']
@@ -519,9 +535,3 @@ class GenerateTrackers():
             wb.remove(std)
 
         wb.save(site_path)
-
-
-
-
-
-#GenerateTrackers('','PRONET','Main Report').create_site_folders()
