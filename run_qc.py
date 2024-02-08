@@ -25,7 +25,7 @@ def define_paths(location = 'pnl_server'):
 
     if location =='pnl_server':
         combined_df_folder = '/data/predict1/data_from_nda/formqc/'
-        absolute_path = '/PHShome/ob001/anaconda3/all_forms_qc/'
+        absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
     else:
         combined_df_folder = ''
         absolute_path = ''
@@ -42,8 +42,8 @@ def initalize_output_per_timepoint():
     with every timepoint as a key
     """
 
-    output_per_timepoint = {'screen':[],'baseln':[]}
-    for x in range(1,24):
+    output_per_timepoint = {'screen':[]}
+    for x in range(1,1):
       output_per_timepoint['month'+f'{x}'] = []
     output_per_timepoint['month18'] = []
     output_per_timepoint['month24'] = []
@@ -80,14 +80,14 @@ def loop_timepoints():
     output for the trackers"""
 
     combined_df_folder,absolute_path = define_paths()
-    for network in ['PRONET','PRESCIENT']:
+    for network in ['PRONET']:
         final_output = {}
         output_per_timepoint =initalize_output_per_timepoint()
         for timepoint in output_per_timepoint.keys():
             timepoint_str =\
-            timepoint.replace('baseln','baseline').replace('screen','screen')
-            filepath = (f'{combined_df_folder}combined_csvs'
-            f'/combined-{network}-{timepoint_str}-day1to1.csv')            
+            timepoint.replace('baseln','baseline').replace('screen','screening')
+            filepath = (f'{combined_df_folder}'
+            f'combined-{network}-{timepoint_str}-day1to1.csv')            
             if os.path.exists(filepath):
                 formqc_check = FormChecks(filepath,f'{timepoint}','Main Report')
                 output_per_timepoint[timepoint] = formqc_check.run_script()
@@ -117,9 +117,9 @@ def create_trackers(final_output,network):
     'Twenty One Day Tracker','Blood Report',\
     'Cognition Report']
 
-    for report,data in final_output.items():
-        if report in report_list:
-            data = pd.DataFrame(data)
+    for report in report_list:
+        if report in final_output.keys():
+            data = pd.DataFrame(final_output[report])
             GenerateTrackers(data,network, report).run_script()
 
 
