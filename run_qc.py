@@ -42,8 +42,8 @@ def initalize_output_per_timepoint():
     with every timepoint as a key
     """
 
-    output_per_timepoint = {'screen':[]}
-    for x in range(1,1):
+    output_per_timepoint = {'screen':[],'baseln':[]}
+    for x in range(1,24):
       output_per_timepoint['month'+f'{x}'] = []
     output_per_timepoint['month18'] = []
     output_per_timepoint['month24'] = []
