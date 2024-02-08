@@ -17,7 +17,7 @@ class ProcessVariables():
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
             self.combined_cognition_folder = ''
             self.penn_path = '/data/predict1/data_from_nda/'
-            self.absolute_path = '/PHShome/ob001/anaconda3/all_forms_qc/'
+            self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
         else:
             self.combined_df_folder = ''
             self.penn_path = ''
@@ -60,7 +60,8 @@ class ProcessVariables():
         self.json_data['match_timepoint_forms_dict_hc']
         for col_name, col_value in self.ampscz_df.iloc[0].iteritems():
             self.variable_info_dictionary['all_csv_variables'].append(col_name)
-        self.branch_logic_edit_dictionary =  self.json_data['branch_logic_edit_dictionary']
+        self.branch_logic_edit_dictionary =\
+        self.json_data['branch_logic_edit_dictionary']
         self.scid_missing_code_checks = []
         self.twentyone_day_tracker = []
         self.branching_logic_qc_dict = {}
@@ -79,7 +80,9 @@ class ProcessVariables():
         self.organize_variables()
 
     def create_timepoint_dict(self):
-        """Creates a dictionary with every timepoint."""
+        """Creates a dictionary
+        with every timepoint."""
+
         self.timepoint_variable_lists = {'removed':[],'consent':[],\
         'screen':[],'baseln':[]}
         for x in range(1,13):
@@ -96,11 +99,10 @@ class ProcessVariables():
         ---------------
         dataframe_path: path of the current
         timepoint's combined CSV
-
         """
 
         self.screening_df = pd.read_csv(\
-        f'{self.combined_df_folder}combined_csvs/combined-{self.site_str}-screening-day1to1.csv',\
+        f'{self.combined_df_folder}combined-{self.site_str}-screening-day1to1.csv',\
         encoding = 'unicode_escape',keep_default_na = False)
 
         self.ampscz_df =\
@@ -109,17 +111,19 @@ class ProcessVariables():
 
         self.data_dictionary_df = pd.read_csv(\
         f'{self.absolute_path}data_dictionaries/CloneOfYaleRealRecords_DataDictionary_2023-05-19.csv',\
-        encoding = 'latin-1')
+        encoding = 'latin-1',keep_default_na=False)
 
         self.prescient_entry_statuses = pd.read_csv(\
-        f'{self.absolute_path}combined_prescient_completion_status.csv')
+        f'{self.absolute_path}combined_prescient_completion_status.csv',\
+        keep_default_na=False)
 
         self.csv_mismatch_df = pd.read_csv(f'{self.absolute_path}csv_differences.csv',\
         keep_default_na = False)
 
         self.modify_csv_mismatch_df()
         
-        self.iq_conversion_df = pd.read_csv(f'{self.absolute_path}cognition/iq_tscore_conversion.csv')
+        self.iq_conversion_df = pd.read_csv(f'{self.absolute_path}cognition/iq_tscore_conversion.csv',\
+        keep_default_na=False)
         self.iq_conversion_df.iloc[0] =\
         self.iq_conversion_df.iloc[0].apply(self.convert_range_to_list)
         self.all_iq_age_ranges = []
@@ -130,7 +134,6 @@ class ProcessVariables():
 
         self.fsiq_conversion_df = pd.read_csv(\
         f'{self.absolute_path}cognition/fsiq_conversion.csv')
-
 
     def modify_csv_mismatch_df(self):
         """Changes visit status format 
@@ -223,17 +226,18 @@ class ProcessVariables():
 
         self.specific_value_check_dictionary = {'chrspeech_upload':\
         {'correlated_variable':'chrspeech_upload','checked_value_list':[0,0.0,'0','0.0'],\
-        'branching_logic':"",'negative':False,'message':'Speech sample not uploaded to Box'},
+        'branching_logic':"",'negative':False,'message':'Speech sample not uploaded to Box',\
+        'report':['Secondary Report']},
         'chrpenn_complete':{'correlated_variable':'chrpenn_complete',\
         'checked_value_list':[2,2.0,'2','2.0',3,3.0,'3','3.0'],\
         'branching_logic':"",'negative':False,\
-        'message': f'Penncnb not completed (value is either 2 or 3).'}}
+        'message': f'Penncnb not completed (value is either 2 or 3).',\
+        'report':['Secondary Report','Cognition Report']}}
         self.initialize_unique_variable_names()
         self.excluded_21day_dates = ['chrcbc_interview_date',\
         'chrcbccs_review_date','chrgpc_date','chrpsychs_fu_interview_date',\
         'chrpred_interview_date','chrscid_interview_date','chrdemo_interview_date']
         self.excluded_variables_test = []
-        
         self.removed_participants_forms = ['guid_form', 'sociodemographics'] 
         self.additional_variables =\
         ['chrpsychs_av_dev_desc', 'chrcrit_included',\
@@ -246,7 +250,6 @@ class ProcessVariables():
 
         #self.initialize_scid_variables()
         self.define_excluded_data()
-        
         
     def define_excluded_data(self):
         """Defines various forms and variables that will be 
@@ -281,7 +284,6 @@ class ProcessVariables():
             self.excluded_strings = self.excluded_pronet_strings
             self.excluded_strings.extend(self.excluded_prescient_strings)
             self.excluded_strings.extend(['chrpsychs_av_dev_desc','chrguid_interview'])
-
        
     def initialize_scid_variables(self):
         """Creates lists that will be used for 
@@ -304,7 +306,7 @@ class ProcessVariables():
             = {'correlated_variable':variable,\
             'checked_value_list':checked_value_list,\
             'branching_logic':"",'negative':True,\
-            'message': f'Value should be 1,3, or -9/NA'}
+            'message': f'Value should be 1,3, or -9/NA','report':'Scid Report'}
         for key in self.scid_diagnosis_check_dictionary.keys():
             self.additional_variables.append(key)
         self.additional_variables.extend(self.scid_additional_variables) 
@@ -341,7 +343,6 @@ class ProcessVariables():
         and variable not in self.all_blood_volume_variables:
             self.all_blood_volume_variables.append(variable)
 
-
     def initialize_report_variables(self, report, col_values):
         """Adds variable to corresponding report
 
@@ -366,7 +367,6 @@ class ProcessVariables():
             self.scid_missing_code_checks.append(col_values['variable'])
         if col_values['field_type'] == 'checkbox':
             self.variable_info_dictionary['all_checkbox_variables'].append(col_values['variable'])
-
 
     def add_more_additional_variables(self,variable):
         if 'chrpharm_med' in variable and 'name_past' in variable:
@@ -427,9 +427,11 @@ class ProcessVariables():
             replacement_text, col_values['field_label'])
             for char in ['<','>','/','\n','Â']:
                 col_values['field_label'] = col_values['field_label'].replace(char,'')
-            self.variable_translation_dict[col_values['variable']] = col_values['field_label']
+            self.variable_translation_dict[col_values['variable']] = col_values['variable']\
+            + ' = ' +  col_values['field_label']
         else:
-            self.variable_translation_dict[col_values['variable']] = col_values['choices']
+            self.variable_translation_dict[col_values['variable']] = col_values['variable']\
+            + ' = ' +  col_values['field_label']
 
     def edit_tbi_branch_logic(self,variable):
         """Modifies branching logic for 
@@ -440,7 +442,6 @@ class ProcessVariables():
         -----------
         variable: variable from current
         data dictionary row
-
         """
 
         if 'chrtbi' in variable:
@@ -465,10 +466,12 @@ class ProcessVariables():
             number = self.collect_digit(variable)
             if number not in ['1','']:
                 new_branching_logic = \
-                f"[chrpharm_med{number}_name_past] <> '999' and [chrpharm_med{int(number)-1}_add_past] = '1'"
+                (f"[chrpharm_med{number}_name_past] <> '999' and"\
+                " [chrpharm_med{int(number)-1}_add_past] = '1'")
             else:
                 new_branching_logic = \
-                f"[chrpharm_med{number}_name_past] <> '999' and [chrpharm_med_past] = '1'"
+                (f"[chrpharm_med{number}_name_past] <> '999'"
+                " and [chrpharm_med_past] = '1'")
             if 'onset_past' in variable:
                 self.branch_logic_edit_dictionary[\
                 f"chrpharm_med{number}_onset_past"]\
@@ -490,7 +493,6 @@ class ProcessVariables():
             if char.isdigit():
                 return char
         return ''
-
 
     def collect_forms_without_missing_variables(self):
         """collecting forms that do not have working missing
@@ -538,8 +540,7 @@ class ProcessVariables():
             if 'app' in x and 'psychs' in x:
                 self.specific_value_check_dictionary[x] =\
                 {'correlated_variable':x,'checked_value_list':[0,0.0,'0','0.0'],\
-                'branching_logic':"",'negative':False, 'message': f'value is 0'}
-
+                'branching_logic':"",'negative':False, 'message': f'value is 0','report':'Main Report'}
 
     def branching_logic_redcap_to_python(self,variable,form,branching_logic):
         """This function focuses on converting the syntax
@@ -592,6 +593,7 @@ class ProcessVariables():
         variable: current variable being checked
         field_type: field type of variable
         """
+        
         if form not in self.variable_info_dictionary['variable_list_dictionary']:
             self.variable_info_dictionary['variable_list_dictionary'][form] = {}
             self.variable_info_dictionary['unique_form_variables'][form] = {}
@@ -607,8 +609,6 @@ class ProcessVariables():
         and 'add' not in variable and 'invalid' not in variable\
         and 'mod' not in variable and 'first' not in variable and '_err' not in variable:
             self.variable_info_dictionary['all_date_variables'].append(variable)   
-
-
         
     def collect_checkbox_variables(self):
         """Checkbox variables are formatted
