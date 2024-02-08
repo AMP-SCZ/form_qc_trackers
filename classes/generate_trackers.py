@@ -87,10 +87,9 @@ class GenerateTrackers():
                             how='left', 
                             suffixes=('', '_new'))
                     for sync_col in ['Date Flag Detected',\
-                    'Time since Flag Detected']:
+                    'Time since Flag Detected','Manually Marked as Resolved']:
                         self.dataframe[f'{sync_col}'] = merged_df[f'{sync_col}_new'].where(\
                         pd.notnull(merged_df[f'{sync_col}_new']), self.dataframe[f'{sync_col}'])
-
                     non_blank_date_resolved = (pd.notnull(\
                     self.dataframe['Date Resolved'])) & (self.dataframe['Date Resolved'] != '')
                     self.dataframe.loc[non_blank_date_resolved, 'Date Resolved'] = \
@@ -199,7 +198,8 @@ class GenerateTrackers():
             backup_path =\
             (f'{self.absolute_path}Backups/{self.site_name}'
             f'_{report_str}Output_BACKUP_{datetime.date.today()}.xlsx')
-        self.dataframe = self.dataframe.sort_values(by='Subject', key=lambda x: x.str[:2]).sort_values(by='Subject')
+        self.dataframe = self.dataframe.sort_values(by='Subject',\
+        key=lambda x: x.str[:2]).sort_values(by='Subject')
         self.backup_path = backup_path
         self.save_backup = save_backup
         if os.path.exists(filename) and\
