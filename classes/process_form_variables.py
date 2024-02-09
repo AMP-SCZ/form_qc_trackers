@@ -184,8 +184,8 @@ class ProcessVariables():
         range_str: string of the range 
         str_conv: determines whether the
         output will be a string or not
-
         """
+        
         range_list = []
         if '-' not in range_str:
             if str_conv ==True:
@@ -450,12 +450,15 @@ class ProcessVariables():
         """
 
         if 'chrtbi' in variable:
-            if '5' in variable:
-                self.branch_logic_edit_dictionary[str(variable)]\
-                 = "[chrtbi_number_injs] = '5'"
-            elif '4' in variable:
-                self.branch_logic_edit_dictionary[str(variable)]\
-                 = "[chrtbi_number_injs] = '4'"
+            for injury_count in [4,5]:
+                if f'{injury_count}' in variable:
+                    print(variable)
+                    if 'parent' not in variable:
+                        self.branch_logic_edit_dictionary[str(variable)]\
+                        = f"[chrtbi_number_injs] = '{injury_count}'"
+                    else:
+                        self.branch_logic_edit_dictionary[str(variable)]\
+                        = f"[chrtbi_number_injs] = '{injury_count}'"
 
     def edit_past_pharm_branch_logic(self,variable):
         """Edits pharm branching logic to account
@@ -629,6 +632,3 @@ class ProcessVariables():
                     if x not in self.checkbox_variable_dictionary:
                          self.checkbox_variable_dictionary[x] = []
                     self.checkbox_variable_dictionary[x].append(y)
-
-
-
