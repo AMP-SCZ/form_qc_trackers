@@ -7,7 +7,6 @@ from classes.data_checks import DataChecks
 import math
 import pandas as pd
 import datetime
-error_log_list = []
 class IterateForms(ProcessVariables):
     """Class to loop through each form and filter out
     variables/forms based on data collected in parent class."""
@@ -28,7 +27,7 @@ class IterateForms(ProcessVariables):
         self.screening_df['subjectid'] == current_subject, 'chrcrit_part']  
         if not matching_rows.empty:
           hc_or_chr = matching_rows.iloc[0]
-          if hc_or_chr in [1,1.0,'1','1.0',2,2.0,'2','2.0']:
+          if hc_or_chr in [1,1.0,'1','1.0',2,2.0,'2','2.0']: #TODO disregard cohort for screen and baseln
               hc_chr_dict = {1.0: self.match_timepoint_forms_dict_chr,\
             2.0:self.match_timepoint_forms_dict_hc}
               for key in self.timepoint_variable_lists.keys():
@@ -36,7 +35,6 @@ class IterateForms(ProcessVariables):
                 for values in hc_chr_dict[float(hc_or_chr)].values():
                     if any(key.replace('month','') == x for x in values[0]):
                       self.timepoint_variable_lists[key].extend(values[1])
-
          
     def append_error(self, message,  variable, form,sheet_list = ['Main Report']):
         """Function to append errors to a dictionary and collect
@@ -66,18 +64,19 @@ class IterateForms(ProcessVariables):
                 self.error_dictionary[sheet][\
                 self.row.subjectid][form].setdefault(column_header,default_value)
 
-            self.error_dictionary[sheet][self.row.subjectid][\
-            form]["Specific Flags"].append(f"{variable} : {message}")
-            spec_flag_list = self.error_dictionary[sheet][self.row.subjectid][form]["Specific Flags"]
-            flag_str = "flags"
-            if len(spec_flag_list) == 1:
-                flag_str = "flag"
-            self.error_dictionary[sheet][self.row.subjectid][form]["General Flag"] =\
-            f"{form.replace('_',' ').title()} : {len(spec_flag_list)} {flag_str} detected."
+            if f"{variable} : {message}" not in self.error_dictionary[sheet][self.row.subjectid][\
+            form]["Specific Flags"]:
+                self.error_dictionary[sheet][self.row.subjectid][\
+                form]["Specific Flags"].append(f"{variable} : {message}")
+                spec_flag_list = self.error_dictionary[sheet][self.row.subjectid][form]["Specific Flags"]
+                flag_str = "flags"
+                if len(spec_flag_list) == 1:
+                    flag_str = "flag"
+                self.error_dictionary[sheet][self.row.subjectid][form]["General Flag"] =\
+                f"{form.replace('_',' ').title()} : {len(spec_flag_list)} {flag_str} detected."
 
-            self.error_dictionary[sheet][self.row.subjectid][form]["Variable Translations"]\
-            =self.add_variable_translations(spec_flag_list)
-
+                self.error_dictionary[sheet][self.row.subjectid][form]["Variable Translations"]\
+                =self.add_variable_translations(spec_flag_list)
 
     def add_variable_translations(self, flag_list):
         """Adds variable translations for any variable that is present
@@ -95,7 +94,6 @@ class IterateForms(ProcessVariables):
                     self.variable_translation_dict[word])
 
         return translation_list
-
 
     def main_loop(self):
         """Main loop to further filter out
@@ -192,7 +190,8 @@ class IterateForms(ProcessVariables):
         and self.variable_info_dictionary['total_num_form_variables'][form] > 0:
             self.error_check(variable_list,True)
             if form in self.variable_info_dictionary['total_num_form_variables'] and\
-            (self.missing_workaround_error_count/self.variable_info_dictionary['total_num_form_variables'][form])\
+            (self.missing_workaround_error_count/self.variable_info_dictionary[\
+            'total_num_form_variables'][form])\
             < 0.55 and self.missing_workaround_error_count!=0.0: 
                 self.error_check(variable_list,False) 
 
@@ -329,7 +328,6 @@ class IterateForms(ProcessVariables):
         else: 
             return True
    
-
     def check_prescient_csv_mismatches(self,form):
         if not self.prescient:
             return getattr(self.row,self.variable)
