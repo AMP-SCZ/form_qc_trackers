@@ -27,8 +27,8 @@ class FormChecks(IterateForms):
         """Function to call all of
         the additional form checks specified below"""
 
-        #self.oasis_additional_checks()
-        #self.cssr_additional_checks()
+        self.oasis_additional_checks()
+        self.cssr_additional_checks()
         #self.penn_data_check(self.row.subjectid)
         self.blood_form_check()
         self.guid_format_check()
@@ -391,9 +391,9 @@ class FormChecks(IterateForms):
                 else:
                     fasting_time = float(getattr(self.row,'time_fasting'))
                 if not (0 <= fasting_time < 40): # change to 4 and 12 or 3 and 20
-                    self.append_error((f"Error in time fasting ({getattr(self.row,'time_fasting')})– either error"\
+                    self.append_error((f"Eror in time fasting ({getattr(self.row,'time_fasting')})– either error"\
                     f" in blood draw date ({getattr(self.row,'chrblood_drawdate')})"\
-                    f" or in blood sample form or last time they ate ({getattr(self.row,'chrchs_ate')})"\
+                    f" in blood sample form or last time they ate ({getattr(self.row,'chrchs_ate')})"\
                     f" in current health status form."),'time_fasting',\
                     self.form,['Main Report','Blood Report'])
             except Exception as e:
@@ -414,7 +414,8 @@ class FormChecks(IterateForms):
                 for blood_row in blood_df.itertuples():
                     if blood_row.subjectid != self.row.subjectid:
                         if getattr(blood_row,blood_pos_var) == getattr(self.row,blood_pos_var)\
-                        and getattr(blood_row,blood_pos_var) not in self.missing_code_list:
+                        and getattr(blood_row,blood_pos_var) not in (self.missing_code_list+[''])\
+                        and getattr(blood_row,'chrblood_rack_barcode') not in (self.missing_code_list+['']):
                             self.append_error((\
                             f"Duplicate positions found in two different subjects ({self.row.subjectid} and {blood_row.subjectid} "\
                             f"both have {blood_pos_var} equal to {getattr(blood_row,blood_pos_var)})"\
@@ -454,6 +455,68 @@ class FormChecks(IterateForms):
                         f"Barcode ({barcode}) contains non-numeric characters.",\
                         self.variable,self.form,['Blood Report'])
 
+    def call_scid_diagnosis_check(self):
+        for checked_variable,conditions in self.scid_diagnosis_check_dictionary.items(): # loops through the specific value dictionary defined earlier 
+            if self.variable == checked_variable: # checks if the current variable being checked is equal to one of the correlated variables in the dictionary
+                self.scid_diagnosis_check(\
+                row,checked_variable,form,conditions['diagnosis_variables'],\
+                conditions['disorder'],True,conditions['extra_conditionals'])
+                self.scid_diagnosis_check(row,checked_variable,form,conditions[\
+                'diagnosis_variables'],conditions['disorder'],\
+                False,conditions['extra_conditionals'])
+        self.scid_additional_checks(self.row,self.variable)
+
+
+
+    def scid_additional_checks(self,row,variable):
+        if variable == 'chrscid_a48_1':
+            if row.chrscid_a27 in [3,3.0,'3','3.0'] and row.chrscid_a28 in [3,3.0,'3','3.0'] and\
+               (row.chrscid_a48_1 not in [2,2.0,'2','2.0']): 
+                self.append_error(f'Fulfills both main criteria but was counted incorrectly, a27, a28, a48_1',\
+                self.variable,self.form,['Scid Report'])
+            elif ((row.chrscid_a27 in [3,3.0,'3','3.0'] and (row.chrscid_a28 in\
+            [2,2.0,'2','2.0'] or row.chrscid_a28 in [1,1.0,'1','1.0'])) or\
+                 (row.chrscid_a28 in [3,3.0,'3','3.0'] and (row.chrscid_a27\
+                in [2,2.0,'2','2.0'] or row.chrscid_a27 in [1,1.0,'1','1.0']))) and\
+                 (row.chrscid_a48_1 not in [1,1.0,'1','1.0']):
+                self.append_error('Fulfills main criteria but further value was wrong, a27, a28, a48_1',\
+                    self.variable,self.form,['Scid Report'])
+        elif variable == 'chrscid_a51' and \
+        row.chrscid_a26_53 not in (self.missing_code_list+['']):
+            if float(row.chrscid_a26_53) <1 and (row.chrscid_a25\
+            in [3,3.0,'3','3.0'] or row.chrscid_a51 in [3,3.0,'3','3.0']):
+                self.append_error(('has no indication of total mde episodes'
+                ' fulfilled in life even though fulfills current major depression. a26_53, a51'),\
+                    self.variable,self.form,['Scid Report'])
+            if float(row.chrscid_a26_53) > 0 and (row.chrscid_a25 not in [3,3.0,'3','3.0']\
+            and row.chrscid_a51 not in [3,3.0,'3','3.0']):
+                self.append_error(('fulfills more manic episodes than 0 but there'
+                ' is no indication of past or current depressive episode. a26_53, a25'),\
+                    self.variable,self.form,['Scid Report'])
+        elif variable == 'chrscid_a1':
+            if row.chrscid_a1 in [3,3.0,'3','3.0'] and\
+            row.chrscid_a2 in [3,3.0,'3','3.0'] and\
+            (row.chrscid_a22_1 not in [2,2.0,'2','2.0']):
+                self.append_error((f"Fulfills both main criteria"\
+                " but was counted incorrectly, check a1, a2, a22_1"),\
+                self.variable,self.form,['Scid Report'])
+            if ((row.chrscid_a1 in [3,3.0,'3','3.0'] and (row.chrscid_a2 in [2,2.0,'2','2.0']\
+            or row.chrscid_a2 in [1,1.0,'1','1.0'])) or\
+                 (row.chrscid_a2 in  [3,3.0,'3','3.0'] and (row.chrscid_a1 in [2,2.0,'2','2.0']\
+                 or row.chrscid_a1 in [1,1.0,'1','1.0']))) and\
+                 (row.chrscid_a22_1 not in [1,1.0,'1','1.0']):
+                self.append_error('Fulfills main criteria but further value was wrong, a1, a2, a22_1',\
+                self.variable,self.form,['Scid Report'])
+        elif variable == 'chrscid_a25' and row.chrscid_a22 not\
+        in (self.missing_code_list+['']) and row.chrscid_a22_1 not in (self.missing_code_list+['']):
+            if float(row.chrscid_a22) > 4 and float(row.chrscid_a22_1) > 0  and (row.chrscid_a25\
+            == '' or row.chrscid_a25 in self.missing_code_list):
+                self.append_error(('A. MOOD EPISODES: subject fulfills more than 4'
+                ' criteria of depression but further questions are not asked: start checking a22, a22_1, a25'),\
+                    self.variable,self.form,['Scid Report'])
+
+
+
     def scid_diagnosis_check(self,form,conditional_variables,
                              disorder,fulfilled,extra_conditionals):
         try:
@@ -467,7 +530,8 @@ class FormChecks(IterateForms):
                         if not eval(conditional):
                             return ''
                 if getattr(self.row,self.variable) not in [3,3.0,'3','3.0']:
-                    self.append_error(f'{disorder} criteria are fulfilled, but it is not indicated.',\
+                    self.append_error(\
+                    f'{disorder} criteria are fulfilled, but it is not indicated.',\
                     self.variable,form,['Scid Report'])
             else:
                 for condition in conditional_variables:
@@ -475,16 +539,19 @@ class FormChecks(IterateForms):
                     getattr(self.row,condition) not in [3,3.0,'3','3.0']:
                         if hasattr(self.row,self.variable) and\
                         getattr(self.row,self.variable) in [3,3.0,'3','3.0']:
-                            self.append_error(f'{disorder} criteria are NOT fulfilled, but it is indicated.',\
+                            self.append_error(\
+                            f'{disorder} criteria are NOT fulfilled, but it is indicated.',\
                             self.variable,form,['Scid Report'])
                 if extra_conditionals != '':
                     for conditional in extra_conditionals:
                         if not eval(conditional):
                             if hasattr(self.row,self.variable) and\
                             getattr(self.row,self.variable) in [3,3.0,'3','3.0']:
-                                self.append_error(f'{disorder} criteria are NOT fulfilled, but it is indicated.',\
+                                self.append_error(\
+                                f'{disorder} criteria are NOT fulfilled, but it is indicated.',\
                                 self.variable,form,['Scid Report'])
         except Exception as e:
+            print(conditional)
             print(e)
 
     def cssr_additional_checks(self):
@@ -546,7 +613,7 @@ class FormChecks(IterateForms):
                     if getattr(self.row,f'chroasis_oasis_{x}') not in self.missing_code_list\
                     and float(getattr(self.row,f'chroasis_oasis_{x}')) > 0 and\
                     self.row.chroasis_oasis_1 in [0,0.0,'0','0.0']:
-                        self.append_error((f'No anxiety at all (last week) cannot have anxiety',\
+                        self.append_error((f'No anxiety at all (last week) cannot have anxiety'\
                         f'level or be influenced by anxiety (last week) (chroasis_oasis_{x}).'),\
                         self.variable,self.form,['Main Report'])
             if self.variable == 'chroasis_oasis_3':
@@ -555,7 +622,7 @@ class FormChecks(IterateForms):
                 and self.row.chroasis_oasis_5 not in self.missing_code_list and \
                 float(self.row.chroasis_oasis_3) <2 and \
                 (float(self.row.chroasis_oasis_4 > 1) or float(self.row.chroasis_oasis_5)>0):
-                    self.append_error((f'If lifestyle is not affected (chroasis_oasis_3<2) no',\
+                    self.append_error((f'If lifestyle is not affected (chroasis_oasis_3<2) no'\
                     f'lifestyle situation can be described to be affected (chroasis_oasis_4 and chroasis_oasis_5)'),\
                     self.variable,self.form,['Main Report'])
         except Exception as e:
@@ -849,7 +916,7 @@ class FormChecks(IterateForms):
             [1,1.0,'1','1.0',0,0.0,'0','0.0'] and\
             self.row.chrtbi_parent_headinjury in [1,1.0,'1','1.0',0,0.0,'0','0.0']):
                 self.append_error(("Subject and parent not both selected as source of information,"\
-                "but answers appear to be provided by both the subject and parent."),\
+                " but answers appear to be provided by both the subject and parent."),\
                 self.variable,self.form,['Secondary Report'])
 
 
