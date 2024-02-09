@@ -16,7 +16,6 @@ class IterateForms(ProcessVariables):
         super().__init__(dataframe,timepoint, sheet_title)
         self.current_prescient_complete_value = ''
         
-
     def assign_forms_to_timepoints(self):
         """Assigns different forms to the current timepoint,
         depending on if the subject being checked is CHR or HC"""
@@ -26,7 +25,7 @@ class IterateForms(ProcessVariables):
         self.timepoint_variable_keys = []
         current_subject = self.row.subjectid 
         matching_rows = self.screening_df.loc[\
-        self.screening_df['subjectid'] == current_subject, 'chrcrit_part']
+        self.screening_df['subjectid'] == current_subject, 'chrcrit_part']  
         if not matching_rows.empty:
           hc_or_chr = matching_rows.iloc[0]
           if hc_or_chr in [1,1.0,'1','1.0',2,2.0,'2','2.0']:
@@ -51,6 +50,7 @@ class IterateForms(ProcessVariables):
         sheet_list: Sheets on the final tracker that this error
         will appear on
         """
+
         for sheet in sheet_list:
             self.error_dictionary.setdefault(sheet,{})
             self.error_dictionary[sheet].setdefault(self.row.subjectid,{})
@@ -63,7 +63,8 @@ class IterateForms(ProcessVariables):
             "Manually Marked as Resolved":"","Sent to Site":"","Additional Comments":""}
 
             for column_header,default_value in column_headers.items():
-                self.error_dictionary[sheet][self.row.subjectid][form].setdefault(column_header,default_value)
+                self.error_dictionary[sheet][\
+                self.row.subjectid][form].setdefault(column_header,default_value)
 
             self.error_dictionary[sheet][self.row.subjectid][\
             form]["Specific Flags"].append(f"{variable} : {message}")
@@ -85,7 +86,6 @@ class IterateForms(ProcessVariables):
         Parameters
         -----------------------------
         flag_list: list of errors for the current row
-
         """
         translation_list = []
         for flag in flag_list:
@@ -148,10 +148,9 @@ class IterateForms(ProcessVariables):
                         if self.additional_conditionals() == False:
                             continue
                         self.call_error_checks(variable_list,form)
+                    self.check_form_completion(timepoint)
 
-                    self.check_form_completion()
-
-    def check_form_completion(self):
+    def check_form_completion(self,timepoint):
         """Only used for Prescient. Checks
         if form has not been completed when subject
         has moved onto next timepoint"""
@@ -202,30 +201,26 @@ class IterateForms(ProcessVariables):
         specific value check function
 
         Parameters
-        ____________________
+        -------------
         workaround: makes sure the missing variable workaround is not occuring
-
         """
 
         for checked_variable,conditions in self.specific_value_check_dictionary.items(): 
-            if workaround == False and self.variable == conditions['correlated_variable']\
-            and not (self.variable in ['chrspeech_upload','chrpenn_complete']):
+            if workaround == False and self.variable == conditions['correlated_variable']:
                 self.specific_value_check(checked_variable,\
                     self.form,conditions['checked_value_list'],conditions['negative'],\
-                    conditions['message'],conditions['branching_logic']) 
+                    conditions['message'],conditions['branching_logic'],conditions['report']) 
 
     def error_check(self,variable_list,workaround=False):
         """Function used by the main_loop to check a variable for any errors
 
         Parameters
-        ---------------------
+        ----------------
         variable_list: all variables of current form
         workaround: whether or not missing variable workaround is occuring
         """
 
         for variable, branch in variable_list.items(): 
-            if not hasattr(self.row,variable):
-                continue
             row = self.row
             self.variable = variable
             if workaround == False and (self.row.subjectid\
@@ -235,7 +230,7 @@ class IterateForms(ProcessVariables):
                 if not self.prescient:
                     self.excluded_check()
             if self.row.subjectid in\
-            self.variable_info_dictionary['included_subjects']: 
+            self.variable_info_dictionary['included_subjects']:
                 self.call_specific_value_check(workaround)
                 if branch['branching_logic'] in ['nan','']: 
                     for string in self.excluded_strings: 
@@ -260,7 +255,6 @@ class IterateForms(ProcessVariables):
         Parameters
         ------------
         workaround: whether or not missing variable workaround is occuring
-
         """
         self.current_report_list = []
         for report, var_list in self.blank_check_variables_per_report.items():
@@ -274,8 +268,7 @@ class IterateForms(ProcessVariables):
             if self.form in form_list:
                 self.current_report_list.append(report)
         self.call_extra_checks(self.form)
-        if not (self.variable  in self.secondary_report_variables_additional_check and\
-        self.sheet_title == 'Secondary Report') and self.variable\
+        if self.variable\
         not in self.excluded_from_blank_check:
             if hasattr(self.row, self.variable):
                 if (getattr(self.row, self.variable) =='' or\
@@ -310,10 +303,9 @@ class IterateForms(ProcessVariables):
                 and getattr(self.row,age_var)\
                 not in (self.missing_code_list + ['']):
                     age = float(getattr(self.row,age_var))/12 
-            if age == '':
+            if age == '' or age >18:
                 return False
-            elif age >18:
-                return True
+            return True
         elif 'axivity' in self.form:
             matching_rows = self.screening_df.loc[\
             self.screening_df['subjectid']\
@@ -334,27 +326,25 @@ class IterateForms(ProcessVariables):
                 if opt_in in [1,1.0,'1','1.0',2,2.0,'2','2.0']:
                     return True      
                 return False
+        else: 
+            return True
    
 
     def check_prescient_csv_mismatches(self,form):
         if not self.prescient:
             return getattr(self.row,self.variable)
-        if self.timepoint == 'screen':
-            timepoint_str = 'screening'
-        elif self.timepoint == 'baseln':
-            timepoint_str = 'baseline'
-        else:
-            timepoint_str = self.timepoint
+        timepoint_str = self.timepoint.replace(\
+        'baseln','baseline').replace('screen','screening')
         df = self.csv_mismatch_df
         current_variable = df[(df['subject'] == self.row.subjectid) & (\
         df['visit'] == timepoint_str) & (df['variable'] == self.variable)]
         if not current_variable.empty:
-            for row1 in current_variable.itertuples():
-                if row1.combined_csv != row1.raw_csv:
-                    if row1.raw_csv in self.missing_code_list\
-                     or any(x in row1.raw_csv.lower() for\
+            for raw_csv_row in current_variable.itertuples():
+                if raw_csv_row.combined_csv != raw_csv_row.raw_csv:
+                    if raw_csv_row.raw_csv in self.missing_code_list\
+                    or any(x in raw_csv_row.raw_csv.lower() for\
                     x in ['n/a','na','none','no','nan','nil','false']):
-                        return row1.raw_csv 
+                        return raw_csv_row.raw_csv 
         return getattr(self.row,self.variable)
 
     def check_prescient_na_values(self,form):
@@ -366,12 +356,14 @@ class IterateForms(ProcessVariables):
         for row in current_form.itertuples():
             self.current_prescient_complete_value =\
             row.Completion_Status
-            if row.Completion_Status in [3,3.0,'3','3.0','4','4.0',4,4.0]:
+            if row.Completion_Status\
+            in [3,3.0,'3','3.0','4','4.0',4,4.0]:
                 return True 
             else:
                 return False
 
-    def specific_value_check(self,variable,form,checked_value_list,negative,message,branching_logic = ''):
+    def specific_value_check(self,variable,form,checked_value_list,
+    negative,message,branching_logic = '',report = 'default'):
         """Checks if a variable has a certain
         value.
 
@@ -384,21 +376,23 @@ class IterateForms(ProcessVariables):
         message: error message appended to output
         branching_logic: any branching logic of the variable 
         """
+        if report =='default':
+            report = self.current_report_list
+
         try:
-    
             if branching_logic == '':
                 variable_value = self.check_prescient_csv_mismatches(self.form)
                 if (negative == False and variable_value in checked_value_list) \
                 or (negative == True and variable_value not in checked_value_list) :
                     self.append_error(\
-                    message,self.variable,self.form,self.current_report_list)
+                    message,self.variable,self.form,report)
             else:
                 variable_value = self.check_prescient_csv_mismatches(self.form)
                 if eval(branching_logic) and  (negative == False and variable_value in \
                 checked_value_list) or (negative == True\
                 and variable_value not in checked_value_list):
                     self.append_error(\
-                    message,self.variable,self.form,self.current_report_list)
+                    message,self.variable,self.form,report)
         except Exception as e:
             print(e)
 
