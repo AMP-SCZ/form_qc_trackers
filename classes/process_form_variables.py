@@ -392,7 +392,7 @@ class ProcessVariables():
             for key,value in data_dictionary_col_names.items():
                 col_values[key] = self.data_dictionary_df.at[row.Index, value] 
 
-            self.add_more_additional_variables(col_values['variable'])
+            #self.add_more_additional_variables(col_values['variable'])
             self.collect_blood_variables(col_values['variable'])
             self.collect_unique_variables(col_values['form'],\
             col_values['variable'],col_values['field_type'])
