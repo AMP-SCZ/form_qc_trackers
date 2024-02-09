@@ -17,9 +17,8 @@ from openpyxl.formatting.rule import Rule
 import openpyxl
 
 class FormChecks(IterateForms):
-
     """Additional checks added to variables
-    that passed through the FromIteration filters"""
+    that passed through the FormIteration filters"""
 
     def __init__(self,dataframe,timepoint, sheet_title):
         super().__init__(dataframe,timepoint, sheet_title)
@@ -89,7 +88,7 @@ class FormChecks(IterateForms):
                     formatted_output[sheet_name].append(form_data)
 
         return formatted_output
-
+                                
     def run_script(self):
         """function to run script
          and call main loop"""
@@ -113,7 +112,8 @@ class FormChecks(IterateForms):
         xls = pd.ExcelFile(filename)
         sheetname = 'Twenty One Day Tracker'
         twentyone_day_tracker_df = pd.DataFrame(self.twentyone_day_tracker)
-        if os.path.exists(filename) and sheetname in pd.ExcelFile(filename).sheet_names:
+        if os.path.exists(filename) and sheetname\
+        in pd.ExcelFile(filename).sheet_names:
             with pd.ExcelWriter(filename, mode='a', engine='openpyxl',\
             if_sheet_exists = 'replace') as writer:
                 old_df = pd.read_excel(filename,sheet_name=sheetname)
@@ -149,8 +149,10 @@ class FormChecks(IterateForms):
         self.max_baseline_date_variable_list = []
         baseline_date_variables = []
         for form in self.timepoint_variable_lists['baseln']:
-            if 'interview_date' in self.variable_info_dictionary['unique_form_variables'][form]\
-            and self.variable_info_dictionary['unique_form_variables'][form]['interview_date']\
+            if 'interview_date' in self.variable_info_dictionary[\
+            'unique_form_variables'][form]\
+            and self.variable_info_dictionary[\
+            'unique_form_variables'][form]['interview_date']\
             not in self.excluded_21day_dates:
                 baseline_date_variables.append(\
                 self.variable_info_dictionary[\
@@ -171,7 +173,6 @@ class FormChecks(IterateForms):
                 getattr(self.row, variable).replace('/', '-'))
                 if extracted_baseline_date and\
                 getattr(self.row, variable) not in self.missing_code_list:
-
                     self.baseline_date_list.append(datetime.datetime.strptime(\
                     extracted_baseline_date.group(), '%Y-%m-%d'))
                     self.max_baseline_date_variable_list.append(variable)
@@ -276,9 +277,9 @@ class FormChecks(IterateForms):
             f" screening PSYCHS ({self.psychs_interview_date}) and most recently"\
             f" completed baseline visit component ({final_baseline_date}). ") + sing_or_plur_str  
 
-
     def convert_date_format(self,date_string):
         """Function to convert dates to a y-m-d format"""
+        
         formats = ["%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y", "%m-%d-%Y"]
         for date_format in formats:
             try:
@@ -323,24 +324,29 @@ class FormChecks(IterateForms):
                         < datetime.datetime.strptime('2022-01-01','%Y-%m-%d'):
                             self.append_error(f" Date ({date}) is before January 2022",\
                             self.variable,form,self.current_report_list)
-                        elif datetime.datetime.strptime(getattr(self.row,self.variable).split(' ')[0].replace(\
+                        elif datetime.datetime.strptime(getattr(\
+                        self.row,self.variable).split(' ')[0].replace(\
                         '/','-'),'%Y-%m-%d') > datetime.datetime.today():
                             self.append_error(f" Date ({date}) is in the future",\
                             self.variable,form,self.current_report_list)
                     except Exception as e:
                         print(e)
             elif getattr(self.row,self.variable) in \
-            ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0','1909-09-09','1903-03-03','1901-01-01']\
-            and ('interview_date' in self.variable or 'chrmri_entry_date' in self.variable):
+            ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
+            '1909-09-09','1903-03-03','1901-01-01']\
+            and ('interview_date' in self.variable or\
+            'chrmri_entry_date' in self.variable):
                 self.append_error(\
-                f"Date is marked with a missing code ({getattr(self.row,self.variable)}), but all interview dates are required",\
+                (f"Date is marked with a missing code ({getattr(self.row,self.variable)}),"
+                " but all interview dates are required"),\
                 self.variable,form,self.current_report_list)
 
     def guid_format_check(self):
         """Checks if GUID is in proper format"""
 
         if self.variable == 'chrguid_guid':
-            if getattr(self.row,self.variable) != '' and not re.search(r"^NDA[A-Z0-9]+$",\
+            if getattr(self.row,self.variable) != ''\
+            and not re.search(r"^NDA[A-Z0-9]+$",\
             getattr(self.row,self.variable)):
                 self.append_error(\
                     f'GUID in incorrect format. GUID was reported to be {getattr(self.row,self.variable)}.',\
@@ -350,10 +356,12 @@ class FormChecks(IterateForms):
         """checks if any of the possible 
         checkboxes for current question were checked"""
 
-        for main_variable, options in self.checkbox_variable_dictionary.items():
+        for main_variable, options in\
+        self.checkbox_variable_dictionary.items():
             if main_variable == self.variable:
                 for item in options:
-                    if getattr(self.row,item) not in [0,0.0,'0.0','0']: #
+                    if getattr(self.row,item)\
+                    not in [0,0.0,'0.0','0']: 
                         return True
                 return False
         return True
@@ -411,7 +419,7 @@ class FormChecks(IterateForms):
                             f"Duplicate positions found in two different subjects ({self.row.subjectid} and {blood_row.subjectid} "\
                             f"both have {blood_pos_var} equal to {getattr(blood_row,blood_pos_var)})"\
                             f" and barcode equal to {self.row.chrblood_rack_barcode}."),\
-                            blood_pos_var,self.form,['Main Report','Blood Report'])
+                            blood_pos_var,self.form,['Blood Report'])
         if self.variable in self.all_blood_id_variables:
             blood_df = self.filtered_blood_df[\
             self.filtered_blood_df[self.variable]==getattr(self.row,self.variable)]
@@ -440,13 +448,14 @@ class FormChecks(IterateForms):
                     if len(barcode) < 10:
                         self.append_error(\
                         f"Barcode ({barcode}) length is less than 10 characters.",\
-                        self.variable,self.form,['Main Report','Blood Report'])
+                        self.variable,self.form,['Blood Report'])
                     if any(not char.isdigit() for char in barcode):
                         self.append_error(\
                         f"Barcode ({barcode}) contains non-numeric characters.",\
-                        self.variable,self.form,['Main Report','Blood Report'])
+                        self.variable,self.form,['Blood Report'])
 
-    def scid_diagnosis_check(self,form,conditional_variables,disorder,fulfilled,extra_conditionals):
+    def scid_diagnosis_check(self,form,conditional_variables,
+                             disorder,fulfilled,extra_conditionals):
         try:
             if fulfilled == True:
                 for condition in conditional_variables:
@@ -552,7 +561,6 @@ class FormChecks(IterateForms):
         except Exception as e:
             print(e)
 
-
     def find_iq_age(self):
         """Finds age at the time of the iq
         assessment"""
@@ -626,9 +634,8 @@ class FormChecks(IterateForms):
         for age_var in ['chrdemo_age_mos_chr',\
         'chrdemo_age_mos_hc','chrdemo_age_mos2']:
             if hasattr(self.row,age_var)\
-            and getattr(self.row,age_var) != ''\
             and getattr(self.row,age_var)\
-            not in self.missing_code_list:
+            not in (self.missing_code_list+['']):
                 age = int(getattr(self.row,age_var))
                 age = age - self.find_iq_age()
                 break
@@ -683,7 +690,6 @@ class FormChecks(IterateForms):
     def loop_iq_table(self,age,conversion_col,t_score_col,iq_variable):
         """Loops through IQ table to make sure
         conversions were done properly
-
 
         Parameters
         -----------
@@ -837,7 +843,7 @@ class FormChecks(IterateForms):
                     self.append_error(\
                     ("Subject and parent answered differently to whether"
                     " or not the subject has ever had a head injury."),\
-                    self.variable,self.form,['Secondary Report'])
+                    self.variable,self.form,['Main Report'])
             elif self.row.chrtbi_sourceinfo in [1,1.0,'1','1.0',2,2.0,'2','2.0']\
             and (self.row.chrtbi_subject_head_injury in\
             [1,1.0,'1','1.0',0,0.0,'0','0.0'] and\
@@ -863,7 +869,7 @@ class FormChecks(IterateForms):
                             f' monocytes, basophils, and eosinophils'
                             f' ({self.row.chrcbc_wbcsum}) is not within 10% of '
                             f' WBC count ({self.row.chrcbc_wbc}).',self.variable,self.form,\
-                            ['Main Report','Blood Report'])
+                            ['Blood Report'])
             elif self.variable == 'chrblood_cbc':
                 if self.row.chrblood_cbc in [1,1.0,'1','1.0']\
                 and getattr(self.row,'cbc_with_differential_complete') not in [2,2.0,'2.0','2'] and\
