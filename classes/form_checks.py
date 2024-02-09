@@ -37,7 +37,8 @@ class FormChecks(IterateForms):
         self.barcode_format_check()
         self.age_iq_check()
         #self.iq_conversion_check()
-        if 'blood' in self.form:
+        if 'blood' in self.form\
+        and self.prescient == False:
             self.check_blood_duplicates()
         self.cbc_differential_check()
         self.inclusion_psychs_check()
@@ -391,7 +392,7 @@ class FormChecks(IterateForms):
                 else:
                     fasting_time = float(getattr(self.row,'time_fasting'))
                 if not (0 <= fasting_time < 40): # change to 4 and 12 or 3 and 20
-                    self.append_error((f"Eror in time fasting ({getattr(self.row,'time_fasting')})– either error"\
+                    self.append_error((f"Error in time fasting ({getattr(self.row,'time_fasting')})– either error"\
                     f" in blood draw date ({getattr(self.row,'chrblood_drawdate')})"\
                     f" in blood sample form or last time they ate ({getattr(self.row,'chrchs_ate')})"\
                     f" in current health status form."),'time_fasting',\
