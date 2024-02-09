@@ -231,6 +231,7 @@ class IterateForms(ProcessVariables):
             if self.row.subjectid in\
             self.variable_info_dictionary['included_subjects']:
                 self.call_specific_value_check(workaround)
+                self.call_scid_diagnosis_check()
                 if branch['branching_logic'] in ['nan','']: 
                     for string in self.excluded_strings: 
                         if string in variable:
