@@ -452,13 +452,12 @@ class ProcessVariables():
         if 'chrtbi' in variable:
             for injury_count in [4,5]:
                 if f'{injury_count}' in variable:
-                    print(variable)
                     if 'parent' not in variable:
                         self.branch_logic_edit_dictionary[str(variable)]\
                         = f"[chrtbi_number_injs] = '{injury_count}'"
                     else:
                         self.branch_logic_edit_dictionary[str(variable)]\
-                        = f"[chrtbi_number_injs] = '{injury_count}'"
+                        = f"[chrtbi_parent_times] = '{injury_count}'"
 
     def edit_past_pharm_branch_logic(self,variable):
         """Edits pharm branching logic to account
@@ -632,3 +631,4 @@ class ProcessVariables():
                     if x not in self.checkbox_variable_dictionary:
                          self.checkbox_variable_dictionary[x] = []
                     self.checkbox_variable_dictionary[x].append(y)
+
