@@ -379,6 +379,8 @@ class IterateForms(ProcessVariables):
             report = self.current_report_list
 
         try:
+            if variable in self.specific_value_check_scid_variables:
+                message += f' (Value given : {getattr(row,variable)})'
             if branching_logic == '':
                 variable_value = self.check_prescient_csv_mismatches(self.form)
                 if (negative == False and variable_value in checked_value_list) \
