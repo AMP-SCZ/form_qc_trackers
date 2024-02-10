@@ -460,9 +460,9 @@ class FormChecks(IterateForms):
         for checked_variable,conditions in self.scid_diagnosis_check_dictionary.items(): # loops through the specific value dictionary defined earlier 
             if self.variable == checked_variable: # checks if the current variable being checked is equal to one of the correlated variables in the dictionary
                 self.scid_diagnosis_check(\
-                row,checked_variable,form,conditions['diagnosis_variables'],\
+                self.form,conditions['diagnosis_variables'],\
                 conditions['disorder'],True,conditions['extra_conditionals'])
-                self.scid_diagnosis_check(row,checked_variable,form,conditions[\
+                self.scid_diagnosis_check(self.form,conditions[\
                 'diagnosis_variables'],conditions['disorder'],\
                 False,conditions['extra_conditionals'])
         self.scid_additional_checks(self.row,self.variable)
@@ -521,6 +521,7 @@ class FormChecks(IterateForms):
     def scid_diagnosis_check(self,form,conditional_variables,
                              disorder,fulfilled,extra_conditionals):
         try:
+            row = self.row
             if fulfilled == True:
                 for condition in conditional_variables:
                     if hasattr(self.row,condition) and \
@@ -552,7 +553,6 @@ class FormChecks(IterateForms):
                                 f'{disorder} criteria are NOT fulfilled, but it is indicated.',\
                                 self.variable,form,['Scid Report'])
         except Exception as e:
-            print(conditional)
             print(e)
 
     def cssr_additional_checks(self):
