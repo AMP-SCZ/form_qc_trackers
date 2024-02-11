@@ -4,19 +4,33 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from classes.process_form_variables import ProcessVariables
 from classes.compile_errors import CompileErrors
+from classes.form_checks import FormChecks
 
 from classes.data_checks import DataChecks
 import math
 import pandas as pd
 import datetime
-class IterateForms(ProcessVariables):
-    """Class to loop through each form and filter out
-    variables/forms based on data collected in parent class."""
+class IterateForms():
+    """Class to loop through each form and perform
+    error checks."""
 
     def __init__(self,dataframe,timepoint, sheet_title):
-        super().__init__(dataframe,timepoint, sheet_title)
+        self.process_variables = ProcessVariables(dataframe,timepoint, sheet_title)
+        self.scid_diagnosis_check_dictionary = self.process_variables.scid_diagnosis_check_dictionary
+        self.variable_info_dictionary = self.process_variables.variable_info_dictionary
+
         self.current_prescient_complete_value = ''
-        self.compile_errors = CompileErrors(timepoint,self.variable_translation_dict)
+        self.compile_errors = CompileErrors(timepoint,self.process_variables.variable_translation_dict)
+        self.additional_checks = FormChecks(dataframe,timepoint, sheet_title,self.process_variables,self.compile_errors)
+        self.ampscz_df = self.process_variables.ampscz_df
+        self.timepoint = timepoint
+        self.timepoint_variable_lists = self.process_variables.timepoint_variable_lists
+        self.screening_df = self.process_variables.screening_df
+        self.prescient = self.process_variables.prescient
+        self.excluded_forms = self.process_variables.excluded_forms
+        self.excluded_strings = self.process_variables.excluded_strings
+        self.sheet_title = sheet_title
+        self.missing_code_list = self.process_variables.missing_code_list
         
     def assign_forms_to_timepoints(self):
         """Assigns different forms to the current timepoint,
@@ -31,8 +45,8 @@ class IterateForms(ProcessVariables):
         if not matching_rows.empty:
           hc_or_chr = matching_rows.iloc[0]
           if hc_or_chr in [1,1.0,'1','1.0',2,2.0,'2','2.0']: #TODO disregard cohort for screen and baseln
-              hc_chr_dict = {1.0: self.match_timepoint_forms_dict_chr,\
-            2.0:self.match_timepoint_forms_dict_hc}
+              hc_chr_dict = {1.0: self.process_variables.match_timepoint_forms_dict_chr,\
+            2.0:self.process_variables.match_timepoint_forms_dict_hc}
               for key in self.timepoint_variable_lists.keys():
                 self.timepoint_variable_keys.append(key)
                 for values in hc_chr_dict[float(hc_or_chr)].values():
@@ -47,6 +61,20 @@ class IterateForms(ProcessVariables):
         for row in self.ampscz_df.itertuples(): 
             self.row = row
             self.filter_rows(self.timepoint)
+
+    def run_script(self):
+        """function to run script
+         and call main loop"""
+
+        self.main_loop()
+        df = self.compile_errors.reformat_dataframe(\
+        self.compile_errors.error_dictionary)
+
+        if self.timepoint in ['baseln','baseline'] and\
+        self.sheet_title == 'Main Report' and self.prescient == False:
+            self.compile_errors.create_twenty_one_day_tracker(self.process_variables.absolute_path)
+
+        return df
           
 
     def filter_rows(self,timepoint):
@@ -61,8 +89,8 @@ class IterateForms(ProcessVariables):
 
         self.assign_forms_to_timepoints()
         if self.timepoint == 'baseln' and\
-        str(self.twenty_one_day_rule()) not in ['None','']: 
-             self.compile_errors.append_error(self.row,self.twenty_one_day_rule(),\
+        str(self.additional_checks.twenty_one_day_rule(self.row,self.timepoint_variable_lists)) not in ['None','']: 
+             self.compile_errors.append_error(self.row,self.additional_checks.twenty_one_day_rule(self.row,self.timepoint_variable_lists),\
              '21 day rule','psychs_p1p8_fu/psychs_p9ac32_fu',['Main Report'])
         if self.timepoint_variable_keys!= [] and\
         self.row.visit_status_string not in ['consent','converted']: 
@@ -70,7 +98,7 @@ class IterateForms(ProcessVariables):
             self.variable_info_dictionary['variable_list_dictionary'].items():
                 self.form = form
                 if self.row.visit_status_string != 'removed' or\
-                form in self.removed_participants_forms: 
+                form in self.process_variables.removed_participants_forms: 
                     if self.prescient==True and form in\
                     self.timepoint_variable_lists[timepoint]:
                         if self.check_prescient_na_values(form) == True:
@@ -121,7 +149,7 @@ class IterateForms(ProcessVariables):
         """
 
         if form not in self.variable_info_dictionary['forms_without_missing_variable']:
-            if (form in self.missing_variable_exceptions) or\
+            if (form in self.process_variables.missing_variable_exceptions) or\
             (hasattr(self.row,self.variable_info_dictionary[\
             'unique_form_variables'][form]['missing_variable']) \
             and str(getattr(self.row,\
@@ -148,7 +176,7 @@ class IterateForms(ProcessVariables):
         workaround: makes sure the missing variable workaround is not occuring
         """
 
-        for checked_variable,conditions in self.specific_value_check_dictionary.items(): 
+        for checked_variable,conditions in self.process_variables.specific_value_check_dictionary.items(): 
             if workaround == False and self.variable == conditions['correlated_variable']:
                 self.specific_value_check(checked_variable,\
                     self.form,conditions['checked_value_list'],conditions['negative'],\
@@ -175,7 +203,7 @@ class IterateForms(ProcessVariables):
             if self.row.subjectid in\
             self.variable_info_dictionary['included_subjects']:
                 self.call_specific_value_check(workaround)
-                self.call_scid_diagnosis_check()
+                self.additional_checks.call_scid_diagnosis_check(self.variable,self.row)
                 if branch['branching_logic'] in ['nan','']: 
                     for string in self.excluded_strings: 
                         if string in variable:
@@ -201,7 +229,7 @@ class IterateForms(ProcessVariables):
         workaround: whether or not missing variable workaround is occuring
         """
         self.current_report_list = []
-        for report, var_list in self.blank_check_variables_per_report.items():
+        for report, var_list in self.process_variables.blank_check_variables_per_report.items():
             if self.variable in var_list:
                 self.current_report_list.append(report)
         team_report_forms = {'Blood Report':['blood_sample_preanalytic_quality_assurance'],\
@@ -211,9 +239,10 @@ class IterateForms(ProcessVariables):
         for report, form_list in team_report_forms.items():
             if self.form in form_list:
                 self.current_report_list.append(report)
-        self.call_extra_checks(self.form)
+        self.additional_checks.call_extra_checks(self.form,self.variable,\
+        self.prescient,self.current_report_list,self.timepoint_variable_lists)
         if self.variable\
-        not in self.excluded_from_blank_check:
+        not in self.process_variables.excluded_from_blank_check:
             if hasattr(self.row, self.variable):
                 if (getattr(self.row, self.variable) =='' or\
                 pd.isna(getattr(self.row, self.variable))\
@@ -324,7 +353,7 @@ class IterateForms(ProcessVariables):
 
         try:
             row = self.row
-            if variable in self.specific_value_check_scid_variables:
+            if variable in self.process_variables.specific_value_check_scid_variables:
                 message += f' (Value given : {getattr(row,variable)})'
             if branching_logic == '':
                 variable_value = self.check_prescient_csv_mismatches(self.form)
