@@ -41,6 +41,7 @@ class FormChecks():
         self.prescient = prescient
         self.current_report_list = current_report_list
         self.timepoint_variable_lists = timepoint_variable_lists
+
         """Function to call all of
         the additional form checks specified below"""
         self.form = form

@@ -74,6 +74,7 @@ class IterateForms():
         self.sheet_title == 'Main Report' and self.prescient == False:
             self.compile_errors.create_twenty_one_day_tracker(self.process_variables.absolute_path)
 
+
         return df
           
 
@@ -241,6 +242,7 @@ class IterateForms():
                 self.current_report_list.append(report)
         self.additional_checks.call_extra_checks(self.form,self.variable,\
         self.prescient,self.current_report_list,self.timepoint_variable_lists)
+
         if self.variable\
         not in self.process_variables.excluded_from_blank_check:
             if hasattr(self.row, self.variable):
