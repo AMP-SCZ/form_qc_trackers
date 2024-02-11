@@ -10,7 +10,7 @@ import pandas as pd
 def define_paths(location = 'pnl_server'):
     """Defines paths depending on
     where the program is being run
-    www
+    
     Parameters
     ------------
     location: where the program
