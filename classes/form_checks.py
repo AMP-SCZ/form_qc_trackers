@@ -37,9 +37,11 @@ class FormChecks():
         self.missing_code_list = self.process_variables.missing_code_list
         self.ampscz_df = self.process_variables.ampscz_df
 
-    def call_extra_checks(self,form,variable,prescient,current_report_list):
+    def call_extra_checks(self,form,variable,prescient,current_report_list,timepoint_variable_lists):
         self.prescient = prescient
         self.current_report_list = current_report_list
+        self.timepoint_variable_lists = timepoint_variable_lists
+
         """Function to call all of
         the additional form checks specified below"""
         self.form = form
@@ -91,59 +93,6 @@ class FormChecks():
                         self.variable,self.form,\
                         ['Main Report','Cognition Report'])
 
-                                
-    def run_script(self):
-        """function to run script
-         and call main loop"""
-
-        self.main_loop()
-        df = self.compile_errors.reformat_dataframe(\
-        self.compile_errors.error_dictionary)
-
-        if self.timepoint in ['baseln','baseline'] and\
-        self.sheet_title == 'Main Report' and self.prescient == False:
-            self.create_twenty_one_day_tracker()
-
-        return df
-
-    def create_twenty_one_day_tracker(self):
-        """Creates tracker to warn sites
-        if they are approaching or exceeding 21
-        days since screening psychs"""
-
-        self.twentyone_day_tracker = sorted(self.twentyone_day_tracker,\
-        key=lambda x: int(str(x['time_since_screening_psychs']).split(' ')[0]))
-        filename = f'{self.absolute_path}site_outputs/PRONET/combined/PRONET_Output.xlsx'
-        xls = pd.ExcelFile(filename)
-        sheetname = 'Twenty One Day Tracker'
-        twentyone_day_tracker_df = pd.DataFrame(self.twentyone_day_tracker)
-        if os.path.exists(filename) and sheetname\
-        in pd.ExcelFile(filename).sheet_names:
-            with pd.ExcelWriter(filename, mode='a', engine='openpyxl',\
-            if_sheet_exists = 'replace') as writer:
-                old_df = pd.read_excel(filename,sheet_name=sheetname)
-                for old_row in old_df.itertuples():
-                    for new_row in twentyone_day_tracker_df.itertuples():
-                        if old_row.subject == new_row.subject and\
-                        old_row.recent_baseline_assessment\
-                        == new_row.recent_baseline_assessment:
-                            if hasattr(old_row,'sent_to_site')\
-                             and hasattr(old_row,'manually_resolved'):
-                                twentyone_day_tracker_df.at[new_row.Index,\
-                                'sent_to_site'] = old_row.sent_to_site
-                                twentyone_day_tracker_df.at[new_row.Index,\
-                                'manually_resolved'] = old_row.manually_resolved
-                twentyone_day_tracker_df.to_excel(writer, sheet_name=sheetname, index=False)
-            workbook = load_workbook(filename = filename)
-            worksheet = workbook[sheetname]
-            for column in worksheet.columns:
-                column_letter = get_column_letter(column[0].column)
-                worksheet.column_dimensions[column_letter].width= 30
-            workbook.save(filename)
-        elif os.path.exists(filename):
-            with pd.ExcelWriter(filename, mode='a', engine='openpyxl') as writer:
-                twentyone_day_tracker_df.to_excel(writer, sheet_name=sheetname, index=False)
-        twentyone_day_tracker_df.to_csv('21daytrackertest.csv',index = False)
 
     def collect_twenty_one_day_rule_dates(self,row):
         """Collectes appropriate baseline
@@ -189,10 +138,11 @@ class FormChecks():
 
         return True
 
-    def twenty_one_day_rule(self,row):
+    def twenty_one_day_rule(self,row,timepoint_variable_lists):
         """Check for baseline psychs to see if
         they are properly following the 21 day rule."""
         self.row = row
+        self.timepoint_variable_lists = timepoint_variable_lists
 
         if self.collect_twenty_one_day_rule_dates(row) == True:
             if not self.baseline_date_list:
@@ -248,7 +198,7 @@ class FormChecks():
         and not any(x in [1,1.0,'1','1.0'] for x in [self.row.chrpsychs_fu_missing_fu,\
         self.row.hcpsychs_fu_missing_fu,self.row.chrpsychs_fu_missing_fu_2,\
         self.row.hcpsychs_fu_missing_fu_2]):
-            self.twentyone_day_tracker.append({'subject':self.row.subjectid,\
+            self.compile_errors.twentyone_day_tracker.append({'subject':self.row.subjectid,\
                     'time_since_screening_psychs':str(time_since.days) +' days',\
                     'recent_baseline_assessment':max_form,\
                     'date_of_recent_baseline_assessment':date_of_last_baseline_assess,\

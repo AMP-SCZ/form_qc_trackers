@@ -70,9 +70,10 @@ class IterateForms():
         df = self.compile_errors.reformat_dataframe(\
         self.compile_errors.error_dictionary)
 
-        """if self.timepoint in ['baseln','baseline'] and\
+        if self.timepoint in ['baseln','baseline'] and\
         self.sheet_title == 'Main Report' and self.prescient == False:
-            self.create_twenty_one_day_tracker()"""
+            self.compile_errors.create_twenty_one_day_tracker(self.process_variables.absolute_path)
+
 
         return df
           
@@ -89,8 +90,8 @@ class IterateForms():
 
         self.assign_forms_to_timepoints()
         if self.timepoint == 'baseln' and\
-        str(self.additional_checks.twenty_one_day_rule(self.row)) not in ['None','']: 
-             self.compile_errors.append_error(self.row,self.additional_checks.twenty_one_day_rule(),\
+        str(self.additional_checks.twenty_one_day_rule(self.row,self.timepoint_variable_lists)) not in ['None','']: 
+             self.compile_errors.append_error(self.row,self.additional_checks.twenty_one_day_rule(self.row,self.timepoint_variable_lists),\
              '21 day rule','psychs_p1p8_fu/psychs_p9ac32_fu',['Main Report'])
         if self.timepoint_variable_keys!= [] and\
         self.row.visit_status_string not in ['consent','converted']: 
@@ -239,7 +240,9 @@ class IterateForms():
         for report, form_list in team_report_forms.items():
             if self.form in form_list:
                 self.current_report_list.append(report)
-        self.additional_checks.call_extra_checks(self.form,self.variable,self.prescient,self.current_report_list)
+        self.additional_checks.call_extra_checks(self.form,self.variable,\
+        self.prescient,self.current_report_list,self.timepoint_variable_lists)
+
         if self.variable\
         not in self.process_variables.excluded_from_blank_check:
             if hasattr(self.row, self.variable):
