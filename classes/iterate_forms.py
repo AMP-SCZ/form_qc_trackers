@@ -1,9 +1,11 @@
 import sys 
 import os
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from classes.process_form_variables import ProcessVariables
-from classes.data_checks import DataChecks
+from classes.compile_errors import CompileErrors
 
+from classes.data_checks import DataChecks
 import math
 import pandas as pd
 import datetime
@@ -14,6 +16,7 @@ class IterateForms(ProcessVariables):
     def __init__(self,dataframe,timepoint, sheet_title):
         super().__init__(dataframe,timepoint, sheet_title)
         self.current_prescient_complete_value = ''
+        self.compile_errors = CompileErrors(timepoint,self.variable_translation_dict)
         
     def assign_forms_to_timepoints(self):
         """Assigns different forms to the current timepoint,
@@ -35,65 +38,6 @@ class IterateForms(ProcessVariables):
                 for values in hc_chr_dict[float(hc_or_chr)].values():
                     if any(key.replace('month','') == x for x in values[0]):
                       self.timepoint_variable_lists[key].extend(values[1])
-         
-    def append_error(self, message,  variable, form,sheet_list = ['Main Report']):
-        """Function to append errors to a dictionary and collect
-         comments from the form that those errors appeared in.
-
-        Parameters
-        ------------------
-        message: message that will appear on the output 
-        variable: variable involved in the error 
-        form: form currently being flagged
-        sheet_list: Sheets on the final tracker that this error
-        will appear on
-        """
-
-        for sheet in sheet_list:
-            self.error_dictionary.setdefault(sheet,{})
-            self.error_dictionary[sheet].setdefault(self.row.subjectid,{})
-            self.error_dictionary[sheet][self.row.subjectid].setdefault(form,{})
-            column_headers = {"Subject":self.row.subjectid,"Timepoint":self.timepoint,\
-            "Subject's Current Timepoint":self.row.visit_status_string,\
-            "General Flag":f"{form.replace('_',' ').title()} : 0 flags detected.","Specific Flags":[],\
-            "Variable Translations":'',"Date Flag Detected":f"{datetime.date.today()}",\
-            "Time since Flag Detected":'',"Date Resolved":"",\
-            "Manually Marked as Resolved":"","Sent to Site":"","Additional Comments":""}
-
-            for column_header,default_value in column_headers.items():
-                self.error_dictionary[sheet][\
-                self.row.subjectid][form].setdefault(column_header,default_value)
-
-            if f"{variable} : {message}" not in self.error_dictionary[sheet][self.row.subjectid][\
-            form]["Specific Flags"]:
-                self.error_dictionary[sheet][self.row.subjectid][\
-                form]["Specific Flags"].append(f"{variable} : {message}")
-                spec_flag_list = self.error_dictionary[sheet][self.row.subjectid][form]["Specific Flags"]
-                flag_str = "flags"
-                if len(spec_flag_list) == 1:
-                    flag_str = "flag"
-                self.error_dictionary[sheet][self.row.subjectid][form]["General Flag"] =\
-                f"{form.replace('_',' ').title()} : {len(spec_flag_list)} {flag_str} detected."
-
-                self.error_dictionary[sheet][self.row.subjectid][form]["Variable Translations"]\
-                =self.add_variable_translations(spec_flag_list)
-
-    def add_variable_translations(self, flag_list):
-        """Adds variable translations for any variable that is present
-        in the error list.
-
-        Parameters
-        -----------------------------
-        flag_list: list of errors for the current row
-        """
-        translation_list = []
-        for flag in flag_list:
-            for word in flag.split():
-                if word in self.variable_translation_dict.keys():
-                    translation_list.append(\
-                    self.variable_translation_dict[word])
-
-        return translation_list
 
     def main_loop(self):
         """Main loop to further filter out
@@ -118,7 +62,7 @@ class IterateForms(ProcessVariables):
         self.assign_forms_to_timepoints()
         if self.timepoint == 'baseln' and\
         str(self.twenty_one_day_rule()) not in ['None','']: 
-             self.append_error(self.twenty_one_day_rule(),\
+             self.compile_errors.append_error(self.row,self.twenty_one_day_rule(),\
              '21 day rule','psychs_p1p8_fu/psychs_p9ac32_fu',['Main Report'])
         if self.timepoint_variable_keys!= [] and\
         self.row.visit_status_string not in ['consent','converted']: 
@@ -160,7 +104,7 @@ class IterateForms(ProcessVariables):
          < self.timepoint_variable_keys.index(self.row.visit_status_string) and \
         (self.current_prescient_complete_value not in\
         [2,2.0,'2','2.0','3','3.0',3,3.0,'4','4.0',4,4.0])) and 'figs' not in self.form:
-            self.append_error(\
+            self.compile_errors.append_error(self.row,\
             'Form not marked as complete, but subject has moved onto next timepoint',\
             self.variable_info_dictionary['unique_form_variables'][self.form]['complete_variable'],\
             self.form,['Substantial Missing Data'])
@@ -285,7 +229,7 @@ class IterateForms(ProcessVariables):
                                 error_str = f'Value is empty'
                             elif self.variable in self.scid_missing_code_checks:
                                 error_str = f'Value is a missing code ({raw_csv_variable_value}).'
-                            self.append_error(error_str,self.variable,\
+                            self.compile_errors.append_error(self.row,error_str,self.variable,\
                             self.form,self.current_report_list)
                         else:
                             self.missing_workaround_error_count+=1 
@@ -379,20 +323,21 @@ class IterateForms(ProcessVariables):
             report = self.current_report_list
 
         try:
+            row = self.row
             if variable in self.specific_value_check_scid_variables:
                 message += f' (Value given : {getattr(row,variable)})'
             if branching_logic == '':
                 variable_value = self.check_prescient_csv_mismatches(self.form)
                 if (negative == False and variable_value in checked_value_list) \
                 or (negative == True and variable_value not in checked_value_list) :
-                    self.append_error(\
+                    self.compile_errors.append_error(self.row,\
                     message,self.variable,self.form,report)
             else:
                 variable_value = self.check_prescient_csv_mismatches(self.form)
                 if eval(branching_logic) and  (negative == False and variable_value in \
                 checked_value_list) or (negative == True\
                 and variable_value not in checked_value_list):
-                    self.append_error(\
+                    self.compile_errors.append_error(self.row,\
                     message,self.variable,self.form,report)
         except Exception as e:
             print(e)
@@ -414,14 +359,14 @@ class IterateForms(ProcessVariables):
         if incl_or_excl in ['1','1.0',1,1.0] and hc_or_chr in [1,1.0,'1','1.0','2','2.0',2,2.0]: 
             if self.variable == 'chrdemo_sexassigned' and\
             getattr(self.row,self.variable) in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]: 
-                self.append_error( f'Participant has been excluded, but their sex was not recorded.',\
+                self.compile_errors.append_error(self.row, f'Participant has been excluded, but their sex was not recorded.',\
                 self.variable,self.form,['Main Report']) 
             elif self.variable == 'chrdemo_age_mos_' +\
             hc_chr_dict[float(hc_or_chr)] and getattr(self.row,self.variable) \
             in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]\
             and getattr(self.row,'chrdemo_age_mos2') \
             in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]:
-                self.append_error(\
+                self.compile_errors.append_error(self.row,\
                 f'Participant has been excluded, but their age was not recorded.',\
                 self.variable,self.form,['Main Report'])
             elif 'chrdemo_racial_back' in self.variable and consent_date != ''\
@@ -435,13 +380,13 @@ class IterateForms(ProcessVariables):
                         getattr(self.row,'chrdemo_racial_back___1909_09_09'),\
                         getattr(self.row,'chrdemo_racial_back___1903_03_03')])
                 if not any(x in racial_list for x in [1, 1.0, '1', '1.0']): 
-                    self.append_error( f'Participant has been excluded, but their race was not recorded.',\
+                    self.compile_errors.append_error(self.row, f'Participant has been excluded, but their race was not recorded.',\
                     'chrdemo_racial_back',self.form,['Main Report'])
             if self.row.visit_status_string not in ['removed','screen'] and \
             self.form == 'inclusionexclusion_criteria_review' and\
             self.row.chrcrit_included in [0.0,'0','0.0']\
             and self.row.chrcrit_excluded in[1,1.0,'1','1.0']:
-                self.append_error(\
+                self.compile_errors.append_error(self.row,\
                     f'Participant has been excluded, but moved beyond screening.',\
                     'chrcrit_included',self.form,['Main Report'])
         self.inclusion_checks()
@@ -456,11 +401,11 @@ class IterateForms(ProcessVariables):
         and self.row.inclusionexclusion_criteria_review_complete in [2,2.0,'2','2.0'])\
         or (self.prescient == 'True' and self.row.visit_status_string not in ['consent', 'screen']):
             if self.row.chrcrit_included == '' and self.row.chrcrit_excluded == '':
-                self.append_error('Participant not marked as included or excluded',\
+                self.compile_errors.append_error(self.row,'Participant not marked as included or excluded',\
                     self.variable,self.form,['Main Report']) 
         if self.variable == 'chrblood_cbc':
             if getattr(self.row,self.variable) in [1,1.0,'1','1.0'] and \
             self.row.subjectid not in self.variable_info_dictionary['included_subjects']:
-                self.append_error(f"Participant has not been included, but blood has been collected.",\
+                self.compile_errors.append_error(self.row,f"Participant has not been included, but blood has been collected.",\
                 self.variable,self.form,['Main Report','Blood Report'])
 
