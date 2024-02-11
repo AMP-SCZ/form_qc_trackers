@@ -2,7 +2,6 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from classes.iterate_forms import IterateForms
 from classes.data_checks import DataChecks
 from classes.cross_form_checks import CrossForms
 from classes.compile_errors import CompileErrors
@@ -20,17 +19,32 @@ from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import Rule
 import openpyxl
 
-class FormChecks(IterateForms):
+class FormChecks():
     """Additional checks added to variables
     that passed through the FormIteration filters"""
 
-    def __init__(self,dataframe,timepoint, sheet_title):
-        super().__init__(dataframe,timepoint, sheet_title)
-        self.compile_errors = CompileErrors(timepoint,self.variable_translation_dict)
+    def __init__(self,dataframe,timepoint, sheet_title,process_variables,compile_errors):
+        self.process_variables = process_variables
+        self.variable_info_dictionary = self.process_variables.variable_info_dictionary
+        self.all_barcode_variables = self.process_variables.all_barcode_variables
+        self.all_blood_id_variables = self.process_variables.all_blood_id_variables
+        self.all_blood_position_variables = self.process_variables.all_blood_position_variables
+        self.all_blood_volume_variables = self.process_variables.all_blood_volume_variables
+        self.timepoint_variable_lists = self.process_variables.timepoint_variable_lists
 
-    def call_extra_checks(self,form):
+        self.compile_errors = compile_errors
+        self.screening_df = self.process_variables.screening_df
+        self.missing_code_list = self.process_variables.missing_code_list
+        self.ampscz_df = self.process_variables.ampscz_df
+
+    def call_extra_checks(self,form,variable,prescient,current_report_list,timepoint_variable_lists):
+        self.prescient = prescient
+        self.current_report_list = current_report_list
+        self.timepoint_variable_lists = timepoint_variable_lists
         """Function to call all of
         the additional form checks specified below"""
+        self.form = form
+        self.variable = variable
 
         self.oasis_additional_checks()
         self.cssr_additional_checks()
@@ -78,76 +92,8 @@ class FormChecks(IterateForms):
                         self.variable,self.form,\
                         ['Main Report','Cognition Report'])
 
-    def reformat_dataframe(self,output):
-        """Changes output to proper
-        format to be easily converted into 
-        dataframe
-        
-        Parameters
-        --------------
-        Output: dictionary of output
-        """
-        formatted_output = {}
-        for sheet_name, tracker in output.items():
-            formatted_output.setdefault(sheet_name,[])
-            for subject,subject_data in tracker.items():
-                for form, form_data in subject_data.items():
-                    formatted_output[sheet_name].append(form_data)
 
-        return formatted_output
-                                
-    def run_script(self):
-        """function to run script
-         and call main loop"""
-
-        self.main_loop()
-        df = self.reformat_dataframe(self.compile_errors.error_dictionary)
-        if self.timepoint in ['baseln','baseline'] and\
-        self.sheet_title == 'Main Report' and self.prescient == False:
-            self.create_twenty_one_day_tracker()
-
-        return df
-
-    def create_twenty_one_day_tracker(self):
-        """Creates tracker to warn sites
-        if they are approaching or exceeding 21
-        days since screening psychs"""
-
-        self.twentyone_day_tracker = sorted(self.twentyone_day_tracker,\
-        key=lambda x: int(str(x['time_since_screening_psychs']).split(' ')[0]))
-        filename = f'{self.absolute_path}site_outputs/PRONET/combined/PRONET_Output.xlsx'
-        xls = pd.ExcelFile(filename)
-        sheetname = 'Twenty One Day Tracker'
-        twentyone_day_tracker_df = pd.DataFrame(self.twentyone_day_tracker)
-        if os.path.exists(filename) and sheetname\
-        in pd.ExcelFile(filename).sheet_names:
-            with pd.ExcelWriter(filename, mode='a', engine='openpyxl',\
-            if_sheet_exists = 'replace') as writer:
-                old_df = pd.read_excel(filename,sheet_name=sheetname)
-                for old_row in old_df.itertuples():
-                    for new_row in twentyone_day_tracker_df.itertuples():
-                        if old_row.subject == new_row.subject and\
-                        old_row.recent_baseline_assessment\
-                        == new_row.recent_baseline_assessment:
-                            if hasattr(old_row,'sent_to_site')\
-                             and hasattr(old_row,'manually_resolved'):
-                                twentyone_day_tracker_df.at[new_row.Index,\
-                                'sent_to_site'] = old_row.sent_to_site
-                                twentyone_day_tracker_df.at[new_row.Index,\
-                                'manually_resolved'] = old_row.manually_resolved
-                twentyone_day_tracker_df.to_excel(writer, sheet_name=sheetname, index=False)
-            workbook = load_workbook(filename = filename)
-            worksheet = workbook[sheetname]
-            for column in worksheet.columns:
-                column_letter = get_column_letter(column[0].column)
-                worksheet.column_dimensions[column_letter].width= 30
-            workbook.save(filename)
-        elif os.path.exists(filename):
-            with pd.ExcelWriter(filename, mode='a', engine='openpyxl') as writer:
-                twentyone_day_tracker_df.to_excel(writer, sheet_name=sheetname, index=False)
-        twentyone_day_tracker_df.to_csv('21daytrackertest.csv',index = False)
-
-    def collect_twenty_one_day_rule_dates(self):
+    def collect_twenty_one_day_rule_dates(self,row):
         """Collectes appropriate baseline
         dates to check the 21 day rule"""
 
@@ -160,7 +106,7 @@ class FormChecks(IterateForms):
             'unique_form_variables'][form]\
             and self.variable_info_dictionary[\
             'unique_form_variables'][form]['interview_date']\
-            not in self.excluded_21day_dates:
+            not in self.process_variables.excluded_21day_dates:
                 baseline_date_variables.append(\
                 self.variable_info_dictionary[\
                 'unique_form_variables'][form]['interview_date'])
@@ -191,11 +137,13 @@ class FormChecks(IterateForms):
 
         return True
 
-    def twenty_one_day_rule(self):
+    def twenty_one_day_rule(self,row,timepoint_variable_lists):
         """Check for baseline psychs to see if
         they are properly following the 21 day rule."""
+        self.row = row
+        self.timepoint_variable_lists = timepoint_variable_lists
 
-        if self.collect_twenty_one_day_rule_dates() == True:
+        if self.collect_twenty_one_day_rule_dates(row) == True:
             if not self.baseline_date_list:
                 return ''  
             date_of_last_baseline_assess = max(self.baseline_date_list)
@@ -225,14 +173,14 @@ class FormChecks(IterateForms):
             final_baseline_date = (f"{max_form}, "
             f"{datetime.datetime.strftime(max_baseline_date, '%Y-%m-%d')}")
             self.missing_baseline_dates = filtered_missing_dates 
-            self.append_twenty_one_day_tracker_row(\
+            self.append_twenty_one_day_tracker_row(row,\
             max_form,date_of_last_baseline_assess,time_since)
             if time_between.days > 21:
                 return self.append_twenty_one_day_error(time_between,final_baseline_date)
 
         return ''
 
-    def append_twenty_one_day_tracker_row(self,max_form,date_of_last_baseline_assess,time_since):
+    def append_twenty_one_day_tracker_row(self,row,max_form,date_of_last_baseline_assess,time_since):
         """Defines columns of 21 day tracker and
         appends a row.
 
@@ -249,7 +197,7 @@ class FormChecks(IterateForms):
         and not any(x in [1,1.0,'1','1.0'] for x in [self.row.chrpsychs_fu_missing_fu,\
         self.row.hcpsychs_fu_missing_fu,self.row.chrpsychs_fu_missing_fu_2,\
         self.row.hcpsychs_fu_missing_fu_2]):
-            self.twentyone_day_tracker.append({'subject':self.row.subjectid,\
+            self.compile_errors.twentyone_day_tracker.append({'subject':self.row.subjectid,\
                     'time_since_screening_psychs':str(time_since.days) +' days',\
                     'recent_baseline_assessment':max_form,\
                     'date_of_recent_baseline_assessment':date_of_last_baseline_assess,\
@@ -364,7 +312,7 @@ class FormChecks(IterateForms):
         checkboxes for current question were checked"""
 
         for main_variable, options in\
-        self.checkbox_variable_dictionary.items():
+        self.process_variables.checkbox_variable_dictionary.items():
             if main_variable == self.variable:
                 for item in options:
                     if getattr(self.row,item)\
@@ -459,8 +407,10 @@ class FormChecks(IterateForms):
                         f"Barcode ({barcode}) contains non-numeric characters.",\
                         self.variable,self.form,['Blood Report'])
 
-    def call_scid_diagnosis_check(self):
-        for checked_variable,conditions in self.scid_diagnosis_check_dictionary.items(): 
+    def call_scid_diagnosis_check(self,variable,row):
+        self.variable = variable
+        self.row = row
+        for checked_variable,conditions in self.process_variables.scid_diagnosis_check_dictionary.items(): 
             if self.variable == checked_variable: 
                 self.scid_diagnosis_check(\
                 self.form,conditions['diagnosis_variables'],\
