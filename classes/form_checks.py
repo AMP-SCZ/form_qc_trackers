@@ -41,7 +41,6 @@ class FormChecks():
         self.prescient = prescient
         self.current_report_list = current_report_list
         self.timepoint_variable_lists = timepoint_variable_lists
-
         """Function to call all of
         the additional form checks specified below"""
         self.form = form
@@ -815,7 +814,7 @@ class FormChecks():
                 ((float(self.row.chrgfs_gf_social_low) > float(self.row.chrgfs_gf_social_high)\
                 and self.row.chrgfs_gf_social_high not in self.missing_code_list)))):
                     self.compile_errors.append_error\
-                    ((f"Social Scale low score ({self.row.chrgfs_gf_social_low}) is not the lowest score"\
+                    (self.row,(f"Social Scale low score ({self.row.chrgfs_gf_social_low}) is not the lowest score"\
                      f"(current score = {self.row.chrgfs_gf_social_scale}, high score = {self.row.chrgfs_gf_social_high})."),\
                     self.variable,self.form,['Main Report'])
             elif self.variable == 'chrgfs_gf_social_scale':
@@ -824,7 +823,7 @@ class FormChecks():
                 > float(self.row.chrgfs_gf_social_high) and\
                 self.row.chrgfs_gf_social_high not in self.missing_code_list):
                     self.compile_errors.append_error\
-                    ((f"Social Scale current score ({self.row.chrgfs_gf_social_scale}) is greater",\
+                    (self.row,(f"Social Scale current score ({self.row.chrgfs_gf_social_scale}) is greater",\
                     f"than the high score ({self.row.chrgfs_gf_social_high})."),\
                     self.variable,self.form,['Main Report'])
             elif self.variable == 'chrgfs_gf_role_low':
@@ -835,7 +834,7 @@ class FormChecks():
                 or (float(self.row.chrgfs_gf_role_low) > float(self.row.chrgfs_gf_role_high)\
                 and self.row.chrgfs_gf_role_high not in self.missing_code_list)):
                     self.compile_errors.append_error\
-                    ((f"Role Scale low score ({self.row.chrgfs_gf_role_low}) is not the lowest score",\
+                    (self.row,(f"Role Scale low score ({self.row.chrgfs_gf_role_low}) is not the lowest score",\
                     f"(current score = {self.row.chrgfs_gf_role_scale}, high score = {self.row.chrgfs_gf_role_high})."),\
                     self.variable,self.form,['Main Report'])
             elif self.variable == 'chrgfs_gf_role_scale':
@@ -843,10 +842,11 @@ class FormChecks():
                 and float(self.row.chrgfs_gf_role_scale) > float(self.row.chrgfs_gf_role_high)\
                 and self.row.chrgfs_gf_role_high not in self.missing_code_list:
                     self.compile_errors.append_error\
-                    ((f"Role Scale current score ({self.row.chrgfs_gf_role_scale}) is greater",
+                    (self.row,(f"Role Scale current score ({self.row.chrgfs_gf_role_scale}) is greater",
                     f"than the high score ({self.row.chrgfs_gf_role_high})."),\
                     self.variable,self.form,['Main Report'])
         except Exception as e:
+            print('----')
             print(e)
 
     def tbi_check(self):
@@ -927,6 +927,3 @@ class FormChecks():
                             self.compile_errors.append_error(self.row,(f"Penn Data has been missing for {abs(int(penn_row.cnb_data))} days."\
                             "Please check to make sure subject ID is in the correct format."),\
                             'Penn Data','penncnb',['Main Report','Cognition Report'])
-
-
-                                
