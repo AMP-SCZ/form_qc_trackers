@@ -10,7 +10,7 @@ import pandas as pd
 def define_paths(location = 'pnl_server'):
     """Defines paths depending on
     where the program is being run
-
+    www
     Parameters
     ------------
     location: where the program
@@ -27,7 +27,7 @@ def define_paths(location = 'pnl_server'):
         combined_df_folder = '/data/predict1/data_from_nda/formqc/'
         absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
     else:
-        combined_df_folder = ''
+        combined_df_folder = 'C:/formqc/AMPSCZ_QC_and_Visualization/QC/combined_csvs/'
         absolute_path = ''
 
     return combined_df_folder,absolute_path
@@ -75,11 +75,11 @@ def reformat_columns(output_per_timepoint,timepoint,report):
     return output_per_timepoint
 
 def loop_timepoints():
-    """Call QC check on every timepoint
+    """Calls QC check on every timepoint
     for each network and organizes it into a final 
     output for the trackers"""
 
-    combined_df_folder,absolute_path = define_paths()
+    combined_df_folder,absolute_path = define_paths('')
     for network in ['PRONET']:
         final_output = {}
         output_per_timepoint =initalize_output_per_timepoint()
@@ -87,9 +87,9 @@ def loop_timepoints():
             timepoint_str =\
             timepoint.replace('baseln','baseline').replace('screen','screening')
             filepath = (f'{combined_df_folder}'
-            f'combined-{network}-{timepoint_str}-day1to1.csv')            
+            f'combined-{network}-{timepoint_str}-day1to1.csv')   
             if os.path.exists(filepath):
-                formqc_check = FormChecks(filepath,f'{timepoint}','Main Report')
+                formqc_check = IterateForms(filepath,f'{timepoint}','Main Report')
                 output_per_timepoint[timepoint] = formqc_check.run_script()
                 for report in output_per_timepoint[timepoint].keys():
                     output_per_timepoint =\
@@ -115,7 +115,7 @@ def create_trackers(final_output,network):
 
     report_list = ['Main Report','Secondary Report',\
     'Twenty One Day Tracker','Blood Report',\
-    'Cognition Report']
+    'Cognition Report','Scid Report']
 
     for report in report_list:
         if report in final_output.keys():
@@ -125,11 +125,3 @@ def create_trackers(final_output,network):
 
 if __name__ == '__main__':
     loop_timepoints()
-
-
-
-
-
-
-
-
