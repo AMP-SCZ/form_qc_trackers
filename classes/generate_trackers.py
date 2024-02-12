@@ -25,8 +25,8 @@ class GenerateTrackers():
     for specific sites"""
 
     def __init__(self,dataframe, site_name, sheet_title):
-        self.location = 'pnl_server'
-        self.test_prefix = ''
+        self.location = ''
+        self.test_prefix = 'Tests/'
         if self.location =='pnl_server':
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
             self.combined_cognition_folder = ''
@@ -204,10 +204,11 @@ class GenerateTrackers():
         self.save_backup = save_backup
         if os.path.exists(filename) and\
         self.sheet_title in pd.ExcelFile(filename).sheet_names:
-            self.synchronize_dates(sheet)
+            
             if compare:
                 self.compare_dataframes(sheet,filename)
                 self.move_datarame_rows()
+            self.synchronize_dates(sheet)
 
             if self.site_name == 'PRESCIENT':
                 self.dataframe = self.dataframe[["Subject","Timepoint",\
@@ -491,7 +492,11 @@ class GenerateTrackers():
         with open(path,'rb') as f:
             wb = load_workbook(path)
             ws = wb['Main Report']  
-            column_to_remove = 11
+            if self.site_name =='PRONET':
+                column_to_remove = 11
+            else:
+                column_to_remove = 6
+
             ws.delete_cols(column_to_remove)
             wb.save(path)
 
