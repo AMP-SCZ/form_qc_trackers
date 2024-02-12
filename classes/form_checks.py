@@ -1,11 +1,9 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
 from classes.data_checks import DataChecks
 from classes.cross_form_checks import CrossForms
 from classes.compile_errors import CompileErrors
-
 import pandas as pd
 import re
 import datetime
@@ -66,7 +64,8 @@ class FormChecks():
         if not self.prescient:
             self.tbi_check() 
             if self.checkbox_check() == False:
-                self.compile_errors.append_error(self.row,'value is empty',\
+                self.compile_errors.append_error(\
+                self.row,'value is empty',\
                 self.variable,form,self.current_report_list)
 
     def age_iq_check(self):
@@ -335,7 +334,8 @@ class FormChecks():
         if self.variable == 'chrchs_timeslept':
             try:
                 if not (0 <= float(getattr(self.row,'chrchs_timeslept')) < 20):
-                    self.compile_errors.append_error(self.row,(f"Error in recorded time slept from the Current Status Form"\
+                    self.compile_errors.append_error(\
+                    self.row,(f"Error in recorded time slept from the Current Status Form"\
                     f" (Recorded as {getattr(self.row,'chrchs_timeslept')})."),\
                     self.variable,self.form,['Main Report'])
             except Exception as e:
@@ -343,7 +343,8 @@ class FormChecks():
             try:  
                 fasting_time = float(getattr(self.row,'time_fasting'))
                 if not (0 <= fasting_time < 40): # change to 4 and 12 or 3 and 20
-                    self.compile_errors.append_error(self.row,(f"Error in time fasting ({getattr(self.row,'time_fasting')})– either error"\
+                    self.compile_errors.append_error(\
+                    self.row,(f"Error in time fasting ({getattr(self.row,'time_fasting')})– either error"\
                     f" in blood draw date ({getattr(self.row,'chrblood_drawdate')})"\
                     f" in blood sample form or last time they ate ({getattr(self.row,'chrchs_ate')})"\
                     f" in current health status form."),'time_fasting',\
@@ -746,7 +747,8 @@ class FormChecks():
                                 error_message = (f'T-Score Conversion not done properly.'
                                 f'Entered value was {getattr(self.row,t_score_col)}' 
                                 f'(cannot calculate proper value that it should be due to insufficient age rounding).')
-                            self.compile_errors.append_error(self.row,error_message,self.variable,\
+                            self.compile_errors.append_error(\
+                            self.row,error_message,self.variable,\
                             self.form,['Main Report','Cognition Report'])
                     else:
                         any_match = True
@@ -870,7 +872,8 @@ class FormChecks():
             and (self.row.chrtbi_subject_head_injury in\
             [1,1.0,'1','1.0',0,0.0,'0','0.0'] and\
             self.row.chrtbi_parent_headinjury in [1,1.0,'1','1.0',0,0.0,'0','0.0']):
-                self.compile_errors.append_error(self.row,("Subject and parent not both selected as source of information,"\
+                self.compile_errors.append_error(\
+                self.row,("Subject and parent not both selected as source of information,"\
                 " but answers appear to be provided by both the subject and parent."),\
                 self.variable,self.form,['Secondary Report'])
 
@@ -887,7 +890,8 @@ class FormChecks():
                     wbc_sum = float(self.row.chrcbc_wbcsum)
                     wbc = float(self.row.chrcbc_wbc)
                     if (wbc_sum < (wbc-(0.1*wbc))) or wbc_sum > (wbc+(0.1*wbc)):
-                        self.compile_errors.append_error(self.row,f'Sum of absolute neutrophils, lymphocytes,'
+                        self.compile_errors.append_error(\
+                            self.row,f'Sum of absolute neutrophils, lymphocytes,'
                             f' monocytes, basophils, and eosinophils'
                             f' ({self.row.chrcbc_wbcsum}) is not within 10% of '
                             f' WBC count ({self.row.chrcbc_wbc}).',self.variable,self.form,\
@@ -899,13 +903,16 @@ class FormChecks():
                     time_since_blood = self.find_days_between(\
                     str(self.row.chrblood_interview_date),str(datetime.datetime.today()))
                     if time_since_blood > 5:
-                        self.compile_errors.append_error(self.row,('Blood form indicates EDTA tube was sent to lab for CBC'
+                        self.compile_errors.append_error(\
+                        self.row,('Blood form indicates EDTA tube was sent to lab for CBC'
                         f', but CBC form has not been completed.'),\
                         self.variable,self.form, ['Main Report','Blood Report'])
                 elif self.row.chrblood_cbc not in [1,1.0,'1','1.0']\
-                and getattr(self.row,'cbc_with_differential_complete') in [2,2.0,'2.0','2']:
-                    self.compile_errors.append_error(self.row,('Blood form indicates EDTA tube was not sent to lab for CBC'
-                    f', but CBC form has been completed.'),\
+                and getattr(self.row,'cbc_with_differential_complete') in [2,2.0,'2.0','2']\
+                and self.row.chrcbc_missing not in ['1','1.0',1,1.0]:
+                    self.compile_errors.append_error(\
+                    self.row,('Blood form indicates EDTA tube was not sent to lab for CBC'
+                    f', but CBC form has been completed and not marked as missing.'),\
                     self.variable,self.form, ['Main Report','Blood Report'])
 
 
@@ -924,6 +931,10 @@ class FormChecks():
                         if '-' in str(penn_row.cnb_data) and penn_row.cnb_data !=''\
                         and penn_row.cnb_protocol in [1,1.0,'1','1.0']\
                         and abs(int(penn_row.cnb_data)) > 5:
-                            self.compile_errors.append_error(self.row,(f"Penn Data has been missing for {abs(int(penn_row.cnb_data))} days."\
+                            self.compile_errors.append_error(\
+                            self.row,(f"Penn Data has been missing for {abs(int(penn_row.cnb_data))} days."\
                             "Please check to make sure subject ID is in the correct format."),\
                             'Penn Data','penncnb',['Main Report','Cognition Report'])
+
+
+                                
