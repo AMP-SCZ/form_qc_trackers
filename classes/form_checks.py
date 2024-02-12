@@ -58,6 +58,10 @@ class FormChecks():
         if 'blood' in self.form\
         and self.prescient == False:
             self.check_blood_duplicates()
+            self.blood_vol_check()
+            self.check_blood_freeze()
+            self.check_blood_dates()
+            self.cbc_unit_checks()
         self.cbc_differential_check()
         self.inclusion_psychs_check()
         #self.mri_scanner_check()
@@ -269,19 +273,22 @@ class FormChecks():
                 date = getattr(self.row,self.variable)
                 matches = re.findall(pattern,date)
                 if not matches:
-                    self.compile_errors.append_error(self.row,f" Date is in improper format. It was written as {date}",\
+                    self.compile_errors.append_error(self.row,\
+                    f" Date is in improper format. It was written as {date}",\
                     self.variable,form,self.current_report_list)
                 else:
                     try:
                         if datetime.datetime.strptime(\
                         getattr(self.row,self.variable).split(' ')[0].replace('/','-'),'%Y-%m-%d')\
                         < datetime.datetime.strptime('2022-01-01','%Y-%m-%d'):
-                            self.compile_errors.append_error(self.row,f" Date ({date}) is before January 2022",\
+                            self.compile_errors.append_error(self.row,\
+                            f" Date ({date}) is before January 2022",\
                             self.variable,form,self.current_report_list)
                         elif datetime.datetime.strptime(getattr(\
                         self.row,self.variable).split(' ')[0].replace(\
                         '/','-'),'%Y-%m-%d') > datetime.datetime.today():
-                            self.compile_errors.append_error(self.row,f" Date ({date}) is in the future",\
+                            self.compile_errors.append_error(self.row,\
+                            f" Date ({date}) is in the future",\
                             self.variable,form,self.current_report_list)
                     except Exception as e:
                         print(e)
@@ -352,6 +359,26 @@ class FormChecks():
             except Exception as e:
                 print(e)
 
+    def blood_vol_check(self):
+        if self.variable in self.all_blood_volume_variables:
+            vol = getattr(self.row,self.variable)
+            if vol not in (self.missing_code_list+['']) and\
+            float(vol) <= 0:
+                self.compile_errors.append_error(self.row,\
+                f'Volume ({self.variable} = {vol}) is less then or equal to 0',\
+                self.variable,self.form,['Main Report','Blood Report'])
+
+    def check_blood_freeze(self):
+        if self.variable == 'chrblood_wbfrztime':
+            for proc_time_var in ['chrblood_wholeblood_freeze',\
+            'chrblood_serum_freeze','chrblood_plasma_freeze']:
+                proc_time =getattr(self.row, proc_time_var)
+                if proc_time not in (self.missing_code_list+['']) and float(proc_time) > 480:
+                    self.compile_errors.append_error(self.row,\
+                    f'Processing time ({self.variable} = {proc_time}) is greater than 480',\
+                    self.variable,self.form,['Main Report','Blood Report'])
+
+
     def check_blood_duplicates(self):
         """Checks for duplicate blood positions 
         and IDs"""
@@ -380,14 +407,34 @@ class FormChecks():
             for blood_row in blood_df.itertuples():
                 if blood_row.subjectid != self.row.subjectid and\
                 getattr(self.row,self.variable) not in (self.missing_code_list + ['']):
-                    self.compile_errors.append_error(self.row,(f"Duplicate blood ID ({self.variable} = {getattr(self.row,self.variable)})",\
+                    self.compile_errors.append_error(self.row,\
+                    (f"Duplicate blood ID ({self.variable} = {getattr(self.row,self.variable)})",\
                     f" found between subjects {self.row.subjectid} and {blood_row.subjectid}."),\
                     self.variable,self.form,['Main Report','Blood Report'])
         elif self.variable in self.all_blood_volume_variables:
             if getattr(self.row,self.variable) not in (self.missing_code_list + [''])\
             and float(getattr(self.row,self.variable)) > 1.1:
-                self.compile_errors.append_error(self.row,f"Blood volume ({getattr(self.row,self.variable)}) is greater than 1.1.",\
+                self.compile_errors.append_error(self.row,\
+                f"Blood volume ({getattr(self.row,self.variable)}) is greater than 1.1.",\
                 self.variable,self.form,['Main Report','Blood Report'])
+
+    def check_blood_dates(self):
+        """Function to check if the blood
+        draw date is later than the date
+        sent to lab."""
+
+        if self.variable == 'chrblood_drawdate':
+            if any(date  in (self.missing_code_list +['']) for\
+            date in [self.row.chrblood_drawdate,self.row.chrblood_labdate]):
+                return ''
+            if datetime.datetime.strptime(\
+            self.row.chrblood_drawdate,"%Y-%m-%d %H:%M")\
+            > datetime.datetime.strptime(\
+            self.row.chrblood_labdate,"%Y-%m-%d %H:%M"):
+                self.compile_errors.append_error(self.row,\
+                f"Blood draw date is later than date sent to lab.",\
+                self.variable,self.form,['Main Report','Blood Report'])
+
 
     def barcode_format_check(self):
         """Makes sure blood barcodes are in
@@ -420,7 +467,6 @@ class FormChecks():
                 'diagnosis_variables'],conditions['disorder'],\
                 False,conditions['extra_conditionals'])
         self.scid_additional_checks(self.row,self.variable)
-
 
 
     def scid_additional_checks(self,row,variable):
@@ -469,7 +515,6 @@ class FormChecks():
                 self.compile_errors.append_error(self.row,('A. MOOD EPISODES: subject fulfills more than 4'
                 ' criteria of depression but further questions are not asked: start checking a22, a22_1, a25'),\
                     self.variable,self.form,['Scid Report'])
-
 
 
     def scid_diagnosis_check(self,form,conditional_variables,
@@ -552,11 +597,13 @@ class FormChecks():
         if self.variable == 'chrcrit_part':
             if (self.row.chrcrit_part in [1,1.0,'1','1.0']\
             and self.row.chrcrit_inc3 in [0,0.0,'0','0.0']):
-                self.compile_errors.append_error(self.row,f'CHR subject does not fulfill CHR-criteria on PSYCHS.',\
+                self.compile_errors.append_error(self.row,\
+                f'CHR subject does not fulfill CHR-criteria on PSYCHS.',\
                 self.variable,self.form,['Main Report'])
             elif (self.row.chrcrit_part in [2,2.0,'2','2.0']\
             and self.row.chrcrit_inc3 in [1,1.0,'1','1.0']):
-                self.compile_errors.append_error(self.row,f'HC subject fulfills CHR-criteria on PSYCHS.',\
+                self.compile_errors.append_error(self.row,\
+                f'HC subject fulfills CHR-criteria on PSYCHS.',\
                 self.variable,self.form,['Main Report'])
 
     def oasis_additional_checks(self):
@@ -915,6 +962,22 @@ class FormChecks():
                     f', but CBC form has been completed and not marked as missing.'),\
                     self.variable,self.form, ['Main Report','Blood Report'])
 
+    def cbc_unit_checks(self):
+        gt_unit_ranges = {'chrcbc_wbc':30,'chrcbc_neut':20,'chrcbc_rbc':12,\
+        'chrcbc_lymph':20,'chrcbc_eos':5,'chrcbc_monos':5,'chrcbc_baso':5}
+        lt_unit_ranges = {'chrcbc_monos':0.1,'chrcbc_hct':1}
+        for var,value_range in gt_unit_ranges.items():
+            if self.variable == var and var not in (self.missing_code_list + ['']):
+                if float(getattr(self.row,var)) > value_range:
+                    self.compile_errors.append_error(self.row,\
+                    f'Incorrect units used ({var} = {float(getattr(self.row,var))})',\
+                    self.variable,self.form, ['Main Report','Blood Report'])
+        for var,value_range in lt_unit_ranges.items():
+            if self.variable == var and var not in (self.missing_code_list + ['']):
+                if float(getattr(self.row,var)) < value_range:
+                    self.compile_errors.append_error(self.row,\
+                    f'Incorrect units used ({var} = {float(getattr(self.row,var))})',\
+                    self.variable,self.form, ['Main Report','Blood Report'])
 
     def penn_data_check(self,subject):
         if 'penncnb' in self.timepoint_variable_lists[self.timepoint]\
