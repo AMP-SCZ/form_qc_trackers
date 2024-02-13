@@ -1,4 +1,9 @@
 import os,sys
+import warnings
+
+# Suppress future warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import pandas as pd,numbers,math,sys,openpyxl,datetime,random,matplotlib.pyplot as plt,collections,os,dropbox,re
 from openpyxl.styles import Border, Side, PatternFill, Font, Alignment, colors, Protection,Color
 from openpyxl.worksheet.dimensions import ColumnDimension
@@ -73,6 +78,35 @@ class GenerateTrackers():
         self.create_site_folders(True)
         self.save_to_excel(self.dataframe,self.sheet_title)
         self.create_site_folders()
+
+    def synchronize_resolved_rows(self,sheet):
+        team_forms = {'Blood Report':['blood_sample_preanalytic_quality_assurance',\
+        'cbc_with_differential'],\
+        'Cognition Report':['penncnb','premorbid_iq_reading_accuracy',\
+        'iq_assessment_wasiii_wiscv_waisiv'],
+        'Scid Report':['scid5_psychosis_mood_substance_abuse']}
+        for combined_sheet in ['Main Report','Secondary Report']:
+            if sheet in ['Cognition Report','Blood Report']:
+                rows_to_move = []
+                combined_path = (f'{self.absolute_path}'
+                f'site_outputs/{self.test_prefix}{self.site_name}/combined/{self.site_name}_Output.xlsx')
+                if os.path.exists(combined_path):
+                    combined_df = pd.read_excel(combined_path,\
+                    keep_default_na=False,sheet_name=combined_sheet)
+                    merged_df = pd.merge(self.dataframe, combined_df, 
+                            on=['General Flag', 'Subject', 'Timepoint','Specific Flags'], 
+                            how='left', 
+                            suffixes=('', '_new'))
+                    for index,row in merged_df.iterrows():
+                        for form in team_forms[sheet]:
+                            if form in row['General Flag'].replace(' ','_').lower()\
+                            and row['Date Resolved'] != '' and row['Date Resolved_new'] != '':
+                                row['Date Resolved'] = row['Date Resolved_new']
+                                processed_row = {key: value for key, value in row.items() if not key.endswith('_new')}
+                                rows_to_move.append(processed_row)
+
+                    self.dataframe = self.dataframe.append(rows_to_move, ignore_index=True)
+
 
     def synchronize_dates(self,sheet):
         for combined_sheet in ['Main Report','Secondary Report']:
@@ -204,11 +238,15 @@ class GenerateTrackers():
         self.save_backup = save_backup
         if os.path.exists(filename) and\
         self.sheet_title in pd.ExcelFile(filename).sheet_names:
-            
+            print(pd.ExcelFile(filename).sheet_names)
+
             if compare:
                 self.compare_dataframes(sheet,filename)
                 self.move_datarame_rows()
+                
             self.synchronize_dates(sheet)
+            self.synchronize_resolved_rows(sheet)
+
 
             if self.site_name == 'PRESCIENT':
                 self.dataframe = self.dataframe[["Subject","Timepoint",\
