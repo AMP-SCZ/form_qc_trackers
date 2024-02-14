@@ -94,16 +94,23 @@ class GenerateTrackers():
                     combined_df = pd.read_excel(combined_path,\
                     keep_default_na=False,sheet_name=combined_sheet)
                     merged_df = pd.merge(self.dataframe, combined_df, 
-                            on=['General Flag', 'Subject', 'Timepoint','Specific Flags'], 
-                            how='left', 
+                            on=['General Flag', 'Subject',\
+                           'Timepoint','Specific Flags'], 
+                            how='outer', 
                             suffixes=('', '_new'))
                     for index,row in merged_df.iterrows():
                         for form in team_forms[sheet]:
+                            print(str(row['Date Resolved']))
+                            print(row['Date Resolved_new'])
                             if form in row['General Flag'].replace(' ','_').lower()\
-                            and row['Date Resolved'] != '' and row['Date Resolved_new'] != '':
+                            and row['Date Resolved'] != '' and str(row['Date Resolved_new']) not in ['','nan']:
                                 row['Date Resolved'] = row['Date Resolved_new']
+                                row["Subject's Current Timepoint"] = row["Subject's Current Timepoint_new"] 
+
                                 processed_row = {key: value for key, value in row.items() if not key.endswith('_new')}
                                 rows_to_move.append(processed_row)
+                                print(row["Date Resolved"])
+
 
                     self.dataframe = self.dataframe.append(rows_to_move, ignore_index=True)
 
@@ -124,13 +131,21 @@ class GenerateTrackers():
                     'Time since Flag Detected','Manually Marked as Resolved']:
                         self.dataframe[f'{sync_col}'] = merged_df[f'{sync_col}_new'].where(\
                         pd.notnull(merged_df[f'{sync_col}_new']), self.dataframe[f'{sync_col}'])
+
                     non_blank_date_resolved = (pd.notnull(\
                     self.dataframe['Date Resolved'])) & (self.dataframe['Date Resolved'] != '')
-                    self.dataframe.loc[non_blank_date_resolved, 'Date Resolved'] = \
-                    self.dataframe.loc[non_blank_date_resolved, f'Date Resolved'].where(
+
+                    valid_updates_mask = (pd.notnull(\
+                    merged_df['Date Resolved_new'])) & (merged_df['Date Resolved_new'] != '')
+                    update_mask = non_blank_date_resolved & valid_updates_mask
+
+                    self.dataframe.loc[update_mask, 'Date Resolved'] = merged_df.loc[update_mask, 'Date Resolved_new']
+                    
+                    """self.dataframe.loc[non_blank_date_resolved, 'Date Resolved'] = \
+                    merged_df.loc[non_blank_date_resolved, f'Date Resolved'].where(
                         pd.notnull(merged_df.loc[non_blank_date_resolved, f'Date Resolved_new']),
                         merged_df.loc[non_blank_date_resolved, f'Date Resolved_new']
-                    )
+                    )"""
                     
     def compare_dataframes(self,sheet,filename):
         """Compares the new errors to the errors from the
@@ -166,9 +181,9 @@ class GenerateTrackers():
                     if old_df_row['Date Resolved'] != '':
                         specfic_flag_match = False
                         old_flags_list = old_df_row[\
-                        'Specific Flags'].replace(' ','').split('|')
+                        'Specific Flags'].replace(' ','').replace('Eror','Error').split('|')
                         new_flags_list = new_df_row[\
-                        'Specific Flags'].replace(' ','').split('|')
+                        'Specific Flags'].replace(' ','').replace('Eror','Error').split('|')
                         for flag in new_flags_list:
                             if flag in old_flags_list:
                                 specfic_flag_match = True
@@ -239,14 +254,10 @@ class GenerateTrackers():
         if os.path.exists(filename) and\
         self.sheet_title in pd.ExcelFile(filename).sheet_names:
             print(pd.ExcelFile(filename).sheet_names)
-
-            if compare:
-                self.compare_dataframes(sheet,filename)
-                self.move_datarame_rows()
-                
-            self.synchronize_dates(sheet)
+            self.compare_dataframes(sheet,filename)
+            self.move_datarame_rows()
             self.synchronize_resolved_rows(sheet)
-
+            self.synchronize_dates(sheet)
 
             if self.site_name == 'PRESCIENT':
                 self.dataframe = self.dataframe[["Subject","Timepoint",\
