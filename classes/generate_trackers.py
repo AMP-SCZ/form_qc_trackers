@@ -1,7 +1,6 @@
 import os,sys
 import warnings
 
-# Suppress future warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import pandas as pd,numbers,math,sys,openpyxl,datetime,random,matplotlib.pyplot as plt,collections,os,dropbox,re
@@ -10,7 +9,7 @@ from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import range_boundaries,get_column_letter
-from openpyxl import load_workbook
+from openpyxl import load_workbook,Workbook
 import numpy as np
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import Rule
@@ -22,7 +21,9 @@ import requests
 import json
 from io import BytesIO
 import ast
+from openpyxl.formatting.formatting import ConditionalFormattingList
 
+from copy import copy
 
 class GenerateTrackers():
     """Class to generate combined trackers
@@ -103,14 +104,12 @@ class GenerateTrackers():
                             print(str(row['Date Resolved']))
                             print(row['Date Resolved_new'])
                             if form in row['General Flag'].replace(' ','_').lower()\
-                            and row['Date Resolved'] != '' and str(row['Date Resolved_new']) not in ['','nan']:
+                            and str(row['Date Resolved']) == 'nan' and str(row['Date Resolved_new']) not in ['','nan']:
                                 row['Date Resolved'] = row['Date Resolved_new']
                                 row["Subject's Current Timepoint"] = row["Subject's Current Timepoint_new"] 
-
                                 processed_row = {key: value for key, value in row.items() if not key.endswith('_new')}
                                 rows_to_move.append(processed_row)
                                 print(row["Date Resolved"])
-
 
                     self.dataframe = self.dataframe.append(rows_to_move, ignore_index=True)
 
@@ -359,7 +358,8 @@ class GenerateTrackers():
         else:
             column_to_check = 'J'
         rule = Rule(type="expression", dxf=DifferentialStyle(fill=self.blue_fill))
-        formula = f'ISBLANK(${get_column_letter(worksheet[column_to_check + "2"].column)}2)=FALSE'
+        formula =\
+        f'ISBLANK(${get_column_letter(worksheet[column_to_check + "2"].column)}2)=FALSE'
         rule.formula = [formula]
         for column in columns_to_format:
             column_range = column + "2:" + column + str(worksheet.max_row)
@@ -372,7 +372,7 @@ class GenerateTrackers():
 
     def color_resolved_rows(self,worksheet,filename):
         """Colors resolved rows green and 
-        adds borders to roww that were 
+        adds borders to rows that were 
         sent to site
 
         Parameters
@@ -468,7 +468,7 @@ class GenerateTrackers():
         """reads dropbox credentials from
         JSON file"""
 
-        with open('dropbox_credentials.json', 'r') as file:
+        with open(f'{self.absolute_path}dropbox_credentials.json', 'r') as file:
             json_data = json.load(file)
         APP_KEY = json_data['app_key']
         APP_SECRET = json_data['app_secret']
@@ -512,6 +512,7 @@ class GenerateTrackers():
                     mode=dropbox.files.WriteMode.overwrite)
                 _, res = dbx.files_download(dropbox_path + f'/{entry.name}')
                 data = res.content
+                self.save_team_folders(combined_path,dbx,network)
                 
                 for sheet in ['Main Report']:                
                     if ('SCID' in entry.name and sheet != 'Scid Report')\
@@ -565,6 +566,17 @@ class GenerateTrackers():
 
         wb = load_workbook(combined_path)
         ws = wb['Main Report']
+        ws.conditional_formatting = ConditionalFormattingList()
+        column_to_check = 'H'
+        rule = Rule(type="expression", dxf=DifferentialStyle(fill=self.blue_fill))
+        formula =\
+        f'ISBLANK(${get_column_letter(ws[column_to_check + "2"].column)}2)=FALSE'
+        rule.formula = [formula]
+        columns_to_format = ['D', 'E']
+        for column in columns_to_format:
+            column_range = column + "2:" + column + str(ws.max_row)
+            ws.conditional_formatting.add(column_range, rule)
+
         check_column_letter = 'A'
         check_column_index\
         = openpyxl.utils.column_index_from_string(check_column_letter)
@@ -596,3 +608,30 @@ class GenerateTrackers():
             wb.remove(std)
 
         wb.save(site_path)
+
+    def save_team_folders(self,combined_path,dbx,network):
+        wb = load_workbook(combined_path)
+        report_folder_translations = {'Blood Report':'Blood',\
+        'Cognition Report':'Cognition','Scid Report':'Scid'}
+        for team_report, team_folder in report_folder_translations.items():
+            source_sheet = wb[team_report] 
+            new_workbook = Workbook()
+            new_sheet = new_workbook.active
+            new_sheet.title = source_sheet.title
+            for row in source_sheet.iter_rows():
+                for cell in row:
+                    new_cell = new_sheet.cell(row=cell.row, column=cell.column, value=cell.value)
+                    if cell.has_style:
+                        new_cell.font = copy(cell.font)
+                        new_cell.border = copy(cell.border)
+                        new_cell.fill = copy(cell.fill)
+            for col_letter, column_dimension in source_sheet.column_dimensions.items():
+                    new_sheet.column_dimensions[col_letter].width = column_dimension.width
+
+            new_workbook.save(f'{self.absolute_path}site_outputs/{self.test_prefix}{network}/Teams/{team_folder}/{network}_Output.xlsx')
+            with open(f'{self.absolute_path}site_outputs/{self.test_prefix}{network}/Teams/{team_folder}/{network}_Output.xlsx', 'rb') as f:
+                dbx.files_upload(f.read(),\
+                f'/Apps/Automated QC Trackers/{self.test_prefix}{network}/Teams/{team_folder}/{network}_Output.xlsx',\
+                mode=dropbox.files.WriteMode.overwrite)
+
+
