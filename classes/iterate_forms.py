@@ -173,11 +173,10 @@ class IterateForms():
                 if self.prescient:
                     self.missing_workaround_error_count = 0
                     self.error_check(variable_list,True)
+                    total_vars = self.variable_info_dictionary[\
+                    'total_num_form_variables'][form]
                     
-                    if self.missing_workaround_error_count/self.variable_info_dictionary[\
-                    'total_num_form_variables'][form] > 0.5:
-                        print(self.missing_workaround_error_count/self.variable_info_dictionary[\
-                        'total_num_form_variables'][form])
+                    if total_vars == 0 or self.missing_workaround_error_count/total_vars > 0.5:
                         self.substantial_data_missing = True
                 self.error_check(variable_list) 
 
@@ -260,7 +259,7 @@ class IterateForms():
         self.process_variables.blank_check_variables_per_report.items():
             if self.variable in var_list and 'scid' not in self.variable:
                 self.current_report_list.append(report)
-        if self.prescient:
+        if self.prescient and 'Main Report' in self.current_report_list:
             if self.substantial_data_missing == True:
                 self.current_report_list.append('Substantial Data Missing')
             else:
