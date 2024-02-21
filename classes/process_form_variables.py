@@ -7,26 +7,27 @@ import openpyxl
 import json
 
 class ProcessVariables():
-    """Class to collect variables from the data
-    dictionary and prepare them for QC processes
-    in the child classes."""
+    """Class to collect and organize 
+    variables from the data
+    dictionary"""
 
     def __init__(self,dataframe,timepoint, sheet_title):
-        self.location = 'pnl_server'
+        self.location = ''
         if self.location =='pnl_server':
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
             self.combined_cognition_folder = ''
             self.penn_path = '/data/predict1/data_from_nda/'
             self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
         else:
-            self.combined_df_folder = ''
+            self.combined_df_folder =\
+            'C:/formqc/AMPSCZ_QC_and_Visualization/QC/combined_csvs/'
             self.penn_path = ''
             self.combined_cognition_folder = 'cognition/'
             self.absolute_path = ''
 
         self.sheet_title = sheet_title
 
-        with open('data_storage.json', 'r') as file:
+        with open(f'{self.absolute_path}data_storage.json', 'r') as file:
             self.json_data = json.load(file)
 
         if 'PRONET' in dataframe:
@@ -65,7 +66,6 @@ class ProcessVariables():
         self.branch_logic_edit_dictionary =\
         self.json_data['branch_logic_edit_dictionary']
         self.scid_missing_code_checks = []
-        self.twentyone_day_tracker = []
         self.branching_logic_qc_dict = {}
         self.report_list = ['Main Report','Secondary Report',\
         'Blood Report','Scid Report','Cognition Report']
@@ -78,6 +78,8 @@ class ProcessVariables():
         self.all_blood_position_variables = []
         self.all_blood_id_variables = []
         self.all_blood_volume_variables = []
+        self.all_forms = []
+
 
         self.organize_variables()
 
@@ -105,6 +107,14 @@ class ProcessVariables():
 
         self.screening_df = pd.read_csv(\
         f'{self.combined_df_folder}combined-{self.site_str}-screening-day1to1.csv',\
+        encoding = 'unicode_escape',keep_default_na = False)
+
+        self.conversion_df = pd.read_csv(\
+        f'{self.combined_df_folder}combined-{self.site_str}-conversion-day1to1.csv',\
+        encoding = 'unicode_escape',keep_default_na = False)
+
+        self.floating_df = pd.read_csv(\
+        f'{self.combined_df_folder}combined-{self.site_str}-floating-day1to1.csv',\
         encoding = 'unicode_escape',keep_default_na = False)
 
         self.ampscz_df =\
@@ -167,12 +177,13 @@ class ProcessVariables():
         in the script."""
 
         self.collect_psychs_variables()
+        self.initialize_scid_variables()
         self.process_data_dictionary()
-        #self.initialize_scid_variables()
         self.collect_variables_not_yet_added_to_dictioanry()
         self.collect_forms_without_missing_variables()
         self.collect_included_subjects()
         self.collect_checkbox_variables()
+        print(self.variable_info_dictionary['total_num_form_variables'])
 
     def convert_range_to_list(self,range_str,str_conv = False):
         """Converts a range to a list of every
@@ -260,8 +271,8 @@ class ProcessVariables():
         """Defines various forms and variables that will be 
         excluded from different parts of the checks."""
 
-        self.excluded_from_blank_check = ['chroasis_oasis_1','chroasis_oasis_3']
-        self.excluded_prescient_forms = ['']
+        self.excluded_from_blank_check = ['chroasis_oasis_1','chroasis_oasis_3','chrchs_timeslept']
+        self.excluded_prescient_forms = ['family_interview_for_genetic_studies_figs']
         self.excluded_self_report_forms = ['pubertal_developmental_scale',\
         'psychosis_polyrisk_score','oasis','item_promis_for_sleep','pgis',\
         'perceived_stress_scale','perceived_discrimination_scale']
@@ -311,7 +322,7 @@ class ProcessVariables():
             = {'correlated_variable':variable,\
             'checked_value_list':checked_value_list,\
             'branching_logic':"",'negative':True,\
-            'message': f'Value should be 1,3, or -9/NA','report':'Scid Report'}
+            'message': f'Value should be 1,3, or -9/NA','report':['Scid Report']}
         for key in self.scid_diagnosis_check_dictionary.keys():
             self.additional_variables.append(key)
         self.additional_variables.extend(self.scid_additional_variables) 
@@ -365,13 +376,15 @@ class ProcessVariables():
             self.blank_check_variables_per_report[report].append(col_values['variable'])
             self.branching_logic_redcap_to_python(col_values['variable'],\
             col_values['form'],col_values['branching_logic']) 
-            self.variable_info_dictionary['total_num_form_variables'][col_values['form']] += 1
+            if report == 'Main Report' and col_values['branching_logic'] == '':
+                self.variable_info_dictionary['total_num_form_variables'][col_values['form']] += 1
         if 'barcode' in str(col_values['field_label']):
             self.all_barcode_variables.append(col_values['variable'])
-        if col_values['field_type'] == 'radio' and self.sheet_title == 'Scid Report':
+        if col_values['field_type'] == 'radio':
             self.scid_missing_code_checks.append(col_values['variable'])
         if col_values['field_type'] == 'checkbox':
-            self.variable_info_dictionary['all_checkbox_variables'].append(col_values['variable'])
+            self.variable_info_dictionary[\
+            'all_checkbox_variables'].append(col_values['variable'])
 
     def add_more_additional_variables(self,variable):
         if 'chrpharm_med' in variable and 'name_past' in variable:
@@ -391,6 +404,8 @@ class ProcessVariables():
             col_values = {}
             for key,value in data_dictionary_col_names.items():
                 col_values[key] = self.data_dictionary_df.at[row.Index, value] 
+            if col_values['form'] not in self.all_forms:
+                self.all_forms.append(col_values['form'])
 
             #self.add_more_additional_variables(col_values['variable'])
             self.collect_blood_variables(col_values['variable'])
@@ -431,12 +446,15 @@ class ProcessVariables():
             col_values['field_label'] = re.sub(pattern,\
             replacement_text, col_values['field_label'])
             for char in ['<','>','/','\n','Â']:
-                col_values['field_label'] = col_values['field_label'].replace(char,'')
-            self.variable_translation_dict[col_values['variable']] = col_values['variable']\
+                col_values['field_label'] =\
+                col_values['field_label'].replace(char,'')
+            self.variable_translation_dict[col_values[\
+            'variable']] = col_values['variable']\
             + ' = ' +  col_values['field_label']
         else:
-            self.variable_translation_dict[col_values['variable']] = col_values['variable']\
-            + ' = ' +  col_values['field_label']
+            self.variable_translation_dict[\
+            col_values['variable']] = col_values['variable']\
+            + ' = ' +  col_values['choices']
 
     def edit_tbi_branch_logic(self,variable):
         """Modifies branching logic for 
@@ -550,8 +568,8 @@ class ProcessVariables():
                 self.specific_value_check_dictionary[x] =\
                 {'correlated_variable':x,'checked_value_list':[0,0.0,'0','0.0'],\
                 'branching_logic':"",'negative':False,\
-                'message': f'value is 0','report':'Main Report'}
-
+                'message': f'value is 0','report':['Main Report']}
+                
     def branching_logic_redcap_to_python(self,variable,form,branching_logic):
         """This function focuses on converting the syntax
         from the REDCap branching logic in the data dictionary
@@ -563,6 +581,7 @@ class ProcessVariables():
         form: current of interest
         branching logic: redcap version of branching logic 
         """
+
         self.variable_info_dictionary['variable_list_dictionary'][form][variable] = {
                     'branching_logic': str(branching_logic).replace('[', '').replace(']', '').\
                     replace('<>', '!=').replace('OR', 'or').replace('AND', 'and').replace("\n", ' ')}
@@ -633,3 +652,6 @@ class ProcessVariables():
                     if x not in self.checkbox_variable_dictionary:
                          self.checkbox_variable_dictionary[x] = []
                     self.checkbox_variable_dictionary[x].append(y)
+
+
+
