@@ -58,6 +58,7 @@ class IterateForms():
                     if any(key.replace('month','') == x for x in values[0]):
                       self.timepoint_variable_lists[key].extend(values[1])
 
+
     def main_loop(self):
         """Main loop to further filter out
         which variables/forms get sent down 
@@ -108,28 +109,26 @@ class IterateForms():
             self.variable_info_dictionary['variable_list_dictionary'].items():
                 self.form = form
                 self.substantial_data_missing = False
-                if self.row.visit_status_string != 'removed' or\
-                form in self.process_variables.removed_participants_forms: 
-                    if self.prescient==True and form in\
-                    self.timepoint_variable_lists[timepoint]:
-                        if self.check_prescient_na_values(form) in [3,3.0,'3','3.0','4','4.0',4,4.0]:
-                            continue
-                    self.missing_workaround_error_count = 0
-                    if form in self.timepoint_variable_lists[timepoint] and\
-                    form not in self.excluded_forms \
-                    and ((self.timepoint_variable_keys.index(timepoint)\
-                    < self.timepoint_variable_keys.index(\
-                    self.row.visit_status_string) and self.prescient == True) or \
-                    (hasattr(self.row,self.variable_info_dictionary['unique_form_variables']\
-                    [form]['complete_variable']) and\
-                    getattr(self.row, self.variable_info_dictionary['unique_form_variables']\
-                    [form]['complete_variable']) in [2,2.0,'2','2.0'])\
-                    or self.row.subjectid not in \
-                    self.variable_info_dictionary['included_subjects']):
-                        if self.additional_conditionals() == False:
-                            continue
-                        self.call_error_checks(variable_list,form)
-                    self.check_form_completion(timepoint)
+                if self.prescient==True and form in\
+                self.timepoint_variable_lists[timepoint]:
+                    if self.check_prescient_na_values(form) in [3,3.0,'3','3.0','4','4.0',4,4.0]:
+                        continue
+                self.missing_workaround_error_count = 0
+                if form in self.timepoint_variable_lists[timepoint] and\
+                form not in self.excluded_forms \
+                and ((self.timepoint_variable_keys.index(timepoint)\
+                < self.timepoint_variable_keys.index(\
+                self.row.visit_status_string) and self.prescient == True) or \
+                (hasattr(self.row,self.variable_info_dictionary['unique_form_variables']\
+                [form]['complete_variable']) and\
+                getattr(self.row, self.variable_info_dictionary['unique_form_variables']\
+                [form]['complete_variable']) in [2,2.0,'2','2.0'])\
+                or self.row.subjectid not in \
+                self.variable_info_dictionary['included_subjects']):
+                    if self.additional_conditionals() == False:
+                        continue
+                    self.call_error_checks(variable_list,form)
+                self.check_form_completion(timepoint)
 
     def check_form_completion(self,timepoint):
         """Only used for Prescient. Checks
@@ -226,8 +225,11 @@ class IterateForms():
             and self.sheet_title == 'Main Report':
                 if not self.prescient:
                     self.excluded_check()
+
             if self.row.subjectid in\
-            self.variable_info_dictionary['included_subjects']:
+            self.variable_info_dictionary['included_subjects'] and\
+            (self.row.visit_status_string != 'removed' or\
+            self.form in self.process_variables.removed_participants_forms):
                 self.call_specific_value_check(workaround)
                 self.additional_checks.call_scid_diagnosis_check(self.variable,self.row)
                 if branch['branching_logic'] in ['nan','']: 
@@ -258,12 +260,14 @@ class IterateForms():
         for report, var_list in\
         self.process_variables.blank_check_variables_per_report.items():
             if self.variable in var_list and 'scid' not in self.variable:
-                self.current_report_list.append(report)
-        if self.prescient and 'Main Report' in self.current_report_list:
-            if self.substantial_data_missing == True:
-                self.current_report_list.append('Substantial Data Missing')
-            else:
-                self.current_report_list.append('Minor Data Missing')
+                if report != 'Main Report' or self.prescient == False:
+                    self.current_report_list.append(report)
+                elif self.prescient:
+                    if self.substantial_data_missing == True:
+                        self.current_report_list.append('Substantial Data Missing')
+                    else:
+                        self.current_report_list.append('Minor Data Missing')
+                        self.current_report_list.append('Main Report')
 
         team_report_forms = {'Blood Report':['blood_sample_preanalytic_quality_assurance',\
         'cbc_with_differential'],\
@@ -417,7 +421,8 @@ class IterateForms():
         == current_subject, 'chrcrit_excluded'].iloc[0]
         consent_date = self.screening_df.loc[self.screening_df['subjectid']\
         == current_subject, 'chric_consent_date'].iloc[0]
-        if incl_or_excl in ['1','1.0',1,1.0] and hc_or_chr in [1,1.0,'1','1.0','2','2.0',2,2.0]: 
+        if ((incl_or_excl in ['1','1.0',1,1.0] or self.row.visit_status_string =='removed')\
+        and hc_or_chr in [1,1.0,'1','1.0','2','2.0',2,2.0]): 
             if self.variable == 'chrdemo_sexassigned' and\
             getattr(self.row,self.variable) in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]: 
                 self.compile_errors.append_error(\
@@ -468,7 +473,8 @@ class IterateForms():
                     self.variable,self.form,['Main Report']) 
         if self.variable == 'chrblood_cbc':
             if getattr(self.row,self.variable) in [1,1.0,'1','1.0'] and \
-            self.row.subjectid not in self.variable_info_dictionary['included_subjects']:
+            self.row.subjectid not in self.variable_info_dictionary['included_subjects']\
+            and self.row.visit_status_string != 'removed':
                 self.compile_errors.append_error(self.row,\
                 f"Participant has not been included, but blood has been collected.",\
                 self.variable,self.form,['Main Report','Blood Report'])
