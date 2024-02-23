@@ -12,7 +12,7 @@ class ProcessVariables():
     dictionary"""
 
     def __init__(self,dataframe,timepoint, sheet_title):
-        self.location = ''
+        self.location = 'pnl_server'
         if self.location =='pnl_server':
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
             self.combined_cognition_folder = ''
@@ -79,7 +79,6 @@ class ProcessVariables():
         self.all_blood_id_variables = []
         self.all_blood_volume_variables = []
         self.all_forms = []
-
 
         self.organize_variables()
 
@@ -183,7 +182,7 @@ class ProcessVariables():
         self.collect_forms_without_missing_variables()
         self.collect_included_subjects()
         self.collect_checkbox_variables()
-        print(self.variable_info_dictionary['total_num_form_variables'])
+        print(self.variable_info_dictionary['unique_form_variables'])
 
     def convert_range_to_list(self,range_str,str_conv = False):
         """Converts a range to a list of every
@@ -254,7 +253,7 @@ class ProcessVariables():
         'chrcbccs_review_date','chrgpc_date','chrpsychs_fu_interview_date',\
         'chrpred_interview_date','chrscid_interview_date','chrdemo_interview_date']
         self.excluded_variables_test = []
-        self.removed_participants_forms = ['guid_form', 'sociodemographics'] 
+        self.removed_participants_forms = ['guid_form'] 
         self.additional_variables =\
         ['chrpsychs_av_dev_desc', 'chrcrit_included',\
         'chrchs_timeslept','chrdemo_age_mos_chr',\
@@ -272,7 +271,7 @@ class ProcessVariables():
         excluded from different parts of the checks."""
 
         self.excluded_from_blank_check = ['chroasis_oasis_1','chroasis_oasis_3','chrchs_timeslept']
-        self.excluded_prescient_forms = ['family_interview_for_genetic_studies_figs']
+        self.excluded_prescient_forms = ['family_interview_for_genetic_studies_figs','blood_sample_preanalytic_quality_assurance']
         self.excluded_self_report_forms = ['pubertal_developmental_scale',\
         'psychosis_polyrisk_score','oasis','item_promis_for_sleep','pgis',\
         'perceived_stress_scale','perceived_discrimination_scale']
