@@ -7,6 +7,7 @@ from classes.generate_trackers import GenerateTrackers
 import os
 import pandas as pd
 
+
 def define_paths(location = 'pnl_server'):
     """Defines paths depending on
     where the program is being run
@@ -79,11 +80,12 @@ def loop_timepoints():
     for each network and organizes it into a final 
     output for the trackers"""
 
-    combined_df_folder,absolute_path = define_paths('')
-    for network in ['PRONET']:
+    combined_df_folder,absolute_path = define_paths()
+    for network in ['PRONET','PRESCIENT']:
         final_output = {}
         output_per_timepoint =initalize_output_per_timepoint()
         for timepoint in output_per_timepoint.keys():
+            print(timepoint)
             timepoint_str =\
             timepoint.replace('baseln','baseline').replace('screen','screening')
             filepath = (f'{combined_df_folder}'
@@ -110,17 +112,21 @@ def create_trackers(final_output,network):
     Parameters
     ------------
     final_output: list of dictionaries to be 
+    
     converted into pandas dataframe
     """
 
-    report_list = ['Main Report','Secondary Report',\
-    'Twenty One Day Tracker','Blood Report',\
+    report_list = ['Main Report','Incomplete Forms','Secondary Report',\
+    'Twenty One Day Tracker','Substantial Data Missing','Minor Data Missing','Blood Report',\
     'Cognition Report','Scid Report']
+
+    print(final_output.keys())
 
     for report in report_list:
         if report in final_output.keys():
+            print(report)
             data = pd.DataFrame(final_output[report])
-            GenerateTrackers(data,network, report).run_script()
+            GenerateTrackers(data,network,report).run_script()
 
 
 if __name__ == '__main__':
