@@ -35,34 +35,37 @@ class FormChecks():
         self.missing_code_list = self.process_variables.missing_code_list
         self.ampscz_df = self.process_variables.ampscz_df
 
-    def call_extra_checks(self,form,variable,prescient,current_report_list,timepoint_variable_lists):
+    def call_extra_checks(self,form,variable,
+    prescient,current_report_list,timepoint_variable_lists,timepoint):
         self.prescient = prescient
         self.current_report_list = current_report_list
         self.timepoint_variable_lists = timepoint_variable_lists
+        self.timepoint = timepoint
         """Function to call all of
         the additional form checks specified below"""
         self.form = form
         self.variable = variable
 
-        self.oasis_additional_checks()
-        self.cssr_additional_checks()
+        #self.oasis_additional_checks()
+        #self.cssr_additional_checks()
         #self.penn_data_check(self.row.subjectid)
         if not self.prescient:
             self.blood_form_check()
+
+        self.global_function_check()
+        self.age_iq_check()
+
         self.guid_format_check()
         self.date_format_check(form)
-        self.global_function_check()
         self.barcode_format_check()
-        self.age_iq_check()
         #self.iq_conversion_check()
-        if 'blood' in self.form\
-        and self.prescient == False:
+        if 'blood' in self.form:
             self.check_blood_duplicates()
             self.blood_vol_check()
             self.check_blood_freeze()
             self.check_blood_dates()
             self.cbc_unit_checks()
-        self.cbc_differential_check()
+            self.cbc_differential_check()
         self.inclusion_psychs_check()
         #self.mri_scanner_check()
         if not self.prescient:
@@ -83,15 +86,17 @@ class FormChecks():
                 getattr(self.row,age_var) not in self.missing_code_list:
                     age = float(getattr(self.row,age_var))/12 
                     if age <12 or age > 31:
-                        self.compile_errors.append_error(self.row,f'Improper age ({age}).',self.variable,\
-                            self.form,['Main Report'])
+                        self.compile_errors.append_error(\
+                        self.row,f'Improper age ({age}).',self.variable,\
+                        self.form,['Main Report'])
         for iq_var in ['chriq_fsiq','chrpreiq_standard_score']:
             if self.variable == iq_var:
                 if getattr(self.row,iq_var) != '' and\
                 getattr(self.row,iq_var) not in self.missing_code_list:
                     iq = float(getattr(self.row,iq_var))
                     if iq < 50:
-                        self.compile_errors.append_error(self.row,f'IQ is less than 50 ({iq}).',\
+                        self.compile_errors.append_error(self.row,\
+                        f'IQ is less than 50 ({iq}).',\
                         self.variable,self.form,\
                         ['Main Report','Cognition Report'])
 
@@ -268,7 +273,8 @@ class FormChecks():
         pattern = r"(\d+)(-|/)(\d+)(-|/)(\d+)"
         if self.variable in self.variable_info_dictionary['all_date_variables']\
         and hasattr(self.row,self.variable):
-            if getattr(self.row,self.variable) not in ['','-3','nan','-9',-3,-9,-3.0,-9.0,\
+            if getattr(self.row,self.variable) not in\
+            ['','-3','nan','-9',-3,-9,-3.0,-9.0,\
             '-3.0','-9.0','1909-09-09','1903-03-03','1901-01-01']:
                 date = getattr(self.row,self.variable)
                 matches = re.findall(pattern,date)
@@ -310,8 +316,8 @@ class FormChecks():
             and not re.search(r"^NDA[A-Z0-9]+$",\
             getattr(self.row,self.variable)):
                 self.compile_errors.append_error(self.row,\
-                    f'GUID in incorrect format. GUID was reported to be {getattr(self.row,self.variable)}.',\
-                    self.variable,self.form,['Main Report'])
+                f'GUID in incorrect format. GUID was reported to be {getattr(self.row,self.variable)}.',\
+                self.variable,self.form,['Main Report'])
 
     def checkbox_check(self):
         """checks if any of the possible 
@@ -360,18 +366,18 @@ class FormChecks():
                 print(e)
 
     def blood_vol_check(self):
-        if self.variable in self.all_blood_volume_variables:
+        if self.variable in self.all_blood_volume_variables and hasattr(self.row,self.variable):
             vol = getattr(self.row,self.variable)
             if vol not in (self.missing_code_list+['']) and\
             float(vol) <= 0:
                 self.compile_errors.append_error(self.row,\
-                f'Volume ({self.variable} = {vol}) is less then or equal to 0',\
+                f'Volume ({self.variable} = {vol}) is less than or equal to 0',\
                 self.variable,self.form,['Main Report','Blood Report'])
 
     def check_blood_freeze(self):
         if self.variable == 'chrblood_wbfrztime':
             for proc_time_var in ['chrblood_wholeblood_freeze',\
-            'chrblood_serum_freeze','chrblood_plasma_freeze']:
+            'chrblood_serum_freeze','chrblood_plasma_freeze','chrblood_buffy_freeze']:
                 proc_time =getattr(self.row, proc_time_var)
                 if proc_time not in (self.missing_code_list+['']) and float(proc_time) > 480:
                     self.compile_errors.append_error(self.row,\
@@ -386,7 +392,7 @@ class FormChecks():
         filtered_columns = [col for col in self.ampscz_df.columns if 'blood' in col]
         filtered_columns.append('subjectid')
         self.filtered_blood_df = self.ampscz_df[filtered_columns]
-        if self.variable =='chrblood_rack_barcode':
+        if self.variable =='chrblood_rack_barcode' and hasattr(self.row,'chrblood_rack_barcode'):
             blood_df = self.filtered_blood_df[self.filtered_blood_df[\
             'chrblood_rack_barcode']==getattr(self.row,'chrblood_rack_barcode')]
             for blood_pos_var in self.all_blood_position_variables:
@@ -402,6 +408,10 @@ class FormChecks():
                             f" and barcode equal to {self.row.chrblood_rack_barcode}."),\
                             blood_pos_var,self.form,['Blood Report'])
         if self.variable in self.all_blood_id_variables:
+            if self.prescient:
+                report_list = ['Blood Report']
+            else:
+                report_list = ['Main Report','Blood Report']
             blood_df = self.filtered_blood_df[\
             self.filtered_blood_df[self.variable]==getattr(self.row,self.variable)]
             for blood_row in blood_df.itertuples():
@@ -410,9 +420,10 @@ class FormChecks():
                     self.compile_errors.append_error(self.row,\
                     (f"Duplicate blood ID ({self.variable} = {getattr(self.row,self.variable)})",\
                     f" found between subjects {self.row.subjectid} and {blood_row.subjectid}."),\
-                    self.variable,self.form,['Main Report','Blood Report'])
+                    self.variable,self.form,report_list)
         elif self.variable in self.all_blood_volume_variables:
-            if getattr(self.row,self.variable) not in (self.missing_code_list + [''])\
+            if hasattr(self.row,self.variable) and\
+            getattr(self.row,self.variable) not in (self.missing_code_list + [''])\
             and float(getattr(self.row,self.variable)) > 1.1:
                 self.compile_errors.append_error(self.row,\
                 f"Blood volume ({getattr(self.row,self.variable)}) is greater than 1.1.",\
@@ -424,7 +435,7 @@ class FormChecks():
         sent to lab."""
 
         if self.variable == 'chrblood_drawdate':
-            if any(date  in (self.missing_code_list +['']) for\
+            if any(date in (self.missing_code_list +['']) for\
             date in [self.row.chrblood_drawdate,self.row.chrblood_labdate]):
                 return ''
             if datetime.datetime.strptime(\
@@ -432,8 +443,8 @@ class FormChecks():
             > datetime.datetime.strptime(\
             self.row.chrblood_labdate,"%Y-%m-%d %H:%M"):
                 self.compile_errors.append_error(self.row,\
-                f"Blood draw date is later than date sent to lab.",\
-                self.variable,self.form,['Main Report','Blood Report'])
+                f"Blood draw date ({self.row.chrblood_drawdate}) is later than date sent to lab ({self.row.chrblood_labdate}).",\
+                self.variable,self.form,['Blood Report'])
 
 
     def barcode_format_check(self):
@@ -458,7 +469,8 @@ class FormChecks():
     def call_scid_diagnosis_check(self,variable,row):
         self.variable = variable
         self.row = row
-        for checked_variable,conditions in self.process_variables.scid_diagnosis_check_dictionary.items(): 
+        for checked_variable,conditions in\
+        self.process_variables.scid_diagnosis_check_dictionary.items(): 
             if self.variable == checked_variable: 
                 self.scid_diagnosis_check(\
                 self.form,conditions['diagnosis_variables'],\
@@ -473,14 +485,16 @@ class FormChecks():
         if variable == 'chrscid_a48_1':
             if row.chrscid_a27 in [3,3.0,'3','3.0'] and row.chrscid_a28 in [3,3.0,'3','3.0'] and\
                (row.chrscid_a48_1 not in [2,2.0,'2','2.0']): 
-                self.compile_errors.append_error(self.row,f'Fulfills both main criteria but was counted incorrectly, a27, a28, a48_1',\
+                self.compile_errors.append_error(self.row,\
+                f'Fulfills both main criteria but was counted incorrectly, a27, a28, a48_1',\
                 self.variable,self.form,['Scid Report'])
             elif ((row.chrscid_a27 in [3,3.0,'3','3.0'] and (row.chrscid_a28 in\
             [2,2.0,'2','2.0'] or row.chrscid_a28 in [1,1.0,'1','1.0'])) or\
                  (row.chrscid_a28 in [3,3.0,'3','3.0'] and (row.chrscid_a27\
                 in [2,2.0,'2','2.0'] or row.chrscid_a27 in [1,1.0,'1','1.0']))) and\
                  (row.chrscid_a48_1 not in [1,1.0,'1','1.0']):
-                self.compile_errors.append_error(self.row,'Fulfills main criteria but further value was wrong, a27, a28, a48_1',\
+                self.compile_errors.append_error(self.row,\
+                'Fulfills main criteria but further value was wrong, a27, a28, a48_1',\
                     self.variable,self.form,['Scid Report'])
         elif variable == 'chrscid_a51' and \
         row.chrscid_a26_53 not in (self.missing_code_list+['']):
@@ -506,13 +520,15 @@ class FormChecks():
                  (row.chrscid_a2 in  [3,3.0,'3','3.0'] and (row.chrscid_a1 in [2,2.0,'2','2.0']\
                  or row.chrscid_a1 in [1,1.0,'1','1.0']))) and\
                  (row.chrscid_a22_1 not in [1,1.0,'1','1.0']):
-                self.compile_errors.append_error(self.row,'Fulfills main criteria but further value was wrong, a1, a2, a22_1',\
+                self.compile_errors.append_error(self.row,\
+                'Fulfills main criteria but further value was wrong, a1, a2, a22_1',\
                 self.variable,self.form,['Scid Report'])
         elif variable == 'chrscid_a25' and row.chrscid_a22 not\
         in (self.missing_code_list+['']) and row.chrscid_a22_1 not in (self.missing_code_list+['']):
             if float(row.chrscid_a22) > 4 and float(row.chrscid_a22_1) > 0  and (row.chrscid_a25\
             == '' or row.chrscid_a25 in self.missing_code_list):
-                self.compile_errors.append_error(self.row,('A. MOOD EPISODES: subject fulfills more than 4'
+                self.compile_errors.append_error(self.row,\
+                ('A. MOOD EPISODES: subject fulfills more than 4'
                 ' criteria of depression but further questions are not asked: start checking a22, a22_1, a25'),\
                     self.variable,self.form,['Scid Report'])
 
@@ -578,7 +594,8 @@ class FormChecks():
                     getattr(self.row,value_lifetime) not in self.missing_code_list\
                     and float(getattr(self.row,key_past_months))\
                     < float(getattr(self.row,value_lifetime)):
-                        self.compile_errors.append_error(self.row,(f'Lifetime ({getattr(self.row,key_past_months)}) cannot',\
+                        self.compile_errors.append_error(self.row,\
+                        (f'Lifetime ({getattr(self.row,key_past_months)}) cannot',\
                         f'be lower than past month ({getattr(self.row,value_lifetime)}).'),\
                         self.variable,self.form,['Main Report'])
                 except Exception as e:
@@ -587,7 +604,8 @@ class FormChecks():
             if self.variable == key_past_months:
                 if getattr(self.row,key_past_months) in [1,1.0,'1','1.0']\
                 and getattr(self.row,value_lifetime) in [2,2.0,'2','2.0']:
-                    self.compile_errors.append_error(self.row,f'Lifetime value cannot be different that past month value.',\
+                    self.compile_errors.append_error(self.row,\
+                    f'Lifetime value cannot be different that past month value.',\
                     self.variable,self.form,['Main Report'])
 
     def inclusion_psychs_check(self):
@@ -615,7 +633,8 @@ class FormChecks():
                     if getattr(self.row,f'chroasis_oasis_{x}') not in self.missing_code_list\
                     and float(getattr(self.row,f'chroasis_oasis_{x}')) > 0 and\
                     self.row.chroasis_oasis_1 in [0,0.0,'0','0.0']:
-                        self.compile_errors.append_error(self.row,(f'No anxiety at all (last week) cannot have anxiety '\
+                        self.compile_errors.append_error(self.row,\
+                        (f'No anxiety at all (last week) cannot have anxiety '\
                         f'level or be influenced by anxiety (last week) (chroasis_oasis_{x}).'),\
                         self.variable,self.form,['Main Report'])
             if self.variable == 'chroasis_oasis_3':
@@ -624,7 +643,8 @@ class FormChecks():
                 and self.row.chroasis_oasis_5 not in self.missing_code_list and \
                 float(self.row.chroasis_oasis_3) <2 and \
                 (float(self.row.chroasis_oasis_4 > 1) or float(self.row.chroasis_oasis_5)>0):
-                    self.compile_errors.append_error(self.row,(f'If lifestyle is not affected (chroasis_oasis_3<2) no'\
+                    self.compile_errors.append_error(self.row,\
+                    (f'If lifestyle is not affected (chroasis_oasis_3<2) no'\
                     f'lifestyle situation can be described to be affected (chroasis_oasis_4 and chroasis_oasis_5)'),\
                     self.variable,self.form,['Main Report'])
         except Exception as e:
@@ -731,7 +751,7 @@ class FormChecks():
                 self.all_iq_age_ranges.index(age_range) + 1])
                 flag_error = False
             elif (age == age_range[0]\
-        or age == age_range[1]) and age > 195:
+            or age == age_range[1]) and age > 195:
                 possibly_previous_range = True
                 current_age_ranges.append(age_range)
                 current_age_ranges.append(self.all_iq_age_ranges[\
@@ -895,7 +915,6 @@ class FormChecks():
                     f"than the high score ({self.row.chrgfs_gf_role_high})."),\
                     self.variable,self.form,['Main Report'])
         except Exception as e:
-            print('----')
             print(e)
 
     def tbi_check(self):
@@ -945,7 +964,8 @@ class FormChecks():
                             ['Blood Report'])
             elif self.variable == 'chrblood_cbc':
                 if self.row.chrblood_cbc in [1,1.0,'1','1.0']\
-                and getattr(self.row,'cbc_with_differential_complete') not in [2,2.0,'2.0','2'] and\
+                and self.check_prescient_na_values('cbc_with_differential') not in\
+                [2,2.0,'2.0','2',3,3.0,'3.0','3',4,4.0,'4.0','4'] and\
                 self.row.chrblood_interview_date not in (self.missing_code_list+['']):
                     time_since_blood = self.find_days_between(\
                     str(self.row.chrblood_interview_date),str(datetime.datetime.today()))
@@ -955,12 +975,29 @@ class FormChecks():
                         f', but CBC form has not been completed.'),\
                         self.variable,self.form, ['Main Report','Blood Report'])
                 elif self.row.chrblood_cbc not in [1,1.0,'1','1.0']\
-                and getattr(self.row,'cbc_with_differential_complete') in [2,2.0,'2.0','2']\
+                and self.check_prescient_na_values('cbc_with_differential') in\
+                [2,2.0,'2.0','2',3,3.0,'3.0','3',4,4.0,'4.0','4']\
                 and self.row.chrcbc_missing not in ['1','1.0',1,1.0]:
                     self.compile_errors.append_error(\
                     self.row,('Blood form indicates EDTA tube was not sent to lab for CBC'
                     f', but CBC form has been completed and not marked as missing.'),\
                     self.variable,self.form, ['Main Report','Blood Report'])
+
+
+    def check_prescient_na_values(self,form):
+        if self.prescient:
+            df = self.process_variables.prescient_entry_statuses
+            form_name = form.replace('_fu_hc','_fu') 
+            current_form = df[(df['Subject'] == self.row.subjectid)\
+            & (df['Form_Timepoint'] == \
+            self.timepoint) & (df['Form_Translation'] == form_name)]
+            for row in current_form.itertuples():
+                self.current_prescient_complete_value =\
+                row.Completion_Status
+                return row.Completion_Status
+        else:
+            return getattr(self.row,self.variable_info_dictionary[\
+            'unique_form_variables'][form]['complete_variable'])
 
     def cbc_unit_checks(self):
         gt_unit_ranges = {'chrcbc_wbc':30,'chrcbc_neut':20,'chrcbc_rbc':12,\
@@ -998,6 +1035,25 @@ class FormChecks():
                             self.row,(f"Penn Data has been missing for {abs(int(penn_row.cnb_data))} days."\
                             "Please check to make sure subject ID is in the correct format."),\
                             'Penn Data','penncnb',['Main Report','Cognition Report'])
+
+
+    def conversion_check(self,subject,row):
+        for conv_row in self.process_variables.conversion_df.itertuples():
+            if conv_row.subjectid == subject and \
+            hasattr(conv_row,'chrconv_interview_date') and\
+            getattr(conv_row,'chrconv_interview_date') =='':
+                self.compile_errors.append_error(\
+                row,(f"Subject has converted, but the date"\
+                " of conversion is blank in the conversion form."),\
+                'chrconv_interview_date','conversion_form',['Main Report'])
+            elif conv_row.subjectid == subject and \
+            hasattr(conv_row,'chrconv_conv') and\
+            getattr(conv_row,'chrconv_conv') =='':
+                self.compile_errors.append_error(\
+                row,(f"Subject has converted, but has not been"\
+                " marked as converted in the conversion form."),\
+                'chrconv_conv','conversion_form',['Main Report'])
+
 
 
                                 
