@@ -31,8 +31,8 @@ class GenerateTrackers():
     for specific sites"""
 
     def __init__(self,dataframe, site_name, sheet_title):
-        self.location = ''
-        self.test_prefix = 'Tests/'
+        self.location = 'pnl_server'
+        self.test_prefix = ''
         if self.location =='pnl_server':
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
             self.combined_cognition_folder = ''
@@ -116,7 +116,8 @@ class GenerateTrackers():
 
     def synchronize_dates(self,sheet):
         for combined_sheet in ['Main Report','Secondary Report']:
-            if sheet in ['Cognition Report','Blood Report']:
+            if sheet in ['Cognition Report','Blood Report',\
+            'Minor Data Missing','Substantial Data Missing']:
                 combined_path = (f'{self.absolute_path}'
                 f'site_outputs/{self.test_prefix}{self.site_name}/combined/{self.site_name}_Output.xlsx')
                 if os.path.exists(combined_path):
@@ -537,7 +538,6 @@ class GenerateTrackers():
                                 f'/Apps/Automated QC Trackers/{self.test_prefix}{network}/{site_full_name}/{entry.name}',\
                                 mode=dropbox.files.WriteMode.overwrite)
 
-
     def remove_output_columns(self,path):
         with open(path,'rb') as f:
             wb = load_workbook(path)
@@ -614,6 +614,8 @@ class GenerateTrackers():
         report_folder_translations = {'Blood Report':'Blood',\
         'Cognition Report':'Cognition','Scid Report':'Scid'}
         for team_report, team_folder in report_folder_translations.items():
+            if team_report not in pd.ExcelFile(combined_path).sheet_names:
+                continue
             source_sheet = wb[team_report] 
             new_workbook = Workbook()
             new_sheet = new_workbook.active
