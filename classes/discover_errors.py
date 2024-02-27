@@ -76,6 +76,10 @@ class DiscoverErrors():
                         self.dtype_count[col]['number'] +=1
                     else:
                         self.dtype_count[col]['nan'] +=1 
+
+        self.filter_lists()
+
+    def filter_lists(self):
         self.num_var_list = \
         self.create_numerical_var_list(self.dtype_count)
         self.var_means,self.var_totals,self.all_var_values =\
@@ -95,9 +99,9 @@ class DiscoverErrors():
                         self.utils.deviation_from_list(float(var_val),val_list)
                         if abs(dev) > (3 * std_dev) \
                         and var_val not in (self.utils.missing_code_list)\
-                        and var not in self.det_var_test:\
-                        #and not any(x in var for x in ['figs','psychs','blood','cbc']):
-                            self.det_var_test.append(var)
+                        and var not in self.det_var_test\
+                        and not any(x in var for x in ['figs','psychs','blood','cbc']):
+                            #self.det_var_test.append(var)
                             print('--------------------')
                             print(f'Variable:{var}')
                             print(f'value: {var_val}')
@@ -161,11 +165,11 @@ class DiscoverErrors():
         num_var_list = []
         self.sometimes_nums = []
         for var, values in var_dict.items():
-            if values['number'] > 0 or\
+            if values['number'] > 0 or \
             values['nan'] > 0:
-                if values['number'] / (values['number'] +\
+                if values['number'] / (values['number'] + \
                  values['nan']) > threshold:
-                    if values['number'] / (values['number']\
+                    if values['number'] / (values['number'] \
                     + values['nan']) < 1:
                         self.sometimes_nums.append(var)
                     num_var_list.append(var)
