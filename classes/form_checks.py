@@ -427,7 +427,7 @@ class FormChecks():
             and float(getattr(self.row,self.variable)) > 1.1:
                 self.compile_errors.append_error(self.row,\
                 f"Blood volume ({getattr(self.row,self.variable)}) is greater than 1.1.",\
-                self.variable,self.form,['Main Report','Blood Report'])
+                self.variable,self.form,['Blood Report'])
 
     def check_blood_dates(self):
         """Function to check if the blood
