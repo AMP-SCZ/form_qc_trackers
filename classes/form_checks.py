@@ -404,9 +404,9 @@ class FormChecks():
                         and getattr(blood_row,'chrblood_rack_barcode') not in (self.missing_code_list+['']):
                             self.compile_errors.append_error(self.row,(\
                             f"Duplicate positions found in two different subjects ({self.row.subjectid} and {blood_row.subjectid} "\
-                            f"both have {blood_pos_var} equal to {getattr(blood_row,blood_pos_var)})"\
-                            f" and barcode equal to {self.row.chrblood_rack_barcode}."),\
-                            blood_pos_var,self.form,['Blood Report'])
+                            f"both have {blood_pos_var} equal to {getattr(blood_row,blood_pos_var)}"\
+                            f" and barcode equal to {self.row.chrblood_rack_barcode})."),\
+                            blood_pos_var,self.form,['Main Report','Blood Report'])
         if self.variable in self.all_blood_id_variables:
             if self.prescient:
                 report_list = ['Blood Report']
@@ -1038,7 +1038,7 @@ class FormChecks():
 
 
     def conversion_check(self,subject,row):
-        for conv_row in self.process_variables.conversion_df.itertuples():
+        for conv_row in self.process_variables.floating_df.itertuples():
             if conv_row.subjectid == subject and \
             hasattr(conv_row,'chrconv_interview_date') and\
             getattr(conv_row,'chrconv_interview_date') =='':
