@@ -53,35 +53,48 @@ class NDASubjects():
         self.excluded_forms = []
         if self.network =='PRESCIENT':
             self.excluded_forms = \
-            ['informed_consent_run_sheet','family_interview_for_genetic_studies_figs']
+            ['informed_consent_run_sheet',\
+            'family_interview_for_genetic_studies_figs']
 
 
     def run_script(self):
         self.all_timepoints = self.initalize_timepoint_list()
         self.collect_subject_info()
-        self.collect_form_status()
-        
+        self.call_form_status_functions()
         self.format_output()
     
-    def collect_form_status(self):
+    def call_form_status_functions(self):
+        """Loops through each timepoint
+        and calls functions to collect
+        their form statuses and save 
+        them into an excel spreadsheet"""
+
         for timepoint in self.all_timepoints:
-            print(timepoint)
             if self.network == 'PRESCIENT':
                 self.current_tp_entry_statuses = \
                 copy.deepcopy(self.prescient_entry_statuses)
                 self.current_tp_entry_statuses = \
                 self.current_tp_entry_statuses[\
-                (self.current_tp_entry_statuses['Form_Timepoint'] == timepoint)]
+                (self.current_tp_entry_statuses[\
+                'Form_Timepoint'] == timepoint)]
             timepoint_str =\
-            timepoint.replace('screen','screening').replace('baseln','baseline')
+            timepoint.replace('screen',\
+            'screening').replace('baseln','baseline')
             self.organize_form_output(timepoint_str,timepoint)
 
     def format_output(self):
+        """
+        Formats output into pandas 
+        dataframe and saved it as an
+        excel file.
+        """
+
         for subject,form_info in\
         self.form_status_dictionary.items():
             final_output_row = {}
             final_output_row['subject'] = subject
-            final_output_row['HC or CHR'] = self.subject_info[subject]['cohort']
+            final_output_row['HC or CHR'] =\
+            self.subject_info[subject]['cohort']
             final_output_row['current timepoint'] =\
             self.subject_info[subject]['current_timepoint']
             for form,status in form_info.items():
@@ -89,7 +102,8 @@ class NDASubjects():
             self.form_status_list.append(final_output_row)
         self.form_status_df = pd.DataFrame(self.form_status_list)
         self.form_status_df.to_excel(\
-        f'{self.absolute_path}form_status_tracker_{self.network}.xlsx',index = False)
+        f'{self.absolute_path}form_status_tracker_{self.network}.xlsx',\
+        index = False)
         self.reformat_excel(\
         f'{self.absolute_path}form_status_tracker_{self.network}.xlsx')
         self.save_to_dropbox()
@@ -154,11 +168,10 @@ class NDASubjects():
         """
 
         current_tp_df = pd.read_csv(\
-        f'{self.combined_df_folder}combined-{self.network}-{timepoint_str}-day1to1.csv',\
+        (f'{self.combined_df_folder}combined'
+        f'-{self.network}-{timepoint_str}-day1to1.csv'),\
         keep_default_na=False)
         for row in current_tp_df.itertuples():
-            cohort = self.subject_info[row.subjectid]['cohort'] 
-
             all_tp_forms = self.collect_all_tp_forms(timepoint)
             for form in all_tp_forms:
                 self.form_status_dictionary.setdefault(row.subjectid,{})
@@ -168,14 +181,14 @@ class NDASubjects():
                     self.form_status_dictionary[\
                     row.subjectid][form+'_' +timepoint_str] = \
                     'Completion Status Cannot Be Determined'
-                    self.check_for_errors(row.subjectid,timepoint,form,timepoint_str)
+                    self.check_for_errors(row.subjectid,\
+                    timepoint,form,timepoint_str)
                     continue
-
                 self.collect_form_status(form,row,timepoint_str,timepoint)
                 if self.form_status_dictionary[row.subjectid][\
                 form+'_' +timepoint_str] != 'Not Marked Complete':
-                    self.check_for_errors(row.subjectid,timepoint,form,timepoint_str)
-        print('done')
+                    self.check_for_errors(row.subjectid,\
+                    timepoint,form,timepoint_str)
 
     def collect_all_tp_forms(self,timepoint):
         """Collects every form at
@@ -280,6 +293,7 @@ class NDASubjects():
         ----------------
         err_form_list: list of psychs forms
         """
+
         if self.subject_info[subject]['cohort'] == 'HC':
             err_form_list = ['psychs_p1p8_fu_hc','psychs_p9ac32_fu_hc']
         elif self.subject_info[subject]['cohort'] == 'CHR':
@@ -317,11 +331,13 @@ class NDASubjects():
             if err_form == 'psychs_p1p8_fu/psychs_p9ac32_fu':
                 err_form_list = self.collect_psychs_err_forms(subject)
             for curr_err_form in err_form_list:
-                if curr_err_form == form and timepoint == err_tp and error_sub == subject\
+                if curr_err_form == form and \
+                timepoint == err_tp and error_sub == subject\
                 and getattr(row,'Date_Resolved') == ''\
                 and getattr(row,'Manually_Marked_as_Resolved') == '':
                     self.form_status_dictionary[\
-                        subject][form + '_' + timepoint_str] = 'Form Contains Unresolved Errors'
+                        subject][form + '_' + timepoint_str] = \
+                        'Form Contains Unresolved Errors'
 
 
     def reformat_excel(self, file_path):
@@ -334,47 +350,62 @@ class NDASubjects():
         """
 
         wb = openpyxl.load_workbook(file_path)
-        red_fill = PatternFill(start_color="c47f7a", end_color="c47f7a", fill_type="solid")
-        green_fill = PatternFill(start_color="b9d9b4", end_color="b9d9b4", fill_type="solid")
-        yellow_fill = PatternFill(start_color="e6ebbc", end_color="e6ebbc", fill_type="solid")
-        grey_fill = PatternFill(start_color="B1B1B1", end_color="B1B1B1", fill_type="solid")
-        purple_fill  = PatternFill(start_color="7A4A75", end_color="7A4A75", fill_type="solid")
+        color_codes = {'red':'c47f7a','green':'b9d9b4',\
+                    'yellow':'e6ebbc','grey':'B1B1B1'}
+        fill_colors = {}
+        for color,code in color_codes.items():
+            fill_colors[color] = PatternFill(start_color=code,\
+            end_color=code, fill_type="solid")
         for sheet in wb:
             for column in sheet.iter_cols(min_row=2, min_col=4):
                 for cell in column:
-                    if cell.value in ['Not Marked Complete', 'Form Contains Unresolved Errors']:
-                        cell.fill = red_fill
+                    if cell.value in ['Not Marked Complete',\
+                    'Form Contains Unresolved Errors']:
+                        cell.fill = fill_colors['red']
                     elif cell.value in ['Marked as Missing']:
-                        cell.fill = yellow_fill
-                    elif cell.value in ['Marked NA']:
-                        cell.fill = purple_fill
+                        cell.fill = fill_colors['yellow']
                     elif cell.value in ['Completion Status Cannot Be Determined']:
-                        cell.fill = grey_fill
+                        cell.fill = fill_colors['grey']
                     else:
-                        cell.fill = green_fill
+                        cell.fill = fill_colors['green']
                     cell.border = Border(top=Side(style='thin'),\
                     right=Side(style='thin'), bottom=Side(style='thin'),\
                     left=Side(style='thin'))
-            for column in sheet.columns:
-                max_length = 0
-                column_letter = get_column_letter(column[0].column)
-                for cell in column:
-                    if cell.coordinate in sheet.merged_cells:
-                        continue
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except TypeError:
-                        pass
-                adjusted_width = (max_length + 2) * 1.2
-                sheet.column_dimensions[column_letter].width = adjusted_width
+            sheet = self.adjust_width(sheet)
             sheet.sheet_view.showGridLines = True 
             sheet.freeze_panes = "D2" 
         wb.save(file_path)
-        print(self.network)
         for path in [self.absolute_path,self.predict_path]:
             wb.save(f"{path}form_status_tracker_{self.network}.xlsx")
     
+    def adjust_width(self,sheet):
+        """
+        Adjusts width of current
+        excel sheet.
+
+        Parameters
+        --------------
+        sheet: input sheet
+
+        Returns
+        --------------------
+        sheet: sheet after width is adjusted
+        """
+        for column in sheet.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                if cell.coordinate in sheet.merged_cells:
+                    continue
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except TypeError:
+                    pass
+            adjusted_width = (max_length + 2) * 1.2
+            sheet.column_dimensions[column_letter].width = adjusted_width
+        return sheet
+
 
     def collect_dropbox_credentials(self):
         """reads dropbox credentials from
