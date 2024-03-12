@@ -180,7 +180,7 @@ class NDASubjects():
                 if form in self.excluded_forms:
                     self.form_status_dictionary[\
                     row.subjectid][form+'_' +timepoint_str] = \
-                    'Completion Status Cannot Be Determined'
+                    ''
                     self.check_for_errors(row.subjectid,\
                     timepoint,form,timepoint_str)
                     continue
@@ -239,10 +239,10 @@ class NDASubjects():
             and getattr(row,self.unique_form_variables[\
             form]['missing_variable']) in [1,1.0,'1','1.0']):
                 self.form_status_dictionary[row.subjectid][form+'_' +timepoint_str]\
-                = 'Marked as Missing'
+                = ''
             elif current_completion_status in [3,3.0,'3','3.0']:
                 self.form_status_dictionary[row.subjectid][form +'_' +timepoint_str]\
-                = 'Marked as Missing'
+                = ''
         elif 'complete_variable' not in self.unique_form_variables[form].keys():
             self.form_status_dictionary[row.subjectid][form+'_' +timepoint_str]\
             = 'Completion Status Cannot Be Determined'
