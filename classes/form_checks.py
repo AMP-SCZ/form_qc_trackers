@@ -68,6 +68,7 @@ class FormChecks():
             self.cbc_differential_check()
         self.inclusion_psychs_check()
         #self.mri_scanner_check()
+        self.psychs_cohort_checks()
         if not self.prescient:
             self.tbi_check() 
             if self.checkbox_check() == False:
@@ -299,10 +300,8 @@ class FormChecks():
                     except Exception as e:
                         print(e)
             elif getattr(self.row,self.variable) in \
-            ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
-            '1909-09-09','1903-03-03','1901-01-01']\
-            and ('interview_date' in self.variable or\
-            'chrmri_entry_date' in self.variable):
+            self.missing_code_list and ('interview_date' in self.variable or\
+            self.variable in self.process_variables.unique_date_variable_names):
                 self.compile_errors.append_error(self.row,\
                 (f"Date is marked with a missing code ({getattr(self.row,self.variable)}),"
                 " but all interview dates are required"),\
@@ -1054,6 +1053,26 @@ class FormChecks():
                 " marked as converted in the conversion form."),\
                 'chrconv_conv','conversion_form',['Main Report'])
 
+    def psychs_cohort_checks(self):
+        """
+        Checks to make sure HC and CHR 
+        diagnoses are consistent with 
+        CAARMS and SIPS
+        """
 
-
-                                
+        if self.variable == 'chrcrit_inc3':
+            if self.row.chrcrit_inc3 in [1,1.0,'1','1.0'] and \
+            all(var in [0,0.0,'0','0.0'] for var \
+            in [self.row.chrpsychs_scr_ac7,self.row.chrpsychs_scr_ac27]):
+                self.compile_errors.append_error(\
+                self.row,(f"inclusion form indicates that CHR criteria are fulfilled"\
+                " but neither SIPS (chrpsychs_scr_ac7) nor CAARMS (chrpsychs_scr_ac27) are fulfilled."),\
+                self.variable,self.form,['Main Report'])
+            elif self.row.chrcrit_inc3 not in [1,1.0,'1','1.0'] and \
+            any(var in [1,1.0,'1','1.0'] for var \
+            in [self.row.chrpsychs_scr_ac7,self.row.chrpsychs_scr_ac27]):
+                self.compile_errors.append_error(\
+                self.row,(f"inclusion form indicates that CHR criteria are not fulfilled"\
+                " but either SIPS (chrpsychs_scr_ac7) or CAARMS (chrpsychs_scr_ac27) are fulfilled."),\
+                self.variable,self.form,['Main Report'])
+            
