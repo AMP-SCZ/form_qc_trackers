@@ -1,11 +1,8 @@
 import os,sys
 import warnings
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
 import pandas as pd,numbers,math,sys,openpyxl,datetime,random,matplotlib.pyplot as plt,collections,os,dropbox,re
 from openpyxl.styles import Border, Side, PatternFill, Font, Alignment, colors, Protection,Color
-from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import range_boundaries,get_column_letter
@@ -32,7 +29,7 @@ class GenerateTrackers():
 
     def __init__(self,dataframe, site_name, sheet_title):
         self.location = 'pnl_server'
-        self.test_prefix = ''
+        self.test_prefix = 'Tests/' #Tests/
         if self.location =='pnl_server':
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
             self.combined_cognition_folder = ''
@@ -50,6 +47,7 @@ class GenerateTrackers():
 
         self.green_fill = PatternFill(start_color='b9d9b4', end_color='b9d9b4', fill_type='gray125')
         self.grey_fill = PatternFill(start_color='ededed', end_color='ededed', fill_type='gray125')
+        self.white_fill = PatternFill(start_color='F8F8F8', end_color='F8F8F8', fill_type='gray125')
         self.yellow_fill = PatternFill(start_color='bab466', end_color='bab466', fill_type='gray125')
         self.blue_fill = PatternFill(start_color='d8cffc', end_color='d8cffc', fill_type='gray125') 
         self.thick_purple_border = Border(left=Side(style='thick', color='0e176b'),right=Side(style='thick', color='0e176b'),
@@ -75,10 +73,27 @@ class GenerateTrackers():
                 'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
                 'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
 
+        self.prescient_site_col_translations = {'Subject':'ID',\
+        'Timepoint': 'Timepoint of Error','Additional Comments':'Site Comments',\
+        "Subject's Current Timepoint": "Participant's Current Timepoint"}
+
+        self.new_prescient_order = ["Subject","Timepoint",\
+            "Subject's Current Timepoint","General Flag",\
+            "Specific Flags","Variable Translations","Sent to Site","Additional Comments",\
+            "Manually Marked as Resolved",\
+            "Date Resolved","Date Flag Detected","Time since Flag Detected"]
+
     def run_script(self):
         self.create_site_folders(True)
+        self.create_ra_folders()
         self.save_to_excel(self.dataframe,self.sheet_title)
         self.create_site_folders()
+
+    def reverse_dictionary(self,orig_dictionary):
+        new_dictionary = {}
+        for key,value in orig_dictionary.items():
+            new_dictionary[value] = key
+        return new_dictionary            
 
     def synchronize_resolved_rows(self,sheet):
         team_forms = {'Blood Report':['blood_sample_preanalytic_quality_assurance',\
@@ -101,15 +116,12 @@ class GenerateTrackers():
                             suffixes=('', '_new'))
                     for index,row in merged_df.iterrows():
                         for form in team_forms[sheet]:
-                            print(str(row['Date Resolved']))
-                            print(row['Date Resolved_new'])
                             if form in row['General Flag'].replace(' ','_').lower()\
                             and str(row['Date Resolved']) == 'nan' and str(row['Date Resolved_new']) not in ['','nan']:
                                 row['Date Resolved'] = row['Date Resolved_new']
                                 row["Subject's Current Timepoint"] = row["Subject's Current Timepoint_new"] 
                                 processed_row = {key: value for key, value in row.items() if not key.endswith('_new')}
                                 rows_to_move.append(processed_row)
-                                print(row["Date Resolved"])
 
                     self.dataframe = self.dataframe.append(rows_to_move, ignore_index=True)
 
@@ -117,7 +129,7 @@ class GenerateTrackers():
     def synchronize_dates(self,sheet):
         for combined_sheet in ['Main Report','Secondary Report']:
             if sheet in ['Cognition Report','Blood Report',\
-            'Minor Data Missing','Substantial Data Missing']:
+            'Minor Data Missing','Substantial Data Missing','NDA Errors']:
                 combined_path = (f'{self.absolute_path}'
                 f'site_outputs/{self.test_prefix}{self.site_name}/combined/{self.site_name}_Output.xlsx')
                 if os.path.exists(combined_path):
@@ -158,17 +170,34 @@ class GenerateTrackers():
         filename: name of file being checked
         """
 
-        old_dataframe =  pd.read_excel(filename,sheet_name=sheet)
+        old_dataframe =  pd.read_excel(filename, sheet_name=sheet)
         if self.site_name == 'PRESCIENT':
-            old_dataframe = old_dataframe[["Subject","Timepoint",\
+            if sheet == 'Main Report':
+                old_df_filepath  = (f'{self.absolute_path}site_outputs/{self.test_prefix}'
+                    f'{self.site_name}/combined/{self.site_name}_Output.xlsx')
+                dropbox_filepath = (f'/Apps/Automated QC Trackers/'
+                f'{self.test_prefix}PRESCIENT/')
+                prescient_full_names = []
+                for site in self.all_prescient_sites:
+                    prescient_full_names.append(self.site_full_name_translations[site])
+                old_dataframe = self.read_prescient_site_columns(old_dataframe,prescient_full_names,dropbox_filepath)
+                dropbox_filepath = (f'/Apps/Automated QC Trackers/'
+                f'{self.test_prefix}PRESCIENT/Melbourne (ME)/')
+                ra_list = self.create_ra_list()
+                old_dataframe = self.read_prescient_site_columns(old_dataframe,ra_list,dropbox_filepath)
+            new_order = ["Subject","Timepoint",\
             "Subject's Current Timepoint","General Flag",\
-            "Specific Flags","Sent to Site","Additional Comments",\
-            "Variable Translations","Manually Marked as Resolved",\
-            "Date Resolved","Date Flag Detected","Time since Flag Detected"]]
+            "Specific Flags","Variable Translations","Sent to Site","Additional Comments",\
+            "Manually Marked as Resolved",\
+            "Date Resolved","Date Flag Detected","Time since Flag Detected"]
+
+            old_dataframe = old_dataframe[self.new_prescient_order]
+
+            self.dataframe = self.dataframe[self.new_prescient_order]
 
         columns_to_keep = ['Manually Marked as Resolved',\
         'Additional Comments','Date Flag Detected']
-
+            
         for i, old_df_row in old_dataframe.iterrows():
             match = False
             for j, new_df_row in self.dataframe.iterrows():
@@ -176,7 +205,7 @@ class GenerateTrackers():
                 (old_df_row['Timepoint'] == new_df_row['Timepoint']) and\
                 (old_df_row['General Flag'].split(':')[0].replace(' ','')\
                 == new_df_row['General Flag'].split(':')[0].replace(' ','')):
-                    print(f"Match found in row {i} of df1 and row {j} of df2")
+                    #print(f"Match found in row {i} of df1 and row {j} of df2")
                     new_df_row['Date Resolved'] = ''
                     if old_df_row['Date Resolved'] != '':
                         specfic_flag_match = False
@@ -260,11 +289,7 @@ class GenerateTrackers():
             self.synchronize_dates(sheet)
 
             if self.site_name == 'PRESCIENT':
-                self.dataframe = self.dataframe[["Subject","Timepoint",\
-                "Subject's Current Timepoint","General Flag",\
-                "Specific Flags","Sent to Site","Additional Comments",\
-                "Variable Translations","Manually Marked as Resolved",\
-                "Date Resolved","Date Flag Detected","Time since Flag Detected"]]
+                self.dataframe = self.dataframe[self.new_prescient_order]
 
             with pd.ExcelWriter(filename, mode='a',\
             engine='openpyxl',if_sheet_exists = 'replace') as writer:
@@ -410,6 +435,9 @@ class GenerateTrackers():
                     header_value == "Specific Flags":
                         cell.fill = self.error_color
                         cell.border = cell_border
+                    elif header_value in ["Additional Comments",\
+                    "Manually Marked as Resolved"]:
+                        cell.fill = self.white_fill    
                     else:       
                         cell.fill = self.grey_fill   
                 except Exception as e:
@@ -428,6 +456,7 @@ class GenerateTrackers():
         worksheet: current sheet
         filename: current file
         """
+        
 
         for column in worksheet.columns:
             max_length = 0
@@ -441,10 +470,11 @@ class GenerateTrackers():
                 except TypeError:
                     pass
             if self.site_name == 'PRESCIENT':
-                adjusted_width = (max_length + 110) * .15
+                adjusted_width = (max_length + 60) * .2
             else:
                 adjusted_width = (max_length + 110) * .2
             worksheet.column_dimensions[column_letter].width = adjusted_width
+            
         for row in worksheet.iter_rows():
             for cell in row:
                 cell.alignment = Alignment(wrap_text=False,\
@@ -452,7 +482,8 @@ class GenerateTrackers():
         font = Font(size=16, bold=True)
         for cell in worksheet[1]:
             cell.font = font
-        worksheet.row_dimensions[1].height = 24
+            cell.alignment = Alignment(wrap_text=True, horizontal='center', vertical='center')
+        worksheet.row_dimensions[1].height = 80
         color = worksheet['A1'].fill.start_color.index
         worksheet.freeze_panes = 'C2'
         columns_to_lock = []
@@ -496,17 +527,24 @@ class GenerateTrackers():
         dbx = self.collect_dropbox_credentials()
 
         if download_combined:
-            for network in ['PRONET']:
+            for network in ['PRONET','PRESCIENT']:
                 dropbox_path = f'/Apps/Automated QC Trackers/{self.test_prefix}{network}/combined'
                 for entry in dbx.files_list_folder(dropbox_path).entries:
+                    print(entry.name)
+                    if entry.name != f'{network}_Output.xlsx':
+                        continue
                     _, res = dbx.files_download(dropbox_path + f'/{entry.name}')
                     data = res.content
                     with open(f'{self.absolute_path}site_outputs/{self.test_prefix}{network}/combined/{entry.name}', "wb") as f:
                         f.write(data)
+                        print(f'{entry} data written')
         else:
             network = self.site_name
             dropbox_path = f'/Apps/Automated QC Trackers/{self.test_prefix}{network}/combined'
             for entry in dbx.files_list_folder(dropbox_path).entries:
+                print(entry.name)
+                if entry.name != f'{network}_Output.xlsx':
+                    continue
                 combined_path = f'{self.absolute_path}site_outputs/{self.test_prefix}{network}/combined/{entry.name}'
                 with open(combined_path, 'rb') as f:
                     dbx.files_upload(f.read(),dropbox_path + f'/{entry.name}',\
@@ -514,7 +552,6 @@ class GenerateTrackers():
                 _, res = dbx.files_download(dropbox_path + f'/{entry.name}')
                 data = res.content
                 self.save_team_folders(combined_path,dbx,network)
-                
                 for sheet in ['Main Report']:                
                     if ('SCID' in entry.name and sheet != 'Scid Report')\
                     or ('SCID' not in entry.name and sheet == 'Scid Report'):
@@ -532,25 +569,135 @@ class GenerateTrackers():
                         site_path = site_folder + f'/{entry.name}'
                         if self.sheet_title == 'Main Report':
                             self.save_site_output(combined_path,site,site_path,site_folder)
-                            self.remove_output_columns(site_path)
-                            with open(site_path, 'rb') as f:
-                                dbx.files_upload(f.read(),\
-                                f'/Apps/Automated QC Trackers/{self.test_prefix}{network}/{site_full_name}/{entry.name}',\
-                                mode=dropbox.files.WriteMode.overwrite)
+                            dropbox_path =  (f'/Apps/Automated QC Trackers/'
+                                             f'{self.test_prefix}{network}/{site_full_name}/{entry.name}')
+                            print(dropbox_path)
+                            print(site_path)
+                            print(dbx)
+                            self.upload_subfolder(site_path, dropbox_path, dbx)
+                    if self.site_name == 'PRESCIENT':
+                        ra_list = self.create_ra_list()
+                        with open(f'{self.absolute_path}ra_assignments.json', 'r') as file:
+                            ra_assignments = json.load(file)
+                        ra_assignments = {key.replace(" ", "_"): value for key, value in ra_assignments.items()}
+                        print(ra_assignments)
+                        for ra in ra_list:
+                            print(ra)
+                            ra_folder = (f'{self.absolute_path}site_outputs/'
+                            f'{self.test_prefix}{network}/Melbourne (ME)/{ra}')
+                            ra_path = ra_folder + f'/{entry.name}'
+                            print(ra_path)
+                            if self.sheet_title == 'Main Report':
+                                self.save_site_output(combined_path,'ME', ra_path, ra_folder, ra_assignments[ra])
+                                dropbox_path = (f'/Apps/Automated QC Trackers/'
+                                f'{self.test_prefix}{network}/Melbourne (ME)/{ra}/{entry.name}')
+                                self.upload_subfolder( ra_path, dropbox_path, dbx)
+                                    
+    def upload_subfolder(self, full_path,dropbox_path, dbx):
+        self.remove_output_columns(full_path)
+        if self.site_name =='PRESCIENT':
+            self.rename_excel_columns(full_path, self.prescient_site_col_translations)
+        with open(full_path, 'rb') as f: 
+            dbx.files_upload(f.read(),\
+            dropbox_path,\
+            mode=dropbox.files.WriteMode.overwrite)
 
     def remove_output_columns(self,path):
         with open(path,'rb') as f:
             wb = load_workbook(path)
             ws = wb['Main Report']  
-            if self.site_name =='PRONET':
-                column_to_remove = 11
-            else:
-                column_to_remove = 6
-
+            column_to_remove = self.get_column_number(ws,'Sent to Site')
             ws.delete_cols(column_to_remove)
             wb.save(path)
 
-    def save_site_output(self,combined_path,site_prefix,site_path,site_folder):
+    def get_column_number(self, sheet, column_name, header_row=1):
+        for col in range(1, sheet.max_column + 1):
+            if sheet.cell(row=header_row, column=col).value == column_name:
+                return col
+        return None
+
+    def rename_excel_columns(self,path, translations):
+        with open(path,'rb') as f:
+            wb = load_workbook(path)
+            ws = wb['Main Report']  
+        for old_name, new_name in translations.items():
+            col_num = self.get_column_number(ws, old_name)
+            if ws.cell(row=1, column=col_num).value == old_name:
+                ws.cell(row=1, column=col_num).value = new_name
+        wb.save(path)
+
+    def create_ra_list(self):
+        with open(f'{self.absolute_path}ra_assignments.json', 'r') as file:
+            ra_assignments = json.load(file)
+        print(ra_assignments)
+        ra_list = list(ra_assignments.keys())   
+        ra_list = [ra.replace(' ','_') for ra in ra_list]
+        return ra_list
+
+    def create_ra_folders(self):
+        site_folder = (f'{self.absolute_path}site_outputs/'
+        f'{self.test_prefix}PRESCIENT/{self.site_full_name_translations["ME"]}')
+        ra_list = self.create_ra_list()
+        
+        for ra in ra_list:
+            ra_path = site_folder + '/' + ra
+            print(ra_path)
+            if not os.path.exists(ra_path):
+                os.makedirs(ra_path)
+        print(ra_list)
+
+    def read_prescient_site_columns(self, parent_df, child_df_list, dropbox_parent_path):
+        dbx = self.collect_dropbox_credentials()
+        def check_dropbox_path_exists(path):
+            try:
+                dbx.files_get_metadata(path)
+                return True
+            except dropbox.exceptions.ApiError as e:
+                if isinstance(e.error, dropbox.files.GetMetadataError):
+                    return False
+                else:
+                    raise e
+
+        combined_df = parent_df
+        for subcategory in child_df_list:
+            print(subcategory)
+            dropbox_path = (f'{dropbox_parent_path}{subcategory}')
+            if not check_dropbox_path_exists(dropbox_path):
+                continue
+            for entry in dbx.files_list_folder(dropbox_path).entries:
+                print(entry.name)
+                if entry.name != f'PRESCIENT_Output.xlsx':
+                    continue
+                _, res = dbx.files_download(dropbox_path + f'/{entry.name}')
+                data = res.content
+                site_df = pd.read_excel(BytesIO(data),\
+                sheet_name='Main Report')
+
+                reverse_translations = self.reverse_dictionary(self.prescient_site_col_translations)
+                site_df.rename(columns=reverse_translations, inplace=True)
+
+                site_df.columns = site_df.columns.str.replace(' ','_')
+                combined_df.columns = combined_df.columns.str.replace(' ','_')
+                print(site_df['Manually_Marked_as_Resolved'])
+            
+                combined_df = pd.merge(combined_df, site_df, on=['Subject', 'Timepoint', 'General_Flag'], how='left', suffixes=('', '_site'))
+
+                combined_df['Manually_Marked_as_Resolved'] = combined_df['Manually_Marked_as_Resolved'].fillna(combined_df['Manually_Marked_as_Resolved_site'])
+                combined_df['Additional_Comments'] = combined_df['Additional_Comments'].fillna(combined_df['Additional_Comments_site'])
+
+                combined_df['Manually_Marked_as_Resolved'] = combined_df['Manually_Marked_as_Resolved'].fillna(combined_df['Manually_Marked_as_Resolved'])
+                combined_df['Additional_Comments'] = combined_df['Additional_Comments'].fillna(combined_df['Additional_Comments'])
+                combined_df = combined_df.loc[:, ~combined_df.columns.str.endswith('_site')]
+                print(combined_df['Manually_Marked_as_Resolved'])
+
+                combined_df.columns = combined_df.columns.str.replace('_',' ')
+                
+                #combined_df.to_excel(filepath, index = False)
+
+        return combined_df
+
+
+    def save_site_output(self,combined_path,site_prefix,site_path,site_folder, ra_list = []):
         """Function to remove all subjects
         not in site and save it to the site folder
 
@@ -566,43 +713,52 @@ class GenerateTrackers():
 
         wb = load_workbook(combined_path)
         ws = wb['Main Report']
-        ws.conditional_formatting = ConditionalFormattingList()
-        column_to_check = 'H'
-        rule = Rule(type="expression", dxf=DifferentialStyle(fill=self.blue_fill))
-        formula =\
-        f'ISBLANK(${get_column_letter(ws[column_to_check + "2"].column)}2)=FALSE'
-        rule.formula = [formula]
-        columns_to_format = ['D', 'E']
-        for column in columns_to_format:
-            column_range = column + "2:" + column + str(ws.max_row)
-            ws.conditional_formatting.add(column_range, rule)
+        if self.site_name == 'PRESCIENT':
+            ws.conditional_formatting = ConditionalFormattingList()
+            column_to_check = 'H'
+            rule = Rule(type="expression", dxf=DifferentialStyle(fill=self.blue_fill))
+            formula =\
+            f'ISBLANK(${get_column_letter(ws[column_to_check + "2"].column)}2)=FALSE'
+            rule.formula = [formula]
+            columns_to_format = ['D', 'E']
+            for column in columns_to_format:
+                column_range = column + "2:" + column + str(ws.max_row)
+                ws.conditional_formatting.add(column_range, rule)
 
-        check_column_letter = 'A'
-        check_column_index\
-        = openpyxl.utils.column_index_from_string(check_column_letter)
-        rows_to_remove = []
-        for row in ws.iter_rows(min_row=2):  
-            cell_value = str(row[check_column_index - 1].value)
-            if not cell_value.startswith(site_prefix):
-                rows_to_remove.append(row[0].row)
-        count = 0
-        start_index = None
-        for current_index in reversed(rows_to_remove):
-            if start_index is None:
-                start_index = current_index
-                count = 1
-            elif current_index == start_index - 1:
-                start_index -= 1
-                count += 1
-            else:
+        def remove_rows(ws, ra_list):
+            print(ra_list)
+            check_column_letter = 'A'
+            check_column_index\
+            = openpyxl.utils.column_index_from_string(check_column_letter)
+            rows_to_remove = []
+            for row in ws.iter_rows(min_row=2):  
+                cell_value = str(row[check_column_index - 1].value)
+                if (not cell_value.startswith(site_prefix))\
+                or (cell_value not in ra_list and ra_list != []):
+                    rows_to_remove.append(row[0].row)
+            count = 0
+            start_index = None
+            for current_index in reversed(rows_to_remove):
+                if start_index is None:
+                    start_index = current_index
+                    count = 1
+                elif current_index == start_index - 1:
+                    start_index -= 1
+                    count += 1
+                else:
+                    ws.delete_rows(start_index, count)
+                    start_index = current_index
+                    count = 1
+            if start_index is not None:
                 ws.delete_rows(start_index, count)
-                start_index = current_index
-                count = 1
-        if start_index is not None:
-            ws.delete_rows(start_index, count)
-        sheet_to_keep = 'Main Report'  
+            return ws
+        
+        sheets_to_keep = ['Main Report', 'Manual Monitoring']
+        for sheet in sheets_to_keep:
+            ws = wb[sheet]
+            ws = remove_rows(ws, ra_list)
         sheets_to_remove = [sheet.title for sheet in wb \
-        if sheet.title != sheet_to_keep]
+        if sheet.title not in sheets_to_keep]
         for sheet_name in sheets_to_remove:
             std = wb[sheet_name]
             wb.remove(std)
@@ -637,3 +793,4 @@ class GenerateTrackers():
                 mode=dropbox.files.WriteMode.overwrite)
 
 
+#GenerateTrackers('', 'PRESCIENT', 'Main Report').create_site_folders()
