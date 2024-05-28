@@ -12,18 +12,7 @@ class ProcessVariables():
     dictionary"""
 
     def __init__(self,dataframe,timepoint, sheet_title):
-        self.location = 'pnl_server'
-        if self.location =='pnl_server':
-            self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
-            self.combined_cognition_folder = ''
-            self.penn_path = '/data/predict1/data_from_nda/'
-            self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
-        else:
-            self.combined_df_folder =\
-            'C:/formqc/AMPSCZ_QC_and_Visualization/QC/combined_csvs/'
-            self.penn_path = ''
-            self.combined_cognition_folder = 'cognition/'
-            self.absolute_path = ''
+        self.initialize_parent_directories()
 
         self.sheet_title = sheet_title
 
@@ -40,7 +29,7 @@ class ProcessVariables():
         self.timepoint = timepoint
         self.missing_code_list =  ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
         '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,\
-        '-99.0',999,999.0,'999','999.0'] #TODO: make sure these can never be legitimate values
+        '-99.0',999,999.0,'999','999.0']
 
         self.read_dataframes(dataframe)
         self.initialize_penn_data()
@@ -56,6 +45,11 @@ class ProcessVariables():
         'baseline_dates_variables':[],'unique_form_variables':{},
         'comments_dictionary': {}, 'all_csv_variables': []}
 
+        self.define_variables()
+        self.organize_variables()
+        print(self.variable_info_dictionary['forms_without_missing_variable'])
+
+    def define_variables(self):
         self.error_dictionary = {}
         self.match_timepoint_forms_dict_chr =\
         self.json_data['match_timepoint_forms_dict_chr']
@@ -68,7 +62,7 @@ class ProcessVariables():
         self.scid_missing_code_checks = []
         self.branching_logic_qc_dict = {}
         self.report_list = ['Main Report','Secondary Report',\
-        'Blood Report','Scid Report','Cognition Report']
+        'Blood Report','Scid Report','Cognition Report','NDA Errors']
         self.blank_check_variables_per_report = {}
         for report in self.report_list:
             self.blank_check_variables_per_report[report] = []
@@ -79,9 +73,23 @@ class ProcessVariables():
         self.all_blood_id_variables = []
         self.all_blood_volume_variables = []
         self.all_forms = []
+        self.all_interview_dates = []
 
-        self.organize_variables()
 
+    def initialize_parent_directories(self):
+        self.location = 'pnl_server'
+        if self.location =='pnl_server':
+            self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
+            self.combined_cognition_folder = ''
+            self.penn_path = '/data/predict1/data_from_nda/'
+            self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
+        else:
+            self.combined_df_folder =\
+            'C:/formqc/AMPSCZ_QC_and_Visualization/QC/combined_csvs/'
+            self.penn_path = ''
+            self.combined_cognition_folder = 'cognition/'
+            self.absolute_path = ''
+            
     def create_timepoint_dict(self):
         """Creates a dictionary
         with every timepoint."""
@@ -125,7 +133,7 @@ class ProcessVariables():
         encoding = 'latin-1',keep_default_na=False)
 
         self.prescient_entry_statuses = pd.read_csv(\
-        f'{self.absolute_path}combined_prescient_completion_status.csv',\
+        f'/PHShome/ob001/anaconda3/combined_prescient_completion_status.csv',\
         keep_default_na=False)
 
         self.csv_mismatch_df = pd.read_csv(f'{self.absolute_path}csv_differences.csv',\
@@ -182,7 +190,7 @@ class ProcessVariables():
         self.collect_forms_without_missing_variables()
         self.collect_included_subjects()
         self.collect_checkbox_variables()
-        print(self.variable_info_dictionary['unique_form_variables'])
+
 
     def convert_range_to_list(self,range_str,str_conv = False):
         """Converts a range to a list of every
@@ -258,10 +266,14 @@ class ProcessVariables():
         ['chrpsychs_av_dev_desc', 'chrcrit_included',\
         'chrchs_timeslept','chrdemo_age_mos_chr',\
         'chrdemo_age_mos_hc','chrdemo_age_mos2','chroasis_oasis_1',\
-        'chroasis_oasis_3','chrblood_rack_barcode']
+        'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']
         self.secondary_report_variables_additional_check = ['chrtbi_sourceinfo',\
         'chrspeech_uppast_pharmaceutical_treatment','family_interview_for_genetic_studies_figs',\
         'enrollment_noteload','chrpenn_complete']
+
+        self.nda_essential_variables = ['chrdemo_age_mos2', \
+        'chrdemo_age_mos_chr','chrdemo_age_mos_hc','chrdemo_sexassigned',\
+        'chrguid_pseudoguid','chrguid_guid']
 
         #self.initialize_scid_variables()
         self.define_excluded_data()
@@ -270,8 +282,9 @@ class ProcessVariables():
         """Defines various forms and variables that will be 
         excluded from different parts of the checks."""
 
-        self.excluded_from_blank_check = ['chroasis_oasis_1','chroasis_oasis_3','chrchs_timeslept']
-        self.excluded_prescient_forms = ['family_interview_for_genetic_studies_figs','blood_sample_preanalytic_quality_assurance']
+        self.excluded_from_blank_check = ['chroasis_oasis_1','chroasis_oasis_3','chrchs_timeslept','chrcrit_inc3']
+        self.excluded_prescient_forms = ['family_interview_for_genetic_studies_figs',\
+                                        'blood_sample_preanalytic_quality_assurance']
         self.excluded_self_report_forms = ['pubertal_developmental_scale',\
         'psychosis_polyrisk_score','oasis','item_promis_for_sleep','pgis',\
         'perceived_stress_scale','perceived_discrimination_scale']
@@ -632,6 +645,8 @@ class ProcessVariables():
             self.variable_info_dictionary['unique_form_variables'][form]['missing_variable'] = variable
         if variable.endswith('interview_date') or variable in self.unique_date_variable_names:
             self.variable_info_dictionary['unique_form_variables'][form]['interview_date'] = variable 
+            self.all_interview_dates.append(variable)
+            self.nda_essential_variables.append(variable)
         self.variable_info_dictionary['unique_form_variables'][form]['complete_variable'] =  form + '_complete'
         if '_date' in variable and 'error' not in variable\
         and 'add' not in variable and 'invalid' not in variable\
