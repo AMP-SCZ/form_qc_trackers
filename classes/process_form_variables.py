@@ -7,13 +7,14 @@ import openpyxl
 import json
 
 class ProcessVariables():
-    """Class to collect and organize 
+    """
+    Class to collect and organize 
     variables from the data
-    dictionary"""
+    dictionary
+    """
 
     def __init__(self,dataframe,timepoint, sheet_title):
         self.initialize_parent_directories()
-
         self.sheet_title = sheet_title
 
         with open(f'{self.absolute_path}data_storage.json', 'r') as file:
@@ -62,7 +63,8 @@ class ProcessVariables():
         self.scid_missing_code_checks = []
         self.branching_logic_qc_dict = {}
         self.report_list = ['Main Report','Secondary Report',\
-        'Blood Report','Scid Report','Cognition Report','NDA Errors']
+        'Blood Report','Scid Report','Cognition Report',\
+        'NDA Errors','Numerical Outliers', 'Non Team Forms']
         self.blank_check_variables_per_report = {}
         for report in self.report_list:
             self.blank_check_variables_per_report[report] = []
@@ -75,11 +77,14 @@ class ProcessVariables():
         self.all_forms = []
         self.all_interview_dates = []
 
+        self.ap_miss_code_vars = []
+
 
     def initialize_parent_directories(self):
         self.location = 'pnl_server'
         if self.location =='pnl_server':
             self.combined_df_folder = '/data/predict1/data_from_nda/formqc/'
+            #self.combined_df_folder = '/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/'
             self.combined_cognition_folder = ''
             self.penn_path = '/data/predict1/data_from_nda/'
             self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
@@ -155,8 +160,29 @@ class ProcessVariables():
         self.fsiq_conversion_df = pd.read_csv(\
         f'{self.absolute_path}cognition/fsiq_conversion.csv')
 
+        self.fsiq_conversions_per_test = {'wasi':''}
+        self.iq_raw_conversions_per_test = {'wasi':''}
+        
+        for iq_type, dataframe in self.fsiq_conversions_per_test.items():
+            self.fsiq_conversions_per_test[iq_type] = pd.read_csv(\
+            f'{self.absolute_path}fsiq_conversion_{iq_type}.csv')
+
+            self.iq_raw_conversions_per_test[iq_type] = pd.read_csv(\
+            f'{self.absolute_path}iq_raw_conversion_{iq_type}.csv')
+            self.iq_raw_conversions_per_test[iq_type].iloc[0] =\
+            self.iq_raw_conversions_per_test[iq_type].iloc[0].apply(self.convert_range_to_list)
+        self.outlier_df = pd.read_excel(\
+        "/PHShome/ob001/anaconda3/new_forms_qc/QC/classes/outlier_definitions.xlsx",\
+        keep_default_na=False)
+
+    def add_outlier_vars(self):
+        for row in self.outlier_df.itertuples():
+            if row.Variable not in self.additional_variables:
+                self.additional_variables.append(row.Variable)
+                self.excluded_from_blank_check.append(row.Variable)
     def modify_csv_mismatch_df(self):
-        """Changes visit status format 
+        """
+        Changes visit status format 
         and initializes variables
         used for data corrections 
         from raw CSVs
@@ -183,6 +209,10 @@ class ProcessVariables():
         from the data dictionary to be used later 
         in the script."""
 
+        if self.prescient:
+            self.excluded_strings.extend(self.all_blood_id_variables)
+            self.excluded_strings.append('chrblood_rack_barcode')
+
         self.collect_psychs_variables()
         self.initialize_scid_variables()
         self.process_data_dictionary()
@@ -190,7 +220,8 @@ class ProcessVariables():
         self.collect_forms_without_missing_variables()
         self.collect_included_subjects()
         self.collect_checkbox_variables()
-
+        self.add_outlier_vars()
+        self.create_team_report_dictionary()
 
     def convert_range_to_list(self,range_str,str_conv = False):
         """Converts a range to a list of every
@@ -243,9 +274,11 @@ class ProcessVariables():
         self.penn_sheet_name = self.timepoint
 
     def define_form_exceptions(self):
-        """Initializes variables associated with
+        """
+        Initializes variables associated with
         various exceptions to generalizations made
-        in the code."""
+        in the code.
+        """
 
         self.specific_value_check_dictionary = {'chrspeech_upload':\
         {'correlated_variable':'chrspeech_upload','checked_value_list':[0,0.0,'0','0.0'],\
@@ -279,12 +312,14 @@ class ProcessVariables():
         self.define_excluded_data()
         
     def define_excluded_data(self):
-        """Defines various forms and variables that will be 
-        excluded from different parts of the checks."""
+        """
+        Defines various forms and variables that will be 
+        excluded from different parts of the checks.
+        """
 
-        self.excluded_from_blank_check = ['chroasis_oasis_1','chroasis_oasis_3','chrchs_timeslept','chrcrit_inc3']
-        self.excluded_prescient_forms = ['family_interview_for_genetic_studies_figs',\
-                                        'blood_sample_preanalytic_quality_assurance']
+        self.excluded_from_blank_check = ['chroasis_oasis_1',\
+        'chroasis_oasis_3','chrchs_timeslept','chrcrit_inc3']
+        self.excluded_prescient_forms = ['family_interview_for_genetic_studies_figs']
         self.excluded_self_report_forms = ['pubertal_developmental_scale',\
         'psychosis_polyrisk_score','oasis','item_promis_for_sleep','pgis',\
         'perceived_stress_scale','perceived_discrimination_scale']
@@ -293,11 +328,11 @@ class ProcessVariables():
         'chrscid_overview_version','wb3id','se3id','se2id','wb2id',\
         'chrblood_freezerid','chrdbb_phone_model','chrdbb_phone_software'] 
      
-        self.excluded_pronet_strings = ['comment', 'note','chrcssrsb_cssrs_yrs_sb',\
+        self.excluded_pronet_strings =  ['comment', 'note','chrcssrsb_cssrs_yrs_sb',\
         'chrcssrsb_sb6l','chrcssrsb_nmapab','chrpas_pmod_adult3v3',\
         'chrpas_pmod_adult3v1','chrmri_t2_ge','chrcssrsfu_skip_aa',\
         'chric_surveys','chrdbb_phone_model','chrdbb_phone_software']
-
+        
         self.missing_variable_exceptions = ['past_pharmaceutical_treatment',\
         'scid5_psychosis_mood_substance_abuse']
 
@@ -337,9 +372,21 @@ class ProcessVariables():
             'message': f'Value should be 1,3, or -9/NA','report':['Scid Report']}
         for key in self.scid_diagnosis_check_dictionary.keys():
             self.additional_variables.append(key)
+        """if self.prescient == True:
+            self.scid_additional_variables = \
+            [scid_var for scid_var in \
+            self.scid_additional_variables if '_b' not in scid_var]"""
+        print(self.scid_additional_variables)
         self.additional_variables.extend(self.scid_additional_variables) 
         self.additional_variables.extend(self.specific_value_check_scid_variables)
         self.excluded_from_blank_check.extend(self.specific_value_check_scid_variables)
+        if self.prescient == True:
+            for var in self.scid_additional_variables:
+                if 'chrscid_b' in var:
+                    self.excluded_strings.append(var)
+        print(self.scid_additional_variables)
+        print('EXCLUDED')
+        print(self.excluded_strings)
 
     def collect_variables_not_yet_added_to_dictioanry(self):
         """missing data variables that haven't been 
@@ -360,6 +407,7 @@ class ProcessVariables():
         -------------
         variable: variable from current row of data dictionary
         """
+        
         if 'blood' in variable and 'pos' in variable\
         and variable not in self.all_blood_position_variables:
             self.all_blood_position_variables.append(variable)
@@ -370,6 +418,7 @@ class ProcessVariables():
         if 'blood' in variable and 'vol' in variable\
         and variable not in self.all_blood_volume_variables:
             self.all_blood_volume_variables.append(variable)
+
 
     def initialize_report_variables(self, report, col_values):
         """Adds variable to corresponding report
@@ -392,7 +441,7 @@ class ProcessVariables():
                 self.variable_info_dictionary['total_num_form_variables'][col_values['form']] += 1
         if 'barcode' in str(col_values['field_label']):
             self.all_barcode_variables.append(col_values['variable'])
-        if col_values['field_type'] == 'radio':
+        if col_values['field_type'] == 'radio' and 'chrscid' in col_values['variable']:
             self.scid_missing_code_checks.append(col_values['variable'])
         if col_values['field_type'] == 'checkbox':
             self.variable_info_dictionary[\
@@ -403,8 +452,10 @@ class ProcessVariables():
             self.additional_variables.append(variable)
 
     def process_data_dictionary(self):
-        """Loops through the data dictionary and uses information
-        to define roles of the different variables"""
+        """
+        Loops through the data dictionary and uses information
+        to define roles of the different variables
+        """
 
         for row in self.data_dictionary_df.itertuples():
             data_dictionary_col_names = {'form':'Form Name',\
@@ -423,8 +474,12 @@ class ProcessVariables():
             self.collect_blood_variables(col_values['variable'])
             self.collect_unique_variables(col_values['form'],\
             col_values['variable'],col_values['field_type'])
+            
             self.edit_tbi_branch_logic(col_values['variable'])
             self.edit_past_pharm_branch_logic(col_values['variable'])
+
+            self.collect_ap_miss_code_vars(\
+            col_values['variable'],col_values['field_type'],col_values['field_label'])
 
             if col_values['variable'] in self.additional_variables or\
             (col_values['required_field'] == 'y' and col_values['identifier'] != 'y'\
@@ -553,9 +608,11 @@ class ProcessVariables():
                 self.variable_info_dictionary['included_subjects'].append(row.subjectid)
 
     def collect_psychs_variables(self):
-        """Function to collect all of the Psychs
+        """
+        Function to collect all of the Psychs
         variables that will be checked and
-        adds them to the additional variables list"""
+        adds them to the additional variables list
+        """
 
         letter_match_dict = {'b': ['5','6','19'],'d': ['16','30']}
         for key in letter_match_dict.keys():
@@ -581,6 +638,8 @@ class ProcessVariables():
                 {'correlated_variable':x,'checked_value_list':[0,0.0,'0','0.0'],\
                 'branching_logic':"",'negative':False,\
                 'message': f'value is 0','report':['Main Report']}
+        print('---------------------------------------')
+        print(self.additional_variables)
                 
     def branching_logic_redcap_to_python(self,variable,form,branching_logic):
         """This function focuses on converting the syntax
@@ -668,4 +727,42 @@ class ProcessVariables():
                     self.checkbox_variable_dictionary[x].append(y)
 
 
+    def collect_ap_miss_code_vars(self,var,field_type, field_label):
+        if ('Dose/Day' in field_label or 'Days/Course' in field_label)\
+        and field_type == 'text' and var not in self.ap_miss_code_vars and 'chrap' in var:
+            self.ap_miss_code_vars.append(var)
+            print(self.ap_miss_code_vars)
 
+        
+
+    def create_team_report_dictionary(self):
+        self.team_report_forms = {'Blood Report':['blood_sample_preanalytic_quality_assurance',\
+        'cbc_with_differential'],\
+        'Cognition Report':['penncnb','premorbid_iq_reading_accuracy',\
+        'iq_assessment_wasiii_wiscv_waisiv'],
+        'Scid Report':['scid5_psychosis_mood_substance_abuse'],
+        'MRI Report':['mri_run_sheet'],'EEG Report':['eeg_run_sheet'],\
+        'Digital Report':['digital_biomarkers_mindlamp_onboarding',\
+        'digital_biomarkers_axivity_onboarding',
+        'digital_biomarkers_mindlamp_checkin','digital_biomarkers_axivity_checkin',\
+        'digital_biomarkers_axivity_end_of_12month_study_pe',\
+        'digital_biomarkers_mindlamp_end_of_12month_study_p'],\
+        'Fluids Report':['gcp_cbc_with_differential','gcp_current_health_status',\
+        'daily_activity_and_saliva_sample_collection','blood_sample_preanalytic_quality_assurance',\
+        'cbc_with_differential','current_health_status']}
+
+        non_team_forms = []
+        all_team_forms = []
+
+        for key,value in self.team_report_forms.items():
+            for form in value:
+                if form not in all_team_forms:
+                    all_team_forms.append(form)
+        for form in self.all_forms:
+            if form not in all_team_forms:
+                if form not in non_team_forms:
+                    non_team_forms.append(form)
+
+        self.team_report_forms['Non Team Forms'] = non_team_forms
+        print(self.team_report_forms)
+       
