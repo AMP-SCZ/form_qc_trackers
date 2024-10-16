@@ -11,8 +11,10 @@ import math
 import pandas as pd
 import datetime
 class IterateForms():
-    """Class to loop through each form and perform
-    error checks."""
+    """
+    Class to loop through each form and perform
+    error checks.
+    """
 
     def __init__(self,dataframe,timepoint, sheet_title):
         self.process_variables = ProcessVariables(dataframe,timepoint, sheet_title)
@@ -58,7 +60,6 @@ class IterateForms():
                     if any(key.replace('month','') == x for x in values[0]):
                       self.timepoint_variable_lists[key].extend(values[1])
 
-
     def main_loop(self):
         """Main loop to further filter out
         which variables/forms get sent down 
@@ -84,7 +85,8 @@ class IterateForms():
         return df
           
     def filter_rows(self,timepoint):
-        """Filters out certain forms or variables and 
+        """
+        Filters out certain forms or variables and 
         allows the ones that should be checked throught to
         the error check functions.
 
@@ -131,9 +133,11 @@ class IterateForms():
                 self.check_form_completion(timepoint)
 
     def check_form_completion(self,timepoint):
-        """Only used for Prescient. Checks
+        """
+        Only used for Prescient. Checks
         if form has not been completed when subject
-        has moved onto next timepoint"""
+        has moved onto next timepoint
+        """
 
         if self.row.subjectid in self.variable_info_dictionary['included_subjects'] and self.form in\
         self.timepoint_variable_lists[timepoint] and self.form not in self.excluded_forms\
@@ -144,7 +148,8 @@ class IterateForms():
         'family_interview_for_genetic_studies_figs','past_pharmaceutical_treatment'] \
         and self.current_prescient_complete_value not in\
         [2,2.0,'2','2.0','3','3.0',3,3.0,'4','4.0',4,4.0]) or (self.prescient==False\
-        and getattr(self.row, self.variable_info_dictionary['unique_form_variables'][self.form]['complete_variable'])\
+        and getattr(self.row, self.variable_info_dictionary[\
+        'unique_form_variables'][self.form]['complete_variable'])\
         not in [2,2.0,'2','2.0']))):
             if self.prescient:
                 sheet_list = ['Incomplete Forms','Main Report']
@@ -212,7 +217,8 @@ class IterateForms():
                     conditions['message'],conditions['branching_logic'],conditions['report']) 
 
     def error_check(self,variable_list,workaround=False):
-        """Function used by the main_loop to check a variable for any errors
+        """
+        Function used by the main_loop to check a variable for any errors
 
         Parameters
         ----------------
@@ -253,12 +259,14 @@ class IterateForms():
                             continue
 
     def check_if_blank(self,workaround):
-        """Function to check if a value is blank
+        """
+        Function to check if a value is blank
     
         Parameters
         ------------
         workaround: whether or not missing variable workaround is occuring
         """
+
         self.current_report_list = []
         for report, var_list in\
         self.process_variables.blank_check_variables_per_report.items():
@@ -272,33 +280,29 @@ class IterateForms():
                         self.current_report_list.extend(['Minor Data Missing','Main Report'])
         if self.variable in self.process_variables.nda_essential_variables:
             self.current_report_list.append('NDA Errors')
-                     
-        team_report_forms = {'Blood Report':['blood_sample_preanalytic_quality_assurance',\
-        'cbc_with_differential'],\
-        'Cognition Report':['penncnb','premorbid_iq_reading_accuracy',\
-        'iq_assessment_wasiii_wiscv_waisiv'],
-        'Scid Report':['scid5_psychosis_mood_substance_abuse']}
-        for report, form_list in team_report_forms.items():
+        for report, form_list in self.process_variables.team_report_forms.items():
             if self.form in form_list:
                 self.current_report_list.append(report)
         self.additional_checks.call_extra_checks(self.form,self.variable,\
-        self.prescient,self.current_report_list,self.timepoint_variable_lists,self.timepoint, self.row)
+        self.prescient,self.current_report_list, \
+        self.timepoint_variable_lists,self.timepoint, self.row)
         if self.variable\
         not in self.process_variables.excluded_from_blank_check:
             if hasattr(self.row, self.variable):
                 if (getattr(self.row, self.variable) =='' or\
                 pd.isna(getattr(self.row, self.variable))\
-                or (self.prescient == True and self.sheet_title == 'Scid Report'\
-                and getattr(self.row, self.variable) in self.missing_code_list) ):
+                or (self.prescient == True and self.sheet_title in ['Scid Report','Main Report']\
+                and getattr(self.row, self.variable) in \
+                self.missing_code_list and 'chrscid' in self.variable) ):
                     raw_csv_variable_value = self.check_prescient_csv_mismatches(self.form)
                     if raw_csv_variable_value == '' or (self.prescient == True\
-                    and self.sheet_title == 'Scid Report' and\
+                    and self.sheet_title in ['Scid Report','Main Report'] and\
                     raw_csv_variable_value in self.missing_code_list\
-                    and self.variable in self.scid_missing_code_checks):
+                    and self.variable in self.process_variables.scid_missing_code_checks):
                         if workaround == False:
                             if raw_csv_variable_value not in self.missing_code_list:
                                 error_str = f'Value is empty'
-                            elif self.variable in self.scid_missing_code_checks:
+                            elif self.variable in self.process_variables.scid_missing_code_checks:
                                 error_str = f'Value is a missing code ({raw_csv_variable_value}).'
                             self.compile_errors.append_error(self.row,error_str,self.variable,\
                             self.form,self.current_report_list)
@@ -306,9 +310,11 @@ class IterateForms():
                             self.missing_workaround_error_count+=1 
     
     def additional_conditionals(self):
-        """Additional conditions added for certain forms.
+        """
+        Additional conditions added for certain forms.
         Those forms will only be checked if the conditions 
-        specified here are true."""
+        specified here are true.
+        """
 
         if self.form == 'pubertal_developmental_scale':
             age = ''
@@ -434,7 +440,7 @@ class IterateForms():
             getattr(self.row,self.variable) in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]: 
                 self.compile_errors.append_error(\
                 self.row, f'Participant has been excluded or removed, but their sex was not recorded.',\
-                self.variable,self.form,['Main Report','NDA Errors']) 
+                self.variable,self.form,['Main Report','NDA Errors','Non Team Forms']) 
             elif self.variable == 'chrdemo_age_mos_' +\
             hc_chr_dict[float(hc_or_chr)] and getattr(self.row,self.variable) \
             in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]\
@@ -442,7 +448,7 @@ class IterateForms():
             in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]:
                 self.compile_errors.append_error(self.row,\
                 f'Participant has been excluded or removed, but their age was not recorded.',\
-                self.variable,self.form,['Main Report','NDA Errors'])
+                self.variable,self.form,['Main Report','NDA Errors','Non Team Forms'])
             elif 'chrdemo_racial_back' in self.variable and consent_date != ''\
             and datetime.datetime.strptime(consent_date, '%Y-%m-%d')\
             < datetime.datetime.strptime('2023-01-01', '%Y-%m-%d'):
@@ -456,7 +462,7 @@ class IterateForms():
                 if not any(x in racial_list for x in [1, 1.0, '1', '1.0']): 
                     self.compile_errors.append_error(\
                     self.row, f'Participant has been excluded or removed, but their race was not recorded.',\
-                    'chrdemo_racial_back',self.form,['Main Report', 'NDA Errors'])
+                    'chrdemo_racial_back',self.form,['Main Report', 'NDA Errors','Non Team Forms'])
             """if self.row.visit_status_string not in ['removed','screen'] and \
             self.form == 'inclusionexclusion_criteria_review' and\
             self.row.chrcrit_included in [0.0,'0','0.0']\
@@ -466,28 +472,30 @@ class IterateForms():
                     'chrcrit_included',self.form,['Main Report'])"""
         self.inclusion_checks()
 
-
     def inclusion_checks(self):
-        """Makes sure participant is marked
+        """
+        Makes sure participant is marked
         as included/excluded and that they have not 
-        collected blood if included"""
+        collected blood if included
+        """
 
         if self.variable == 'chrcrit_included' and self.row.chrcrit_missing \
         not in [1,1.0,'1','1.0'] and (self.prescient == False\
         and ((self.row.inclusionexclusion_criteria_review_complete in [2,2.0,'2','2.0'] and \
         self.row.visit_status_string != 'removed') or self.row.visit_status_string\
-        not in ['consent', 'screen', 'removed','converted','baseln'] or int(self.row.last_visit_status) > 2))\
+        not in ['consent', 'screen', 'removed','converted','baseln'] or\
+        self.row.visit_status not in ['consent', 'screening', 'removed','converted','baseline']))\
         or (self.prescient == 'True' and self.row.visit_status_string \
         not in ['consent', 'screen', 'removed','converted','baseln']):
             if self.row.chrcrit_included == '' and self.row.chrcrit_excluded == '':
                 self.compile_errors.append_error(self.row, \
                 'Participant not marked as included or excluded',\
-                self.variable,self.form,['Main Report','NDA Errors']) 
+                self.variable,self.form,['Main Report','NDA Errors','Non Team Forms']) 
         if self.variable == 'chrblood_cbc':
             if getattr(self.row,self.variable) in [1,1.0,'1','1.0'] and \
             self.row.subjectid not in self.variable_info_dictionary['included_subjects']\
             and self.row.visit_status_string != 'removed':
                 self.compile_errors.append_error(self.row,\
                 f"Participant has not been included, but blood has been collected.",\
-                self.variable,self.form,['Main Report','Blood Report'])
+                self.variable,self.form,['Main Report','Blood Report', 'Fluids Report'])
 
