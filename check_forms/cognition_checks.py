@@ -38,35 +38,6 @@ class CognitionChecks():
 
         return abs(days_between)
 
-    def check_if_complete_and_not_missing(self,form):
-        """Checks if a form is marked as complete
-        and not marked as missing
-
-        Parameters
-        ----------------
-        form: forms being checked
-        """
-
-        complete_var = self.variable_info_dictionary[\
-        'unique_form_variables'][form]['complete_variable']
-        if getattr(self.row,complete_var) in [2,2.0,'2','2.0']:
-            if 'missing_variable' in self.variable_info_dictionary[\
-            'unique_form_variables'][form]:
-                missing_var = self.variable_info_dictionary[\
-                'unique_form_variables'][form]['missing_variable']
-            else:
-                return True
-            if hasattr(self.row,\
-            self.variable_info_dictionary[\
-            'unique_form_variables'][form]['missing_variable'])\
-            and str(getattr(self.row,\
-            self.variable_info_dictionary[\
-            'unique_form_variables'][form]['missing_variable']))\
-            in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]:
-                return True
-            else:
-                return False
-
     def collect_age(self):
         """Collects current age of 
         subject by checking each possible
