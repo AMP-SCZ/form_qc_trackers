@@ -4,7 +4,6 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from classes.data_checks import DataChecks
 from classes.cross_form_checks import CrossForms
 from classes.compile_errors import CompileErrors
-
 from classes.utils import Utils
 import pandas as pd
 import re
@@ -18,6 +17,11 @@ import numpy as np
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import Rule
 import openpyxl
+
+from fluid_checks import FluidChecks
+from clinical_checks import ClinicalChecks
+from cognition_checks import CognitionChecks
+
 
 class FormChecks():
     """Additional checks added to variables

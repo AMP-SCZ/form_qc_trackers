@@ -1,5 +1,10 @@
-class ClinicalChecks():
+import datetime
+import re
 
+class ClinicalChecks():
+    def __init__(self,row):
+        self.row = row
+        
     def collect_twenty_one_day_rule_dates(self,row):
         """Collectes appropriate baseline
         dates to check the 21 day rule"""

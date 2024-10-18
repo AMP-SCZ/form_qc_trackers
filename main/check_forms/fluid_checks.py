@@ -1,5 +1,4 @@
 class FluidChecks():
-
     def blood_vol_check(self):
         if self.variable in self.all_blood_volume_variables and hasattr(self.row,self.variable):
             vol = getattr(self.row,self.variable)
