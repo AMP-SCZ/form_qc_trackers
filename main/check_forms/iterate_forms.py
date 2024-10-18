@@ -235,10 +235,11 @@ class IterateForms():
             and self.sheet_title == 'Main Report':
                 if not self.prescient:
                     self.excluded_check()
-            if self.row.subjectid in\
+            if (self.row.subjectid in\
             self.variable_info_dictionary['included_subjects'] and\
             (self.row.visit_status_string != 'removed' or\
-            self.form in self.process_variables.removed_participants_forms):
+            self.form in self.process_variables.removed_participants_forms))\
+            or self.variable in self.process_variables.ap_miss_code_vars:
                 self.call_specific_value_check(workaround)
                 #self.additional_checks.call_scid_diagnosis_check(self.variable,self.row)
                 if branch['branching_logic'] in ['nan','']: 
@@ -298,11 +299,11 @@ class IterateForms():
                     if raw_csv_variable_value == '' or (self.prescient == True\
                     and self.sheet_title in ['Scid Report','Main Report'] and\
                     raw_csv_variable_value in self.missing_code_list\
-                    and self.variable in self.process_variables.scid_missing_code_checks):
+                    and self.variable in self.process_variables.missing_code_checks):
                         if workaround == False:
                             if raw_csv_variable_value not in self.missing_code_list:
                                 error_str = f'Value is empty'
-                            elif self.variable in self.process_variables.scid_missing_code_checks:
+                            elif self.variable in self.process_variables.missing_code_checks:
                                 error_str = f'Value is a missing code ({raw_csv_variable_value}).'
                             self.compile_errors.append_error(self.row,error_str,self.variable,\
                             self.form,self.current_report_list)

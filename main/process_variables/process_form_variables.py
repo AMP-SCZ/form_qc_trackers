@@ -638,8 +638,6 @@ class ProcessVariables():
                 {'correlated_variable':x,'checked_value_list':[0,0.0,'0','0.0'],\
                 'branching_logic':"",'negative':False,\
                 'message': f'value is 0','report':['Main Report']}
-        print('---------------------------------------')
-        print(self.additional_variables)
                 
     def branching_logic_redcap_to_python(self,variable,form,branching_logic):
         """This function focuses on converting the syntax

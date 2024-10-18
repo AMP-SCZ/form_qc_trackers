@@ -9,7 +9,7 @@ os.path.join(os.path.dirname(__file__),\
 if parent_dir_path not in sys.path:
     sys.path.append(parent_dir_path)
 
-from classes.utils import Utils
+from utils.utils import Utils
 import json
 class VariableMismatches():
     """

@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from classes.data_checks import DataChecks
 from classes.cross_form_checks import CrossForms
-from classes.compile_errors import CompileErrors
+from refactored_qc.form_qc_trackers.main.check_forms.compile_errors import CompileErrors
 from classes.utils import Utils
 import pandas as pd
 import re
