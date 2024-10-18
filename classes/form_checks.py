@@ -70,8 +70,8 @@ class FormChecks():
             self.blood_vol_check()
             self.check_blood_freeze()
             self.check_blood_dates()
-            self.cbc_unit_checks()
-            self.cbc_differential_check()
+        self.cbc_unit_checks()
+        self.cbc_differential_check()
         self.inclusion_psychs_check()
         #self.mri_scanner_check()
         self.psychs_cohort_checks()
@@ -856,12 +856,6 @@ class FormChecks():
                                 error_message = (f'T-Score Conversion not done properly.'
                                 f'Entered value was {getattr(self.row,t_score_col)}, but should be {iq_row.t_score}')
                             else:
-                                print('IQ------------------')
-                                print(current_age_ranges)
-                                print(self.row.subjectid)
-                                print(conversion_df)
-                                print(current_age_ranges[range_index])
-                                print(self.convert_range_to_list(str(getattr(iq_row,conversion_col)),True))
                                 incorrect_range_count +=1
                                 if incorrect_range_count == 2:
 

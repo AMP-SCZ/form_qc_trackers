@@ -48,7 +48,7 @@ class ProcessVariables():
 
         self.define_variables()
         self.organize_variables()
-        print(self.variable_info_dictionary['forms_without_missing_variable'])
+        print(self.variable_info_dictiondary['forms_without_missing_variable'])
 
     def define_variables(self):
         self.error_dictionary = {}
