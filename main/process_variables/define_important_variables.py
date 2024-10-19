@@ -1,24 +1,19 @@
+import pandas as pd
+
 class DefineVariables():
     
-
-    def __init__(self):
-        pass
+    def __init__(self, data_dictionary_df):
+        self.data_dictionary_df = data_dictionary_df
 
     def run_script(self):
-        self.initialize_unique_variable_names()
-        
-    def initialize_unique_variable_names(self):
-        """Defines variables with names that don't follow the common
-        naming conventions of those variable types"""
+        self.collect_missing_form_variables()
 
-        self.unique_missing_variable_names = ['chrpsychs_scr_missing_2',\
-        'hcpsychs_scr_missing_2','chrpsychs_fu_missing_fu',\
-        'hcpsychs_fu_missing_fu','chrpsychs_fu_missing_fu_2',\
-        'hcpsychs_fu_missing_fu_2','chrsofas_missing_fu','chrdig_missing_all']
-        self.forms_with_unique_missing_variables = ['psychs_p1p8_fu_hc',\
-        'psychs_p9ac32_fu_hc','psychs_p9ac32','psychs_p1p8_fu','psychs_p9ac32_fu',\
-        'digital_biomarkers_mindlamp_checkin','sofas_followup']
-        self.unique_date_variable_names = ['chrmri_entry_date',\
-        'chrsofas_interview_date_fu','chrcrit_date',\
-        'chric_consent_date','chrcbccs_review_date',\
-        'chrgpc_date','chrsofas_interview_date_fu','chrap_date']
+    def collect_missing_form_variables(self):
+        missing_var_df = self.data_dictionary_df[\
+        self.data_dictionary_df['Choices, Calculations, OR Slider Labels'].str.contains(\
+        'Please click if this form is missing all of its data')]
+        missing_form_variables = missing_var_df.set_index(\
+        'Form Name')['Variable / Field Name'].to_dict()
+        
+        return missing_form_variables
+
