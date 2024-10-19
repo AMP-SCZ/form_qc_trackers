@@ -1,5 +1,5 @@
 import pandas as pd
-
+import os
 class Utils():
     def __init__(self):
         self.missing_code_list = \
@@ -7,12 +7,8 @@ class Utils():
         '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,\
         '-99.0',999,999.0,'999','999.0'] 
 
-        self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
+        self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 
-        self.data_dictionary_df = pd.read_csv(\
-        (f'{self.absolute_path}data_dictionaries/'
-        'CloneOfYaleRealRecords_DataDictionary_2023-05-19.csv'),\
-        encoding = 'latin-1',keep_default_na=False)
 
     def create_timepoint_list(self):
         """
@@ -53,44 +49,6 @@ class Utils():
         except ValueError:
             return False
         
-    def collect_var_data(self,headers):
-        """
-        Collects data from the specified
-        column headers for each variable
-        in the data dictionary
-
-        Parameters
-        ---------------
-        headers: headers from the 
-        data dictionary that will be added
-        to output
-
-        Returns
-        ---------------
-        var_info_dict: dictionary 
-        of the information from each
-        specified column header for
-        each variable.
-        """
-
-        var_info_dict = {}
-        for row in self.data_dictionary_df.itertuples():
-            data_dictionary_col_names = {'form':'Form Name',\
-            'variable':'ï»¿"Variable / Field Name"','field_type':'Field Type',\
-            'required_field': 'Required Field?','identifier':'Identifier?',\
-            'branching_logic':'Branching Logic (Show field only if...)',\
-            'field_annotation':'Field Annotation','field_label':'Field Label',\
-            'choices': 'Choices, Calculations, OR Slider Labels'}
-            col_values = {}
-            for key,value in data_dictionary_col_names.items():
-                col_values[key] = self.data_dictionary_df.at[row.Index, value] 
-            
-            for header in headers:
-                var_info_dict.setdefault(col_values['variable'],{})
-                var_info_dict[col_values['variable']][header]\
-                = col_values[header]
-
-        return var_info_dict
     
     def calculate_dictionary_means(self,total_sums_dict):
         """
