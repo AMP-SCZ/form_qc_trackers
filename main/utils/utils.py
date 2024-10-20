@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import json
 class Utils():
     def __init__(self):
         self.missing_code_list = \
@@ -8,6 +9,10 @@ class Utils():
         '-99.0',999,999.0,'999','999.0'] 
 
         self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-3])
+
+
+        with open(f'{self.absolute_path}/config.json','r') as file:
+            self.config_info = json.load(file)
 
 
     def create_timepoint_list(self):
@@ -27,6 +32,30 @@ class Utils():
         tp_list.append('month24')
 
         return tp_list
+    
+    def save_dictionary_as_csv(
+        self, inp_dictionary : dict, output_path : str
+    ):
+        """
+        Function to save a dictionary
+        as a csv file. Will append its
+        values to a list, convert the list
+        to a dataframe, then save the dataframe
+        as a csv.
+
+
+        Parameters
+        -------------------
+        inp_dictionary : dict
+            dictionary to save
+        output_path : str
+            path where the csv file will
+            be saved
+        """
+        
+        output_list = list(inp_dictionary.values())
+        output_df = pd.DataFrame(output_list)
+        output_df.to_csv(output_path, index = False)
     
     def check_if_number(self,input):
         """
@@ -123,4 +152,36 @@ class Utils():
         deviation = single_number - mean
 
         return deviation,std_dev
+
+    def read_data_dictionary(
+        self, match_str : str = 'current_data_dictionary'
+    ) -> pd.DataFrame:
+        """
+        Finds the current data dictionary
+        in the data_dictionary dependencies 
+        folder. 
+
+        Parameters
+        ------------------
+        match_str : str
+            String that must be in the 
+            name of the data dictionary
+            file that will be used
+        
+        Returns 
+        -----------------------
+        data_dictionary_df : pd.DataFrame
+            Pandas dataframe of the entire
+            REDCap data dictionary
+        """
+    
+        depend_path = self.config_info['paths']['dependencies_path']
+        for file in os.listdir(f"{depend_path}data_dictionary"):
+            # loops through directory to search for current data dictionary
+            if match_str in file:
+                data_dictionary_df = pd.read_csv(
+                f"{depend_path}data_dictionary/{file}",
+                keep_default_na=False) # setting this to false preserves empty strings
+
+        return data_dictionary_df
 

@@ -5,6 +5,9 @@ class DefineImportantVariables():
     Class to define important variables for
     each form that will be used 
     frequently throughout the QC. 
+    This includes important date variables,
+    variables indicating that the form is missing,
+    and variables indicating that the form is complete.
 
     Attributes
     -------------
@@ -34,7 +37,7 @@ class DefineImportantVariables():
         return important_form_vars
 
     def create_list_from_df(
-        self, col_to_check : str, str_to_check : str
+        self, col_to_check : str, strings_to_check : list
     ) -> list:
         """
         Creates a list from a dictionary
@@ -46,9 +49,9 @@ class DefineImportantVariables():
         col_to_check : str
             Column to check for containing 
             the string
-        str_to_check : str
-            String the the col_to_check values
-            are checked for containing
+        str_to_check : list
+            list of strings the column 
+            is checked for containing 
 
         Returns
         -------------
@@ -60,11 +63,13 @@ class DefineImportantVariables():
 
         """
 
-        # filter dataframe to only include rows where
-        # col_to_check contains str_to_check
-        filtered_df = self.data_dictionary_df[\
-        self.data_dictionary_df[col_to_check].str.contains(\
-        str_to_check)]
+        # filters dataframe to only include rows where
+        # col_to_check contains any string in strings_to_check
+        filtered_df = self.data_dictionary_df[
+            self.data_dictionary_df[col_to_check].str.contains(
+                '|'.join(strings_to_check), regex=True
+            )
+        ]
 
         # create list of all variables in these rows
         variable_list = filtered_df['Variable / Field Name'].tolist()
@@ -93,12 +98,12 @@ class DefineImportantVariables():
         # collects missing variables based on their descriptions
         all_unique_vars['missing_var'] = self.create_list_from_df(
         'Choices, Calculations, OR Slider Labels',
-        'click if this form is missing all of its data')
+        ['click if this form is missing all of its data'])
 
         # collects interview dates
         all_unique_vars['interview_date_var'] = self.create_list_from_df(
         'Field Label',
-        'Date of Interview')
+        ['Date of Interview','Interview date'])
 
         # adds interview date variables that had different descriptions in data dictionary
         all_unique_vars['interview_date_var'].extend(['chrcrit_date',
@@ -108,7 +113,7 @@ class DefineImportantVariables():
         # collects entry dates
         all_unique_vars['entry_date_var'] = self.create_list_from_df(
         'Field Label',
-        'Date of Data Entry')
+        ['Date of Data Entry'])
         
         # filters out irrelevant date variables
         for var_type in ['entry_date_var','interview_date_var']:
@@ -149,19 +154,17 @@ class DefineImportantVariables():
             form_df = self.data_dictionary_df[\
             self.data_dictionary_df['Form Name'] == form]
             curr_form_variables = form_df['Variable / Field Name'].tolist()
-            important_form_vars.setdefault(form,{})
+            important_form_vars.setdefault(form,{'form':form})
             for var_type, var_names in unique_var_dict.items(): 
                 important_form_vars[form].setdefault(var_type,'')
                 for var_name in var_names: 
                     if var_name in curr_form_variables: # if variable belongs to current form
                         important_form_vars[form][var_type] = var_name 
-
                 # form completion variables are not in the data dictionary
+                # but they have the same naming conventions
                 important_form_vars[form]['completion_var'] = form + '_complete' 
 
         return important_form_vars
-
-        
 
 
 

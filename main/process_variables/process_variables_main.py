@@ -27,41 +27,11 @@ class ProcessVariables():
             self.config_info = json.load(file)
 
     def run_script(self):
-        data_dict_df = self.read_data_dictionary()
-        self.define_imp_variables = DefineImportantVariables(data_dict_df)
-        important_form_vars = self.define_variables()
+        data_dict_df = self.utils.read_data_dictionary()
+        important_form_vars = DefineImportantVariables(data_dict_df)
+        self.utils.save_dictionary_as_csv(important_form_vars,
+        f"{self.config_info['paths']['dependencies_path']}important_form_vars.csv")
 
-    def read_data_dictionary(
-        self, match_str : str = 'current_data_dictionary'
-    ) -> pd.DataFrame:
-        """
-        Finds the current data dictionary
-        in the data_dictionary dependencies 
-        folder. 
-
-        Parameters
-        ------------------
-        match_str : str
-            String that must be in the 
-            name of the data dictionary
-            file that will be used
-        
-        Returns 
-        -----------------------
-        data_dictionary_df : pd.DataFrame
-            Pandas dataframe of the entire
-            REDCap data dictionary
-        """
-    
-        depend_path = self.config_info['paths']['dependencies_path']
-        for file in os.listdir(f"{depend_path}data_dictionary"):
-            # loops through directory to search for current data dictionary
-            if match_str in file:
-                data_dictionary_df = pd.read_csv(
-                f"{depend_path}data_dictionary/{file}",
-                keep_default_na=False) # setting this to false preserves empty strings
-
-        return data_dictionary_df
  
 if __name__ == '__main__':
     ProcessVariables().run_script()
