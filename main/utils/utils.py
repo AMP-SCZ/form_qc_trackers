@@ -7,7 +7,7 @@ class Utils():
         '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,\
         '-99.0',999,999.0,'999','999.0'] 
 
-        self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-2])
+        self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 
 
     def create_timepoint_list(self):
