@@ -8,6 +8,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from define_important_variables import DefineImportantVariables
+from transform_branching_logic import TransformBranchingLogic
 
 class ProcessVariables():
     """
@@ -31,7 +32,14 @@ class ProcessVariables():
         important_form_vars = DefineImportantVariables(data_dict_df)
         self.utils.save_dictionary_as_csv(important_form_vars(),
         f"{self.config_info['paths']['dependencies_path']}important_form_vars.csv")
-        
+
+        converted_branching_logic = TransformBranchingLogic(data_dict_df)
+        self.utils.save_dictionary_as_csv(converted_branching_logic(),
+        f"{self.config_info['paths']['dependencies_path']}converted_branching_logic.csv")
+
+
+
+
 if __name__ == '__main__':
     ProcessVariables().run_script()
 

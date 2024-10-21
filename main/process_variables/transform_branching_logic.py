@@ -1,9 +1,31 @@
 import pandas as pd
+import re
 
 class TransformBranchingLogic():
-    def __init__(self):
-        self.converted_branching_logic = []
-    def branching_logic_redcap_to_python(self,variable,form,branching_logic):
+    def __init__(self, data_dictionary_df):
+        self.data_dictionary_df = data_dictionary_df
+        self.all_converted_branching_logic = {}
+
+    def __call__(self):
+        self.convert_all_branching_logic()
+
+        return self.all_converted_branching_logic
+        
+    
+    def convert_all_branching_logic(self):
+        self.data_dictionary_df = self.data_dictionary_df.rename(columns={'Variable / Field Name': 'variable',
+        'Branching Logic (Show field only if...)': 'branching_logic'})
+
+        for row in self.data_dictionary_df.itertuples():
+            var = getattr(row, 'variable')
+            branching_logic = getattr(row, 'branching_logic')
+            converted_bl = ''
+            if branching_logic !='':
+                converted_bl = self.branching_logic_redcap_to_python(branching_logic)
+            self.all_converted_branching_logic[var] = {'variable':var,
+            'original_branching_logic': branching_logic, 'converted_branching_logic': converted_bl}
+            
+    def branching_logic_redcap_to_python(self, branching_logic):
         """This function focuses on converting the syntax
         from the REDCap branching logic in the data dictionary
         into Python syntax to be used as conditionals later in the code.
@@ -14,10 +36,8 @@ class TransformBranchingLogic():
         form: current of interest
         branching logic: redcap version of branching logic 
         """
-
-        self.variable_info_dictionary['variable_list_dictionary'][form][variable] = {
-                    'branching_logic': str(branching_logic).replace('[', '').replace(']', '').\
-                    replace('<>', '!=').replace('OR', 'or').replace('AND', 'and').replace("\n", ' ')}
+        modified_branching_logic = str(branching_logic).replace('[', '').replace(
+        ']', '').replace('<>', '!=').replace('OR', 'or').replace('AND', 'and').replace("\n", ' ')
         patterns_replacements = [
             # Replaces single equals sign "=" with double equals sign "==" 
             (r"(?<!=)(?<![<>!])=(?!=)", r"=="),  
@@ -35,18 +55,13 @@ class TransformBranchingLogic():
         ] 
 
         for pattern, replacement_text in patterns_replacements: 
-            self.variable_info_dictionary['variable_list_dictionary']\
-            [form][variable]['branching_logic'] = \
+            modified_branching_logic = \
                 re.sub(pattern, replacement_text,\
-                self.variable_info_dictionary['variable_list_dictionary']\
-                [form][variable]['branching_logic'])
-        if str(self.variable_info_dictionary['variable_list_dictionary']\
-            [form][variable]['branching_logic']) == 'nan':
-            self.variable_info_dictionary['variable_list_dictionary']\
-            [form][variable]['branching_logic'] = ''
+                modified_branching_logic)
+            
+        return modified_branching_logic
 
 
-    
     def edit_tbi_branch_logic(self,variable):
         """Modifies branching logic for 
         TBI form to only check the variables 
