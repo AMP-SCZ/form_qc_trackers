@@ -27,7 +27,10 @@ class TestDefineVariables(unittest.TestCase):
         'enrollment_note','conversion_form', 'resource_use_log',
         'gcp_cbc_with_differential', 'gcp_current_health_status']
 
-        self.forms_without_interview_dates = ['']
+        self.forms_without_interview_dates = ['psychosocial_treatment_form',
+        'revised_status_form','psychs_p9ac32','status_form','psychs_p9ac32_fu',
+        'eeg_run_sheet','adverse_events','health_conditions_medical_historypsychiatric_histo',
+        'enrollment_note']
 
     def run_script(self):
         self.test_assign_variables_to_forms()

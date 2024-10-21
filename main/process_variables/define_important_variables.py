@@ -28,10 +28,10 @@ class DefineImportantVariables():
 
     def __call__(self):
         # collect all interview dates, entry_dates, and missing form variables
-        all_unique_vars = self.collect_important_vars() 
+        all_import_vars = self.collect_important_vars() 
 
         # assign these variables to their respective forms
-        important_form_vars = self.assign_variables_to_forms(all_unique_vars)
+        important_form_vars = self.assign_variables_to_forms(all_import_vars)
         
         # returns dictionary of each form and its variables collected in this class
         return important_form_vars
@@ -40,7 +40,7 @@ class DefineImportantVariables():
         self, col_to_check : str, strings_to_check : list
     ) -> list:
         """
-        Creates a list from a dictionary
+        Creates a list from a dataframe
         of every variable where a specified
         column contains a specified string
 
@@ -84,7 +84,7 @@ class DefineImportantVariables():
 
         Returns
         -------------
-        all_unique_vars : dict
+        all_import_vars : dict
             dictionary that contains 
             lists for each type of
             variable being collected 
@@ -92,42 +92,44 @@ class DefineImportantVariables():
         """
 
         # define dictionary to store each type of variable
-        all_unique_vars = {'missing_var':[],\
+        all_import_vars = {'missing_var':[],\
         'interview_date_var':[],'entry_date_var':[]}
 
         # collects missing variables based on their descriptions
-        all_unique_vars['missing_var'] = self.create_list_from_df(
+        all_import_vars['missing_var'] = self.create_list_from_df(
         'Choices, Calculations, OR Slider Labels',
         ['click if this form is missing all of its data'])
 
         # collects interview dates
-        all_unique_vars['interview_date_var'] = self.create_list_from_df(
+        all_import_vars['interview_date_var'] = self.create_list_from_df(
         'Field Label',
         ['Date of Interview',
         'Interview date', 'Interview Date'])
 
         # adds interview date variables that had different descriptions in data dictionary
-        all_unique_vars['interview_date_var'].extend(['chrcrit_date',
+        all_import_vars['interview_date_var'].extend(['chrcrit_date',
         'chric_consent_date','chrcbccs_review_date',
         'chrgpc_date','chrap_date','chrsaliva_interview_date',
         'chrblood_interview_date','chrcbc_interview_date',
-        'chrchs_interview_date'])
+        'chrchs_interview_date','chreeg_interview_date',
+        'enrollmentnote_dateofconsent','chrconv_interview_date',
+        'chric_reconsent_date','chrpred_interview_date'])
         
         # collects entry dates
-        all_unique_vars['entry_date_var'] = self.create_list_from_df(
+        all_import_vars['entry_date_var'] = self.create_list_from_df(
         'Field Label',
         ['Date of Data Entry'])
 
-        all_unique_vars['entry_date_var'].extend([
+        all_import_vars['entry_date_var'].extend([
         'chrblood_entry_date','chrsaliva_entry_date','chrmri_entry_date'])
         
         # filters out irrelevant date variables
         for var_type in ['entry_date_var','interview_date_var']:
-            all_unique_vars[var_type] = [var for var in 
-            all_unique_vars[var_type] if 'err' not
+            all_import_vars[var_type] = [var for var in 
+            all_import_vars[var_type] if 'err' not
             in var and 'invalid' not in var]
 
-        return all_unique_vars
+        return all_import_vars
 
     def assign_variables_to_forms(
         self, unique_var_dict : dict
