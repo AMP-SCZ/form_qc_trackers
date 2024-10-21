@@ -103,17 +103,23 @@ class DefineImportantVariables():
         # collects interview dates
         all_unique_vars['interview_date_var'] = self.create_list_from_df(
         'Field Label',
-        ['Date of Interview','Interview date'])
+        ['Date of Interview',
+        'Interview date', 'Interview Date'])
 
         # adds interview date variables that had different descriptions in data dictionary
         all_unique_vars['interview_date_var'].extend(['chrcrit_date',
         'chric_consent_date','chrcbccs_review_date',
-        'chrgpc_date','chrap_date'])
+        'chrgpc_date','chrap_date','chrsaliva_interview_date',
+        'chrblood_interview_date','chrcbc_interview_date',
+        'chrchs_interview_date'])
         
         # collects entry dates
         all_unique_vars['entry_date_var'] = self.create_list_from_df(
         'Field Label',
         ['Date of Data Entry'])
+
+        all_unique_vars['entry_date_var'].extend([
+        'chrblood_entry_date','chrsaliva_entry_date','chrmri_entry_date'])
         
         # filters out irrelevant date variables
         for var_type in ['entry_date_var','interview_date_var']:

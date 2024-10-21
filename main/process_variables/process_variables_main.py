@@ -29,7 +29,7 @@ class ProcessVariables():
     def run_script(self):
         data_dict_df = self.utils.read_data_dictionary()
         important_form_vars = DefineImportantVariables(data_dict_df)
-        self.utils.save_dictionary_as_csv(important_form_vars,
+        self.utils.save_dictionary_as_csv(important_form_vars(),
         f"{self.config_info['paths']['dependencies_path']}important_form_vars.csv")
 
  

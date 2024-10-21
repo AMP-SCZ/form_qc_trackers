@@ -7,7 +7,9 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-4])
 sys.path.insert(1, parent_dir)
 
 from main.utils.utils import Utils
-from tests.unit_tests.test_process_variables.test_define_important_variables import TestDefineVariables
+from tests.unit_tests.test_process_variables.test_define_important_variables import (
+     TestDefineVariables
+)
 
 class TestProcessVariables():
 
