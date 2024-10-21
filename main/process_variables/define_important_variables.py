@@ -107,13 +107,14 @@ class DefineImportantVariables():
         'Interview date', 'Interview Date'])
 
         # adds interview date variables that had different descriptions in data dictionary
+        # NOTE: mri_entry_date fits the role of interview date better than entry date 
         all_import_vars['interview_date_var'].extend(['chrcrit_date',
         'chric_consent_date','chrcbccs_review_date',
         'chrgpc_date','chrap_date','chrsaliva_interview_date',
         'chrblood_interview_date','chrcbc_interview_date',
         'chrchs_interview_date','chreeg_interview_date',
         'enrollmentnote_dateofconsent','chrconv_interview_date',
-        'chric_reconsent_date','chrpred_interview_date'])
+        'chric_reconsent_date','chrpred_interview_date','chrmri_entry_date']) 
         
         # collects entry dates
         all_import_vars['entry_date_var'] = self.create_list_from_df(
@@ -121,7 +122,8 @@ class DefineImportantVariables():
         ['Date of Data Entry'])
 
         all_import_vars['entry_date_var'].extend([
-        'chrblood_entry_date','chrsaliva_entry_date','chrmri_entry_date'])
+        'chrblood_entry_date','chrsaliva_entry_date',
+        'chrpred_entry_date'])
         
         # filters out irrelevant date variables
         for var_type in ['entry_date_var','interview_date_var']:

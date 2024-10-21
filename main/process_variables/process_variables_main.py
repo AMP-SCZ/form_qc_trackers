@@ -31,8 +31,7 @@ class ProcessVariables():
         important_form_vars = DefineImportantVariables(data_dict_df)
         self.utils.save_dictionary_as_csv(important_form_vars(),
         f"{self.config_info['paths']['dependencies_path']}important_form_vars.csv")
-
- 
+        
 if __name__ == '__main__':
     ProcessVariables().run_script()
 
