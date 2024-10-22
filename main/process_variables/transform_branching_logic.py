@@ -78,10 +78,9 @@ class TransformBranchingLogic():
             # if it is followed by a comparison operator and a float number
             (r"(row\.\w+)(?==|>|<|>=|<=)(?! )(?!=='00)(?=.*?\bfloat\()", r"float(\1)"),
             (r"(row\.)(\w+)(!=)(float\(-?\d+|row\.\w+)", r"(\1\2=='' or not hasattr(row,'\2') or float(\1\2)\3\4)"),
-            (r"(float\()(row\.)(\w+)(\))(\s*==\s*)(float\(-?\d+\.?\d*|row\.\w+)", r"(hasattr(row,'\3') and self.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6)")
-
+            (r"(float\()(row\.)(\w+)(\))(\s*==\s*)(float\(-?\d+\.?\d*|row\.\w+)",
+            r"(hasattr(row,'\3') and self.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6)")
             #(r"(row\.\w+)(\s*!=\s*float\(\s*-?\d+\s*\))", r"(\1=='' or float(\1)\2)")  
-
         ]
 
         for pattern, replacement_text in patterns_replacements: 
