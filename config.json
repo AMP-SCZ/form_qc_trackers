@@ -1,6 +1,6 @@
 {
     "paths" : {
-        "combined_csv_path" : "/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/",
+        "combined_csv_path" : "/data/predict1/data_from_nda/formqc/",
         "dependencies_path" : "/PHShome/ob001/anaconda3/refactored_qc/dependencies/",
         "error_log_path" : "/PHShome/ob001/anaconda3/refactored_qc/error_logs/",
         "output_path": "/PHShome/ob001/anaconda3/refactored_qc/output/"

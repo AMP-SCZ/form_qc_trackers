@@ -1,29 +1,54 @@
 import pandas as pd
 import re
+import os
+import sys
+import json
+parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
+sys.path.insert(1, parent_dir)
+
+from utils.utils import Utils
 
 class TransformBranchingLogic():
     def __init__(self, data_dictionary_df):
+        self.utils = Utils()
+        self.absolute_path = self.utils.absolute_path
+        with open(f'{self.absolute_path}/config.json','r') as file:
+            self.config_info = json.load(file)
+
         self.data_dictionary_df = data_dictionary_df
+
+        self.all_vars = self.data_dictionary_df['Variable / Field Name'].tolist()
         self.all_converted_branching_logic = {}
+        self.manual_conversions = {"chr_ae1date_dr":
+        "float(row.chrae_aescreen)==float(1) and float(chrae_dr1) == float(1)",
+        "chreeg_entry_date":"row.chreeg_interview_date !=''"}
 
     def __call__(self):
-        self.convert_all_branching_logic()
+        converted_branching_logic = self.convert_all_branching_logic()
+        self.find_problematic_conversions(converted_branching_logic)
 
-        return self.all_converted_branching_logic
+        return converted_branching_logic
         
-    
     def convert_all_branching_logic(self):
-        self.data_dictionary_df = self.data_dictionary_df.rename(columns={'Variable / Field Name': 'variable',
-        'Branching Logic (Show field only if...)': 'branching_logic'})
+        all_converted_branching_logic = {}
+        self.data_dictionary_df = self.data_dictionary_df.rename(
+        columns={'Variable / Field Name': 'variable',
+        'Branching Logic (Show field only if...)': 'branching_logic','Field Type':'field_type'})
 
         for row in self.data_dictionary_df.itertuples():
+            if row.field_type =='descriptive':
+                continue
             var = getattr(row, 'variable')
             branching_logic = getattr(row, 'branching_logic')
             converted_bl = ''
             if branching_logic !='':
                 converted_bl = self.branching_logic_redcap_to_python(branching_logic)
-            self.all_converted_branching_logic[var] = {'variable':var,
+            if var in self.manual_conversions.keys():
+                converted_bl = self.manual_conversions[var]
+            all_converted_branching_logic[var] = {'variable':var,
             'original_branching_logic': branching_logic, 'converted_branching_logic': converted_bl}
+        
+        return all_converted_branching_logic
             
     def branching_logic_redcap_to_python(self, branching_logic):
         """This function focuses on converting the syntax
@@ -32,7 +57,7 @@ class TransformBranchingLogic():
 
         Parameters
         ----------------
-        variable: current variable of interest
+        variable: current variable of interest chrscid_a130
         form: current of interest
         branching logic: redcap version of branching logic 
         """
@@ -51,8 +76,13 @@ class TransformBranchingLogic():
             (r"(?<!float)\((\d+)\)", r"___\1"),  
             # Adds the "float()" function to variable names starting with "row." 
             # if it is followed by a comparison operator and a float number
-            (r"(row\.\w+)(?==|!=|>|<|>=|<=)(?! )(?!=='00)(?=.*?\bfloat\()", r"float(\1)")  
-        ] 
+            (r"(row\.\w+)(?==|>|<|>=|<=)(?! )(?!=='00)(?=.*?\bfloat\()", r"float(\1)"),
+            (r"(row\.)(\w+)(!=)(float\(-?\d+|row\.\w+)", r"(\1\2=='' or not hasattr(row,'\2') or float(\1\2)\3\4)"),
+            (r"(float\()(row\.)(\w+)(\))(\s*==\s*)(float\(-?\d+\.?\d*|row\.\w+)", r"(hasattr(row,'\3') and self.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6)")
+
+            #(r"(row\.\w+)(\s*!=\s*float\(\s*-?\d+\s*\))", r"(\1=='' or float(\1)\2)")  
+
+        ]
 
         for pattern, replacement_text in patterns_replacements: 
             modified_branching_logic = \
@@ -60,7 +90,35 @@ class TransformBranchingLogic():
                 modified_branching_logic)
             
         return modified_branching_logic
+    
 
+    def find_problematic_conversions(self,converted_bl):
+        exceptions = []
+        count = 0
+        
+        for var, values in converted_bl.items():
+            converted_bl = values['converted_branching_logic']
+            if not any(
+            x in var for x in ['error','chrsaliva_flag','chrchs_flag','_err','invalid']):
+                if ('float' not in converted_bl and converted_bl != ''
+                and "!=''" not in converted_bl and 'pharm' not in converted_bl):
+                    print(var)
+                    print(converted_bl)
+                    count+=1
+                    print(count)
+                else:
+                    split_bl = converted_bl.replace(' or ',' and ').split(' and ')
+                    for bl_sect in split_bl:
+                        if (("float" not in bl_sect) 
+                        and bl_sect !='' and "!=''" not in bl_sect
+                        and "='00'" not in bl_sect) :
+                            exceptions.append({"var":var,"bl":split_bl,"full":converted_bl})
+                            break
+                    
+        exceptions_df = pd.DataFrame(exceptions)
+        exceptions_df.to_csv(
+        f'{self.config_info["paths"]["output_path"]}branching_logic_qc.csv',
+        index = False)
 
     def edit_tbi_branch_logic(self,variable):
         """Modifies branching logic for 
@@ -100,7 +158,7 @@ class TransformBranchingLogic():
             if number not in ['1','']:
                 new_branching_logic = \
                 (f"[chrpharm_med{number}_name_past] <> '999' and"\
-                " [chrpharm_med{int(number)-1}_add_past] = '1'")
+                f" [chrpharm_med{int(number)-1}_add_past] = '1'")
             else:
                 new_branching_logic = \
                 (f"[chrpharm_med{number}_name_past] <> '999'"

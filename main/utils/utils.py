@@ -184,4 +184,12 @@ class Utils():
                 keep_default_na=False) # setting this to false preserves empty strings
 
         return data_dictionary_df
+    
+    def can_be_float(self,value):
+        try:
+            float(value)  # Try to convert the value to float
+            return True
+        except (ValueError, TypeError):
+            return False
+
 
