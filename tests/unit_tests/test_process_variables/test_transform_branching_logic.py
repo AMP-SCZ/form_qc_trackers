@@ -60,6 +60,7 @@ class TestTransformBranchingLogic(unittest.TestCase):
                                 print(tp)
                                 print(col)
                                 print(getattr(row,col))
+                                print(bl)
                                 
                                 print('---------------')
                         except Exception as e:
