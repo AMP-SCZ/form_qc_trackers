@@ -187,9 +187,24 @@ class Utils():
     
     def can_be_float(self,value):
         try:
-            float(value)  # Try to convert the value to float
+            float(value)  
             return True
         except (ValueError, TypeError):
             return False
+        
+    def apply_df_str_filter(self, df, filter_list, filter_col):
+        excluded_str_filter = '|'.join(filter_list)
+
+        filtered_df = df[
+        self.data_dict_df[filter_col].str.contains(
+        excluded_str_filter)]
+
+        return filtered_df
+
+
+
+        
+
+
 
 
