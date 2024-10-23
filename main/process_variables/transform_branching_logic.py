@@ -66,8 +66,8 @@ class TransformBranchingLogic():
         patterns_replacements = [
             # Replaces single equals sign "=" with double equals sign "==" 
             (r"(?<!=)(?<![<>!])=(?!=)", r"=="),  
-            # Converts numbers in single quotes to floats  by adding "float()" around it .
-            (r"([=<>]\s*)(-?\d+(\.\d+)?)", r"\1float(\2)"), 
+            # Converts numbers to floats  by adding "float()" around it .
+            (r'([=<>]\s*)(\"?-?\d+(\.\d+)?\"?)', r"\1float(\2)"), 
             # Converts numeric values preceded by a comparison operator (=, <, >) by adding the "float()" function.
             (r"'(-?(?!00)\d+(\.\d+)?)'", r"float(\1)"),  
             # Adds "row." to the beginning of variable names or function calls followed by a comparison operator (!=, =, <, >) 
@@ -77,10 +77,21 @@ class TransformBranchingLogic():
             # Adds the "float()" function to variable names starting with "row." 
             # if it is followed by a comparison operator and a float number
             (r"(row\.\w+)(?==|>|<|>=|<=)(?! )(?!=='00)(?=.*?\bfloat\()", r"float(\1)"),
-            (r"(row\.)(\w+)(!=)(float\(-?\d+|row\.\w+)", r"(\1\2=='' or not hasattr(row,'\2') or float(\1\2)\3\4)"),
-            (r"(float\()(row\.)(\w+)(\))(\s*==\s*)(float\(-?\d+\.?\d*|row\.\w+)",
-            r"(hasattr(row,'\3') and self.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6)")
-            #(r"(row\.\w+)(\s*!=\s*float\(\s*-?\d+\s*\))", r"(\1=='' or float(\1)\2)")  
+            
+            (r'(row\.)(\w+)(!=)(float\(\"?-?\d+\"?|row\.\w+)',
+            r"(not hasattr(row,'\2') or \1\2=='' or self.utils.can_be_float(\1\2)==False or float(\1\2)\3\4)"),
+
+            (r'(float\()(row\.)(\w+)(\))(\s*)(==|>=|<=|<|>)(\s*)(float\(\"?-?\d+\.?\d*\"?|row\.\w+)',
+            r"(hasattr(row,'\3') and self.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6\7\8)"),
+
+            (r"(row\.)(\w+)(!=)('')",
+            r"(hasattr(row,'\2') and \1\2\3\4)"),
+
+            (r"(row\.)(\w+)(!=)('00')",
+            r"(not hasattr(row,'\2') or \1\2\3\4)"),
+
+            (r"(row\.)(\w+)(==)('00')",
+            r"(hasattr(row,'\2') and \1\2\3\4)"),
         ]
 
         for pattern, replacement_text in patterns_replacements: 
