@@ -6,7 +6,7 @@ import unittest
 
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-4])
 sys.path.insert(1, parent_dir)
-from main.process_variables.define_important_variables import DefineImportantVariables
+from main.process_variables.define_important_variables import DefineEssentialFormVars
 from main.utils.utils import Utils
 from logging_config import logger  
 
@@ -14,7 +14,7 @@ class TestDefineVariables(unittest.TestCase):
     def __init__(self):
         self.utils = Utils()
         data_dictionary_df = self.utils.read_data_dictionary()
-        self.important_form_vars = DefineImportantVariables(data_dictionary_df)
+        self.important_form_vars = DefineEssentialFormVars(data_dictionary_df)
         self.data_dictionary_df = data_dictionary_df
 
         # NOTE: Current pharm treatment 125 floating forms has two entry dates

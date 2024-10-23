@@ -20,10 +20,8 @@ class TestTransition():
         with open(f'{self.utils.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
 
-
     def run_script(self):
         self.compare_non_blank_changes()
-        
 
     def compare_non_blank_changes(self):
         tp_list = self.utils.create_timepoint_list()

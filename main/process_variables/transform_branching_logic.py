@@ -21,7 +21,19 @@ class TransformBranchingLogic():
         self.all_converted_branching_logic = {}
         self.manual_conversions = {"chr_ae1date_dr":
         "float(row.chrae_aescreen)==float(1) and float(chrae_dr1) == float(1)",
-        "chreeg_entry_date":"row.chreeg_interview_date !=''"}
+        "chreeg_entry_date":"row.chreeg_interview_date !=''",
+        
+        "chrpsychs_scr_e24":("(hasattr(row,'chrpsychs_scr_ac1') and row.chrpsychs_scr_ac1!=''" 
+        " and self.utils.can_be_float(row.chrpsychs_scr_ac1)==True"
+        " and float(row.chrpsychs_scr_ac1)==float(0)) and (hasattr(row,'chrpsychs_scr_e4')"
+        " and self.utils.can_be_float(row.chrpsychs_scr_e4)==True and float(row.chrpsychs_scr_e4)==float(1))"
+        " and (hasattr(row,'chrpsychs_scr_e21') and row.chrpsychs_scr_e21!=''"
+        " and self.utils.can_be_float(row.chrpsychs_scr_e21)==True"
+        " and float(row.chrpsychs_scr_e21)==float(0)) and (hasattr(row,'chrsofas_currscore')"
+        " and self.utils.can_be_float(row.chrsofas_currscore)==True"
+        " and hasattr(row,'chrsofas_premorbid') and self.utils.can_be_float(row.chrsofas_premorbid)==True)"
+        " and ((float(row.chrsofas_currscore)/float(row.chrsofas_premorbid))"
+        " >=float(0.9))")}
 
     def __call__(self):
         converted_branching_logic = self.convert_all_branching_logic()
@@ -66,12 +78,14 @@ class TransformBranchingLogic():
         patterns_replacements = [
             # Replaces single equals sign "=" with double equals sign "==" 
             (r"(?<!=)(?<![<>!])=(?!=)", r"=="),  
+            # Adds "row." to the beginning of variable names or function calls followed by a comparison operator (!=, =, <, >) 
+            (r"\b([\w]+(?:\(\d+\))*?)\s*(!=|=|<|>)\s*", r"row.\1\2"), 
+            # Adds "row." to the beginning of variable names or function calls preceded by a comparison operator (!=, =, <, >) 
+            (r"(!=|=|<|>)\s*\b([A-Za-z]+(?:\(\d+\))*?)\s*", r"\1row.\2"), 
             # Converts numbers to floats  by adding "float()" around it .
             (r'([=<>]\s*)(\"?-?\d+(\.\d+)?\"?)', r"\1float(\2)"), 
             # Converts numeric values preceded by a comparison operator (=, <, >) by adding the "float()" function.
             (r"'(-?(?!00)\d+(\.\d+)?)'", r"float(\1)"),  
-            # Adds "row." to the beginning of variable names or function calls followed by a comparison operator (!=, =, <, >) 
-            (r"\b([\w\.]+(?:\(\d+\))*?)\s*(!=|=|<|>)\s*", r"row.\1\2"), 
             # Replaces numbers in parentheses with "___" appended to the beginning (for checkbox variables) 
             (r"(?<!float)\((\d+)\)", r"___\1"),  
             # Adds the "float()" function to variable names starting with "row." 

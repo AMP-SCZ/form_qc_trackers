@@ -35,7 +35,7 @@ class AnalyzeIdentifiers():
         affected_vars.extend(self.collect_calcs_with_identifiers('branching_logic'))
         output_df = pd.DataFrame(affected_vars)
         output_path = self.config_info['paths']['output_path']
-        output_df.to_csv(f'{output_path}indentifier_effects.csv',index = False)
+        output_df.to_csv(f'{output_path}identifier_effects.csv',index = False)
     
     def regex_ident_search(self, pattern, inp_str):
         for sec_ident_var in self.identifiers:

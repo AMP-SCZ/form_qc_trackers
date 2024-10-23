@@ -21,6 +21,13 @@ class TestTransformBranchingLogic(unittest.TestCase):
             self.config_info = json.load(file)
 
         self.combined_csv_path = self.config_info['paths']['combined_csv_path']
+        output_path = self.config_info['paths']['output_path']
+        identifier_df = pd.read_csv(f"{output_path}identifier_effects.csv")
+        self.ident_bl_vars = identifier_df[
+        identifier_df['affected_col'] == 'branching_logic']['var'].tolist()
+
+        print(self.ident_bl_vars)
+        
         self.miss_codes = self.utils.missing_code_list
 
     def run_script(self):
@@ -30,6 +37,7 @@ class TestTransformBranchingLogic(unittest.TestCase):
         #TODO: check for indentifiers in branching logic
         converted_bl = self.convert_bl()
         exceptions = []
+        output_list = []
         count = 0
         tp_list = self.utils.create_timepoint_list()
         for network in ['PRONET','PRESCIENT']:
@@ -46,30 +54,25 @@ class TestTransformBranchingLogic(unittest.TestCase):
                         bl = converted_bl[col]['converted_branching_logic']
                         if bl == '':
                             continue
-                        #if 'psychs' in col:
-                        #    continue
                         if '_info' in bl:
                             continue
-                        #if 'scid' in col:
-                        #    continue
-                        #if 'chrap' in col:
-                        #    continue
-                        #if 'tbi' in col:
-                        #    continue
+                        if col in self.ident_bl_vars and network == "PRONET":
+                            continue
                         try:
-                            """if getattr(row,col) not in (self.miss_codes + ['',0,'0']) and eval(bl) == False:
-                                print(row.subjectid)
-                                print(tp)
-                                print(col)
-                                print(getattr(row,col))
-                                print(bl)  
-                                print('---------------')"""
+                            if getattr(row,col) not in (self.miss_codes + ['','NaN']) and eval(bl) == False:
+                                output_list.append({'subject':row.subjectid,'network':network,'timepoint':tp,
+                                'variable':col,'variable_value':getattr(row,col),
+                                'converted_branching_logic':bl})
                         except Exception as e:
                             if 'arm' not in str(e):
                                 print(col)
                                 print(bl)
                                 print(e)
                             continue
+                output_df = pd.DataFrame(output_list)
+                output_df.to_csv(
+                f"{self.config_info['paths']['output_path']}bl_mismatches.csv",
+                index = False)
                             
 
 

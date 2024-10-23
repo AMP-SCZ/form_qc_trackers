@@ -196,10 +196,18 @@ class Utils():
         excluded_str_filter = '|'.join(filter_list)
 
         filtered_df = df[
-        self.data_dict_df[filter_col].str.contains(
+        df[filter_col].str.contains(
         excluded_str_filter)]
 
         return filtered_df
+
+    def save_dependency_json(self, data, filename):
+        dep_path = self.config_info["paths"]["dependencies_path"]
+        with open(f'{dep_path}{filename}',
+        'w') as json_file:
+            json.dump(data, json_file, indent=4)  
+
+
 
 
 

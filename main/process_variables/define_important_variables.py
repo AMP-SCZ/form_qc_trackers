@@ -1,6 +1,6 @@
 import pandas as pd
 
-class DefineImportantVariables():
+class DefineEssentialFormVars():
     """
     Class to define important variables for
     each form that will be used 
@@ -17,7 +17,7 @@ class DefineImportantVariables():
     Returns
     --------------
     important_form_vars : dict
-        Dictionary of each form and 
+        Dictionary with each form as a key and 
         important variables for that form
         that are needed for QC
     """
@@ -176,6 +176,39 @@ class DefineImportantVariables():
 
         return important_form_vars
 
+
+class CollectMiscVariables():
+    """
+    class to organize any other
+    groups of variables that will
+    be needed by the QC
+    """
+
+    def __init__(self, data_dictionary_df):
+        self.data_dictionary_df = data_dictionary_df   
+        self.all_forms = list(set(self.data_dictionary_df['Form Name'].tolist()))     
+
+    def __call__(self):
+
+        var_info = {"blood_vars":self.collect_blood_var_types()}
+
+        return var_info
+
+        
+    def collect_blood_var_types(self):
+        blood_df = self.data_dictionary_df[
+        self.data_dictionary_df[
+        'Form Name'] == 'blood_sample_preanalytic_quality_assurance']
+        all_blood_vars = blood_df['Variable / Field Name'].tolist()
+        blood_var_categs = {}
+        blood_var_categs['position_variables'] = [
+        var for var in all_blood_vars if 'pos' in var]
+        blood_var_categs['id_variables'] = [
+        var for var in all_blood_vars if 'id' in var]
+        blood_var_categs['volume_variables'] =  [
+        var for var in all_blood_vars if 'vol' in var and 'error' not in var]
+
+        return blood_var_categs
 
 
 

@@ -724,14 +724,11 @@ class ProcessVariables():
                          self.checkbox_variable_dictionary[x] = []
                     self.checkbox_variable_dictionary[x].append(y)
 
-
     def collect_ap_miss_code_vars(self,var,field_type, field_label):
         if ('Dose/Day' in field_label or 'Days/Course' in field_label)\
         and field_type == 'text' and var not in self.ap_miss_code_vars and 'chrap' in var:
             self.ap_miss_code_vars.append(var)
             print(self.ap_miss_code_vars)
-
-        
 
     def create_team_report_dictionary(self):
         self.team_report_forms = {'Blood Report':['blood_sample_preanalytic_quality_assurance',\
