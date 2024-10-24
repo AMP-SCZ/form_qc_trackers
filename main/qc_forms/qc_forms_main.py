@@ -29,15 +29,17 @@ class CheckFormsMain():
         self.iterate_combined_dfs()
 
     def iterate_combined_dfs(self):
+        test_output=[]
         tp_list = self.utils.create_timepoint_list()
         for network in ['PRONET','PRESCIENT']:
             for tp in tp_list:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv')
-                test_output = GeneralChecks(combined_df,tp,network)
+                for row in combined_df.itertuples():
+                    gen_checks = GeneralChecks(row,tp,network)
+                    test_output.extend(gen_checks())
 
-                print(test_output())
+                    print(len(test_output))
 
-        
 if __name__ == '__main__':
     CheckFormsMain().run_script()

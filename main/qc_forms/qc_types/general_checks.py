@@ -12,27 +12,31 @@ from qc_forms.form_check import FormCheck
 
 class GeneralChecks(FormCheck):
     
-    def __init__(self, combined_df, timepoint, network):
-        super().__init__(combined_df, timepoint, network)
+    def __init__(self, row, timepoint, network):
+        super().__init__(timepoint, network)
 
         self.test_val = 0
+
+        self.call_checks(row)
         
-        self.loop_dataframe()
 
     def __call__(self):
 
-        return self.test_val
+        return self.final_output_list
 
     def call_checks(self, row):
         self.row = row
         self.test_val +=1 
-        self.test_check(row)
+        self.test_check(row, ['psychs_p1p8'],
+        ['chrfigs_sibling6_dmiss2'],
+        {"Reports": ["Main Report"]},False, False )
         
 
-    @FormCheck.filter_qc_check(filtered_forms=['psychs_p1p8'], 
-    all_vars=['chrfigs_sibling6_dmiss2'], 
-    changed_output_vals={"Reports": ["Main Report"]})
-    def test_check(self, row):
+    @FormCheck.filter_qc_check
+    def test_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
         if "1" not in row.subjectid:
             return "1 not in subject"
         return "" 

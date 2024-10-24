@@ -11,9 +11,8 @@ from utils.utils import Utils
 
 class FormCheck():
 
-    def __init__(self, combined_df, timepoint, network): 
+    def __init__(self, timepoint, network): 
         self.utils = Utils()
-        self.combined_df = combined_df  
         self.timepoint = timepoint
         self.network = network   
         self.absolute_path = self.utils.absolute_path
@@ -36,56 +35,53 @@ class FormCheck():
             self.forms_per_tp = json.load(file)
 
 
-    def loop_dataframe(self):
-        for row in self.combined_df.itertuples():
-            self.call_checks(row)
-
-    def call_checks(self, row):
+    def call_checks(self):
         pass
     
     @classmethod
-    def filter_qc_check(
-        cls, filtered_forms, all_vars,changed_output_vals={}, bl_filtered_vars=[],
-        filter_excl_vars=True
-    ):
-        def apply_filter(func):
-            def qc_check(instance,curr_row, *args, **kwargs):
-                cohort = instance.subject_info[curr_row.subjectid]['cohort']
-                if cohort.lower() not in ["hc", "chr"]:
-                    return
-                curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
-                print(filtered_forms)
-                if not (all(form in curr_tp_forms for form in filtered_forms)):
-                    return
-                print('pass')
-                if not (all(instance.check_compl_not_missing(curr_row, form) for form in filtered_forms)):
-                    return
-                if not all(hasattr(curr_row, var) for var in all_vars):
-                    return
-                if bl_filtered_vars:
-                    for var in bl_filtered_vars:
-                        bl = instance.conv_bl[var]
-                        if bl != "" and not eval(bl):
-                            return
-                if filter_excl_vars:
-                    excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
-                    if any(var in excl_vars for var in all_vars):
+    def filter_qc_check(cls, func):
+        def qc_check(instance, curr_row, filtered_forms, all_vars,changed_output_vals={}, bl_filtered_vars=[],
+        filter_excl_vars=True, *args, **kwargs):
+            cohort = instance.subject_info[curr_row.subjectid]['cohort']
+            if cohort.lower() not in ["hc", "chr"]:
+                return
+            curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
+            print(filtered_forms)
+            if not (all(form in curr_tp_forms for form in filtered_forms)):
+                return
+            print('pass')
+            if not (all(instance.check_compl_not_missing(
+            curr_row, form) for form in filtered_forms)):
+                return
+            if not all(hasattr(curr_row, var) for var in all_vars):
+                return
+            if bl_filtered_vars:
+                for var in bl_filtered_vars:
+                    bl = instance.conv_bl[var]
+                    if bl != "" and not eval(bl):
                         return
+            if filter_excl_vars:
+                excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
+                if any(var in excl_vars for var in all_vars):
+                    return
 
-                error_message = func(instance,curr_row, *args, **kwargs)
-                error_output = instance.create_def_row_output(curr_row,filtered_forms,all_vars,error_message)
-
-                if error_message != '':
+            error_message = func(instance,curr_row,
+            filtered_forms,all_vars,changed_output_vals={},
+            bl_filtered_vars=[],filter_excl_vars=True, *args, **kwargs)
             
-                    if changed_output_vals:
-                        for key, val in changed_output_vals.items():
-                            error_output[key] = val
-                    if error_message != '':
-                        instance.final_output_list.append(error_output)
-                    print(instance.final_output_list)
+            error_output = instance.create_def_row_output(
+            curr_row,filtered_forms,all_vars,error_message)
 
-            return qc_check
-        return apply_filter
+            if error_message != '':
+        
+                if changed_output_vals:
+                    for key, val in changed_output_vals.items():
+                        error_output[key] = val
+                if error_message != '':
+                    instance.final_output_list.append(error_output)
+                print(instance.final_output_list)
+
+        return qc_check
 
     def check_compl_not_missing(self, curr_row : tuple, form):
         compl_var = self.important_form_vars[form]["completion_var"]
@@ -108,7 +104,9 @@ class FormCheck():
 
         return False
     
-    def create_def_row_output(self, curr_row, forms, variables, error_message):
+    def create_def_row_output(
+        self, curr_row : tuple, forms: list, variables : list, error_message : str
+    ):
         subject = curr_row.subjectid
         row_output = {
             "Network" : self.network,
