@@ -189,12 +189,10 @@ class CollectMiscVariables():
         self.all_forms = list(set(self.data_dictionary_df['Form Name'].tolist()))     
 
     def __call__(self):
-
         var_info = {"blood_vars":self.collect_blood_var_types()}
 
         return var_info
 
-        
     def collect_blood_var_types(self):
         blood_df = self.data_dictionary_df[
         self.data_dictionary_df[
@@ -210,10 +208,5 @@ class CollectMiscVariables():
 
         return blood_var_categs
 
-
-
-
-
-
-
+    
 

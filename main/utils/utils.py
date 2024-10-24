@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import json
+import re
 class Utils():
     def __init__(self):
         self.missing_code_list = \
@@ -192,6 +193,16 @@ class Utils():
         except (ValueError, TypeError):
             return False
         
+    def is_a_num(self,value):
+        if re.fullmatch(r'\d+', str(value)):
+            return True
+        else:
+            return False
+
+
+
+
+        
     def apply_df_str_filter(self, df, filter_list, filter_col):
         excluded_str_filter = '|'.join(filter_list)
 
@@ -206,6 +217,18 @@ class Utils():
         with open(f'{dep_path}{filename}',
         'w') as json_file:
             json.dump(data, json_file, indent=4)  
+
+    def all_dtype(self, inp_list):
+        output_list = []
+        for number in inp_list:
+            if self.can_be_float(number):
+                int_num = int(number)
+                output_list.extend([
+                int_num,str(int_num),float(int_num),
+                str(float(int_num))])
+        return output_list
+
+        
 
 
 
