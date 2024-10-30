@@ -32,9 +32,28 @@ class DefineEssentialFormVars():
 
         # assign these variables to their respective forms
         important_form_vars = self.assign_variables_to_forms(all_import_vars)
+
+        important_form_vars = self.collect_no_miss_cutoffs(important_form_vars)
         
         # returns dictionary of each form and its variables collected in this class
         return important_form_vars
+    
+    def collect_no_miss_cutoffs(self, form_vars):
+        for form,var_info in form_vars.items():
+            form_df = self.data_dictionary_df[
+            self.data_dictionary_df['Form Name'] == form]
+
+            form_df = form_df[
+            form_df['Branching Logic (Show field only if...)'] == '']
+
+            form_df = form_df[
+            form_df['Identifier?'] == '']
+
+            non_branch_logic_vars = form_df['Variable / Field Name'].tolist()
+
+            form_vars[form]['non_branch_logic_vars'] = non_branch_logic_vars
+
+        return form_vars
 
     def create_list_from_df(
         self, col_to_check : str, strings_to_check : list
@@ -189,7 +208,8 @@ class CollectMiscVariables():
         self.all_forms = list(set(self.data_dictionary_df['Form Name'].tolist()))     
 
     def __call__(self):
-        var_info = {"blood_vars":self.collect_blood_var_types()}
+        var_info = {"blood_vars":self.collect_blood_var_types(),
+                    "var_forms" : self.collect_form_per_var()}
 
         return var_info
 
@@ -207,6 +227,14 @@ class CollectMiscVariables():
         var for var in all_blood_vars if 'vol' in var and 'error' not in var]
 
         return blood_var_categs
-
     
+    def collect_form_per_var(self):
+        filterered_df = self.data_dictionary_df[['Variable / Field Name','Form Name']]
+        filterered_df = filterered_df.rename(
+        columns={'Variable / Field Name': 'variable',
+        'Form Name': 'form'})
 
+        form_per_var = filterered_df.set_index('variable')['form'].to_dict()
+
+        return form_per_var
+    

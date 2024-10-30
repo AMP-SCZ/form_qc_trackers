@@ -8,8 +8,6 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 
-
-
 class CollectSubjectInfo():
     """
     Class to collect basic information

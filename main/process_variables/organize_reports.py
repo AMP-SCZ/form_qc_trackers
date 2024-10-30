@@ -27,6 +27,7 @@ class OrganizeReports():
 
         self.rel_psychs_vars = self.collect_psychs_variables()
 
+
     def run_script(self):
         self.organize_variable_checks()
 
@@ -50,9 +51,10 @@ class OrganizeReports():
         # applies filters that are relevant to both reports
         filtered_df = self.filter_blank_check_df()
         
-        main_report_df = filtered_df[
+        main_report_df = filtered_df[(
         ~filtered_df['Field Type'].isin(
-        ['notes','descriptive'])]
+        ['notes','descriptive'])) | (filtered_df[
+        'Variable / Field Name'].isin(self.define_additional_blank_check_vars()))]
 
         main_report_df = main_report_df[
         ~main_report_df['Form Name'].isin(self.self_report_forms)]
@@ -63,14 +65,12 @@ class OrganizeReports():
         self.self_report_forms))]
 
         blank_check_vars = {
-        'Main Report':main_report_df[
-        'Variable / Field Name'].tolist(),
-        'Secondary Report':secondary_report_df[
-        'Variable / Field Name'].tolist()
+        'Main Report':main_report_df.groupby('Form Name')['Variable / Field Name'].apply(list).to_dict(),
+
+        
+        'Secondary Report':secondary_report_df.groupby('Form Name')['Variable / Field Name'].apply(list).to_dict()
         }
         
-        # add in only the relevant psychs vars to check
-        blank_check_vars['Main Report'].extend(self.rel_psychs_vars)
 
         return blank_check_vars
     
@@ -80,18 +80,10 @@ class OrganizeReports():
         additional_blank_check_vars = self.define_additional_blank_check_vars()
 
         filtered_df = filtered_df[
-        (filtered_df['Required Field?']=='y') | (
-        self.data_dict_df['Variable / Field Name'].isin(additional_blank_check_vars))]
-
-        # remove psychs from blank check
-        # these variables will be specified later
-        filtered_df = filtered_df
-        [~filtered_df['Form Name'].isin(self.all_psychs_forms)]
-        
-        # removes checkbox variables
-        # these are formatted differently in the database 
-        filtered_df = filtered_df
-        [filtered_df['Field Type']!='checkbox']
+        ((self.data_dict_df['Required Field?']=='y') & (self.data_dict_df[
+        'Field Type']!='checkbox') & (self.data_dict_df[
+        'Identifier?']!='y') &(~filtered_df['Form Name'].isin(self.all_psychs_forms))) | (self.data_dict_df[
+        'Variable / Field Name'].isin(additional_blank_check_vars))]
 
         return filtered_df
 
@@ -110,18 +102,20 @@ class OrganizeReports():
 
         additional_blank_check_vars.extend(pharm_vars)
 
+        additional_blank_check_vars.extend(self.collect_psychs_variables())
+
         return additional_blank_check_vars
     
     def organize_spec_val_check_vars(self):
         specific_value_check_dictionary = {'chrspeech_upload':
             {'correlated_variable':'chrspeech_upload',
             'checked_value_list':[0,0.0,'0','0.0'],
-            'branching_logic':"",'negative':False,
+            'branching_logic':"",'negative':'False',
             'message':'Speech sample not uploaded to Box',
             'report':['Secondary Report']},
             'chrpenn_complete':{'correlated_variable':'chrpenn_complete',
             'checked_value_list':[2,2.0,'2','2.0',3,3.0,'3','3.0'],
-            'branching_logic':"",'negative':False,
+            'branching_logic':"",'negative':'False',
             'message': f'Penncnb not completed (value is either 2 or 3).',
             'report':['Secondary Report','Cognition Report']}}
                 
@@ -129,7 +123,7 @@ class OrganizeReports():
             if 'app' in var:
                 specific_value_check_dictionary[var] ={
                 'correlated_variable':var,'checked_value_list':[0,0.0,'0','0.0'],
-                'branching_logic':"",'negative':False,
+                'branching_logic':"",'negative':'False',
                 'message': f'value is 0','report':['Main Report','Non Team Forms']}
 
         return specific_value_check_dictionary

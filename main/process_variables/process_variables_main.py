@@ -12,6 +12,9 @@ from transform_branching_logic import TransformBranchingLogic
 from organize_reports import OrganizeReports
 from collect_subject_info import CollectSubjectInfo
 
+from analyze_identifier_effects import AnalyzeIdentifiers
+
+
 class ProcessVariables():
     """
     Class to process and organize
@@ -33,11 +36,15 @@ class ProcessVariables():
         data_dict_df = self.utils.read_data_dictionary()
         important_form_vars = DefineEssentialFormVars(data_dict_df)
 
+        # needs to run before branching logic conversion
+        self.identifier_effects = AnalyzeIdentifiers()
+        self.identifier_effects.run_script()
+
         self.utils.save_dependency_json(important_form_vars(), 'important_form_vars.json')
 
         grouped_variables = CollectMiscVariables(data_dict_df)
 
-        self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
+        self.utils.save_dependency_json(grouped_variables(), 'var_info.json')
 
         transform_bl = TransformBranchingLogic(data_dict_df)
         converted_branching_logic = transform_bl()

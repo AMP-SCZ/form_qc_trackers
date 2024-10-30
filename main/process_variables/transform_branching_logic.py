@@ -14,30 +14,56 @@ class TransformBranchingLogic():
         self.absolute_path = self.utils.absolute_path
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
+        
+        # variables with branching logic
+        # that can't or is not currently
+        # being converted properly
+        self.excluded_conversions = {}
 
         self.data_dictionary_df = data_dictionary_df
 
         self.all_vars = self.data_dictionary_df['Variable / Field Name'].tolist()
         self.all_converted_branching_logic = {}
         self.manual_conversions = {"chr_ae1date_dr":
-        "float(row.chrae_aescreen)==float(1) and float(chrae_dr1) == float(1)",
-        "chreeg_entry_date":"row.chreeg_interview_date !=''",
+        "float(curr_row.chrae_aescreen)==float(1) and float(chrae_dr1) == float(1)",
+        "chreeg_entry_date":"curr_row.chreeg_interview_date !=''",
         
-        "chrpsychs_scr_e24":("(hasattr(row,'chrpsychs_scr_ac1') and row.chrpsychs_scr_ac1!=''" 
-        " and self.utils.can_be_float(row.chrpsychs_scr_ac1)==True"
-        " and float(row.chrpsychs_scr_ac1)==float(0)) and (hasattr(row,'chrpsychs_scr_e4')"
-        " and self.utils.can_be_float(row.chrpsychs_scr_e4)==True and float(row.chrpsychs_scr_e4)==float(1))"
-        " and (hasattr(row,'chrpsychs_scr_e21') and row.chrpsychs_scr_e21!=''"
-        " and self.utils.can_be_float(row.chrpsychs_scr_e21)==True"
-        " and float(row.chrpsychs_scr_e21)==float(0)) and (hasattr(row,'chrsofas_currscore')"
-        " and self.utils.can_be_float(row.chrsofas_currscore)==True"
-        " and hasattr(row,'chrsofas_premorbid') and self.utils.can_be_float(row.chrsofas_premorbid)==True)"
-        " and ((float(row.chrsofas_currscore)/float(row.chrsofas_premorbid))"
-        " >=float(0.9))")}
+        "chrpsychs_scr_e24":("(hasattr(curr_row,'chrpsychs_scr_ac1') and curr_row.chrpsychs_scr_ac1!=''" 
+        " and instance.utils.can_be_float(curr_row.chrpsychs_scr_ac1)==True"
+        " and float(curr_row.chrpsychs_scr_ac1)==float(0)) and (hasattr(curr_row,'chrpsychs_scr_e4')"
+        " and instance.utils.can_be_float(curr_row.chrpsychs_scr_e4)==True and float(curr_row.chrpsychs_scr_e4)==float(1))"
+        " and (hasattr(curr_row,'chrpsychs_scr_e21') and curr_row.chrpsychs_scr_e21!=''"
+        " and instance.utils.can_be_float(curr_row.chrpsychs_scr_e21)==True"
+        " and float(curr_row.chrpsychs_scr_e21)==float(0)) and (hasattr(curr_row,'chrsofas_currscore')"
+        " and instance.utils.can_be_float(curr_row.chrsofas_currscore)==True"
+        " and hasattr(curr_row,'chrsofas_premorbid') and instance.utils.can_be_float(curr_row.chrsofas_premorbid)==True)"
+        " and ((float(curr_row.chrsofas_currscore)/float(curr_row.chrsofas_premorbid))"
+        " >=float(0.9))"),
+        
+        "chriq_pic_completion_raw" :("hasattr(curr_row,'chriq_assessment')"
+        " and instance.utils.can_be_float(curr_row.chriq_assessment)==True and"
+        " (float(curr_row.chriq_assessment)==float(4) or float(curr_row.chriq_assessment)==float(5))"),
+
+        "chriq_scaled_pic_completion" :("hasattr(curr_row,'chriq_assessment')"
+        " and instance.utils.can_be_float(curr_row.chriq_assessment)==True and"
+        " (float(curr_row.chriq_assessment)==float(4) or float(curr_row.chriq_assessment)==float(5))"),
+
+        "chrdig_notes_5" : ("hasattr(curr_row,chrdig_reason_missing)"
+        " and instance.utils.can_be_float(curr_row.chrdig_reason_missing) and float(curr_row.chrdig_reason_missing) == float(3)"
+        " and hasattr(curr_row,'chrdig_motivational')"
+        " and curr_row.chrdig_motivational != ''"),
+
+        "chreeg_entry_date" : "hasattr(curr_row,'chreeg_interview_date') and curr_row.chreeg_interview_date != ''"
+        }
 
     def __call__(self):
         converted_branching_logic = self.convert_all_branching_logic()
         self.find_problematic_conversions(converted_branching_logic)
+        self.find_pattern_exceptions()
+        self.exclude_identifiers()
+
+        self.utils.save_dependency_json(self.excluded_conversions,
+         'excluded_branching_logic_vars.json')
 
         return converted_branching_logic
         
@@ -48,10 +74,11 @@ class TransformBranchingLogic():
         'Branching Logic (Show field only if...)': 'branching_logic','Field Type':'field_type'})
 
         for row in self.data_dictionary_df.itertuples():
-            if row.field_type =='descriptive':
-                continue
             var = getattr(row, 'variable')
             branching_logic = getattr(row, 'branching_logic')
+            branching_logic = self.edit_tbi_branch_logic(var, branching_logic)
+            branching_logic = self.edit_past_pharm_branch_logic(var, branching_logic)
+            branching_logic = self.edit_av_branch_logic(var, branching_logic)
             converted_bl = ''
             if branching_logic !='':
                 converted_bl = self.branching_logic_redcap_to_python(branching_logic)
@@ -61,7 +88,37 @@ class TransformBranchingLogic():
             'original_branching_logic': branching_logic, 'converted_branching_logic': converted_bl}
         
         return all_converted_branching_logic
+    
+
+    def find_pattern_exceptions(self):
+        all_patterns = [ (r"(\()*(\s*)(and|or)?(\s*)(\(*)(\[\w+(\(\d+\))?\])(\s*)"
+        r"(<>|=|>=|<=|>|<)(\s*)('00'|''|\[\w+(\(\d+\))?\]|"
+        r"(\')?-?\d+(\.\d+)?(\')?)(\s*)(\)*)(and|or)?(\s*)(\))*")
+        ]
+        data_dictionary_df = self.data_dictionary_df.rename(
+        columns={'Variable / Field Name': 'variable',
+        'Branching Logic (Show field only if...)': 'branching_logic','Field Type':'field_type'})
+
+        for row in data_dictionary_df.itertuples():
+            if row.field_type =='descriptive':
+                continue
+            var = getattr(row, 'variable')
             
+            branching_logic = getattr(row, 'branching_logic')
+            branching_logic = self.edit_tbi_branch_logic(var, branching_logic)
+            branching_logic = self.edit_past_pharm_branch_logic(var, branching_logic)
+            branching_logic = self.edit_av_branch_logic(var, branching_logic)
+            converted_bl = ''
+            modified_bl = str(branching_logic).replace('OR', 'or').replace('AND', 'and').replace("\n", ' ').replace('"',"'")
+            if modified_bl !='':
+                for pattern in all_patterns:
+                    modified_bl = re.sub(
+                    pattern, '',
+                    modified_bl)
+            if modified_bl != '':
+                if var not in self.manual_conversions.keys():
+                    self.excluded_conversions[var] = branching_logic
+
     def branching_logic_redcap_to_python(self, branching_logic):
         """This function focuses on converting the syntax
         from the REDCap branching logic in the data dictionary
@@ -74,47 +131,118 @@ class TransformBranchingLogic():
         branching logic: redcap version of branching logic 
         """
         modified_branching_logic = str(branching_logic).replace('[', '').replace(
-        ']', '').replace('<>', '!=').replace('OR', 'or').replace('AND', 'and').replace("\n", ' ')
-        patterns_replacements = [
-            # Replaces single equals sign "=" with double equals sign "==" 
-            (r"(?<!=)(?<![<>!])=(?!=)", r"=="),  
-            # Adds "row." to the beginning of variable names or function calls followed by a comparison operator (!=, =, <, >) 
-            (r"\b([\w]+(?:\(\d+\))*?)\s*(!=|=|<|>)\s*", r"row.\1\2"), 
-            # Adds "row." to the beginning of variable names or function calls preceded by a comparison operator (!=, =, <, >) 
-            (r"(!=|=|<|>)\s*\b([A-Za-z]+(?:\(\d+\))*?)\s*", r"\1row.\2"), 
-            # Converts numbers to floats  by adding "float()" around it .
-            (r'([=<>]\s*)(\"?-?\d+(\.\d+)?\"?)', r"\1float(\2)"), 
-            # Converts numeric values preceded by a comparison operator (=, <, >) by adding the "float()" function.
-            (r"'(-?(?!00)\d+(\.\d+)?)'", r"float(\1)"),  
-            # Replaces numbers in parentheses with "___" appended to the beginning (for checkbox variables) 
-            (r"(?<!float)\((\d+)\)", r"___\1"),  
-            # Adds the "float()" function to variable names starting with "row." 
-            # if it is followed by a comparison operator and a float number
-            (r"(row\.\w+)(?==|>|<|>=|<=)(?! )(?!=='00)(?=.*?\bfloat\()", r"float(\1)"),
-            
-            (r'(row\.)(\w+)(!=)(float\(\"?-?\d+\"?|row\.\w+)',
-            r"(not hasattr(row,'\2') or \1\2=='' or self.utils.can_be_float(\1\2)==False or float(\1\2)\3\4)"),
+        ']', '').replace('<>', '!=').replace('OR', 'or').replace('AND', 'and').replace("\n", ' ').replace('"',"'")
 
-            (r'(float\()(row\.)(\w+)(\))(\s*)(==|>=|<=|<|>)(\s*)(float\(\"?-?\d+\.?\d*\"?|row\.\w+)',
-            r"(hasattr(row,'\3') and self.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6\7\8)"),
-
-            (r"(row\.)(\w+)(!=)('')",
-            r"(hasattr(row,'\2') and \1\2\3\4)"),
-
-            (r"(row\.)(\w+)(!=)('00')",
-            r"(not hasattr(row,'\2') or \1\2\3\4)"),
-
-            (r"(row\.)(\w+)(==)('00')",
-            r"(hasattr(row,'\2') and \1\2\3\4)"),
-        ]
-
-        for pattern, replacement_text in patterns_replacements: 
-            modified_branching_logic = \
-                re.sub(pattern, replacement_text,\
-                modified_branching_logic)
-            
+        #NOTE: functions must remain in this order in the list
+        for pattern_replacements in [self.format_floats_and_vars(),
+        self.format_var_comparisons(), self.refine_float_comparisons(),
+        self.format_double_zeroes()]:
+            for pattern, replacement_text in pattern_replacements: 
+                modified_branching_logic = re.sub(
+                    pattern, replacement_text,
+                    modified_branching_logic)
+                
         return modified_branching_logic
     
+
+    def exclude_identifiers(self):
+        depend_path = self.config_info['paths']['dependencies_path']
+        ident_df = pd.read_csv(f'{depend_path}identifier_effects.csv')
+        for row in ident_df.itertuples():
+            if row.affected_col == 'branching_logic':
+                self.excluded_conversions[row.var] = row.affected_col_val
+    
+    def format_floats_and_vars(self): # chrmri_dmri_b0_qc_2
+        pattern_replacements = [
+            # Replaces single equals sign "=" with double equals sign "==" 
+            (r"(?<!=)(?<![<>!])=(?!=)", r"=="),  
+            # Converts numbers (that do not equal '00') prececeded by comparison operators to floats.
+            (r"([=<>]\s*)(\'?(?!00)-?\d+(\.\d+)?\'?)", r"\1float(\2)"), 
+            # Adds "curr_row." to the beginning of variable names or function calls followed by a comparison operator (!=, =, <, >) 
+            (r"([A-Za-z][A-Za-z0-9_]*)(\(\d+\))?(\s*)(!=|=|<|>)", r"curr_row.\1\2\3\4"), 
+            # Adds "curr_row." to the beginning of variable names or function calls preceded by a comparison operator (!=, =, <, >) 
+            (r"(!=|=|<|>)(\s*)((?!float\()[A-Za-z][A-Za-z0-9_]*)(\(\d+\))?", r"\1\2curr_row.\3\4"), 
+            # Replaces numbers in parentheses with "___" appended to the beginning (for checkbox variables) 
+            (r"(?<!float)\((\d+)\)", r"___\1"),  
+            # Adds the "float()" function to variable names starting with "curr_row." 
+            # if it is followed by a comparison operator and a float number
+            (r"(curr_row\.\w+\_*)(\s*)(==|>|<|>=|<=)(\s*)(float\()", r"float(\1)\2\3\4\5"),
+            # if the dataframe does not have the variable, then it is considered blank
+            # otherwise, checks if it is blank or if it can be a float that is not equal
+            # to the value of interest
+            (r'(curr_row\.)(\w+)(\s*!=\s*)(float\()',
+            r"(not hasattr(curr_row,'\2') or \1\2=='') or instance.utils.can_be_float(\1\2)==False or float(\1\2)\3\4")
+            ]
+        
+        return pattern_replacements
+    
+    def format_var_comparisons(self):
+        pattern_replacements = [
+            # if it is checking if two variables are equal, then it checks
+            # if they are both blank, both equal floats, or both equal strings
+            (r'(curr_row\.)(\w+)(\s*==\s*)(curr_row\.)(\w+)',
+            (r"((hasattr(curr_row,'\5') and hasattr(curr_row,'\2')) and"
+            r" ((instance.utils.can_be_float(\1\2)==True and"
+            r" instance.utils.can_be_float(\4\5)==True and float(\1\2) \3 float(\4\5)) or (str(\1\2) \3 str(\4\5) )) )"
+            r" or (not hasattr(curr_row,'\5') and not hasattr(curr_row,'\2'))")),
+            # if it is checking if two variables are greater than
+            # or less than each other, checks if they are both
+            # floats then compares them
+            (r'(curr_row\.)(\w+\s*)(>|<|>=|<=)(\s*curr_row\.)(\w+)',
+            (r"(hasattr(curr_row,'\5') and hasattr(curr_row,'\2')) and"
+            r" (instance.utils.can_be_float(\1\2)==True and"
+            r" instance.utils.can_be_float(\4\5)==True and float(\1\2) \3 float(\4\5))")),
+            # when checking if two variables are not equal, will check if 
+            # one exists and is not blank while the other one exists, or
+            # if they are both floats that are not equal 
+            # or if they can't be floats and their strings are not equal
+            (r'(curr_row\.)(\w+)(\s*!=\s*)(curr_row\.)(\w+)',
+            (r"((not hasattr(curr_row,'\5') and hasattr(curr_row,'\2') and \1\2!='') or"
+            r" (not hasattr(curr_row,'\2') and hasattr(curr_row,'\5') and \4\5!='') or "
+            r" (instance.utils.can_be_float(\1\2)==True and"
+            r" instance.utils.can_be_float(\4\5)==True and float(\1\2) \3 float(\4\5)) or"
+            r" (instance.utils.can_be_float(\1\2)==False and"
+            r" instance.utils.can_be_float(\4\5)==False and str(\1\2) \3 str(\4\5)))"))
+        ]
+
+        return pattern_replacements
+    
+    def refine_float_comparisons(self):
+        pattern_replacements =[
+            # if it is comparing a variable to a float (other than a negative comparison), checks if 
+            # the variable exists and that it can be a float
+            (r"(float\()(curr_row\.)(\w+)(\))(\s*)(==|>=|<=|<|>)(\s*)(float\(\'?-?\d+\.?\d*\'?)",
+            r"(hasattr(curr_row,'\3') and instance.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6\7\8)"),
+            # if it is checking if a variable does not equal a float, 
+            # it can either not exist in the dataframe or be a float that 
+            # does not equal the value of interest
+            (r"(float\()(curr_row\.)(\w+)(\))(\s*)(!=)(\s*)(float\(\'?-?\d+\.?\d*\'?)",
+            r"(not hasattr(curr_row,'\3') or (instance.utils.can_be_float(\2\3)==True and \1\2\3\4\5\6\7\8))"),
+            # if it is checking if a variable is not blank
+            # it needs to exist in the dataframe
+            (r"(curr_row\.)(\w+)(\s*!=\s*)('')",
+            r"(hasattr(curr_row,'\2') and \1\2\3\4)"),
+            # if it is checking if a variable is blank
+            # it can either not exist in the dataframe or be blank
+            (r"(curr_row\.)(\w+)(\s*==\s*)('')",
+            r"(not hasattr(curr_row,'\2') or \1\2\3\4)")
+        ]
+
+        return pattern_replacements
+    
+    def format_double_zeroes(self):
+        pattern_replacements = [
+            # if it is checking if a variable it not "00"
+            # it can either not exist in the dataframe or exist and not equal "00"
+            (r"(curr_row\.)(\w+)(\s*!=\s*)('00')",
+            r"(not hasattr(curr_row,'\2') or \1\2\3\4)"),
+            # if it is checking if a variable is "00"
+            # it must exist in the dataframe
+            (r"(curr_row\.)(\w+)(\s*==\s*)('00')",
+            r"(hasattr(curr_row,'\2') and \1\2\3\4)"),
+        ]
+
+        return pattern_replacements
 
     def find_problematic_conversions(self,converted_bl):
         exceptions = []
@@ -144,7 +272,7 @@ class TransformBranchingLogic():
         f'{self.config_info["paths"]["output_path"]}branching_logic_qc.csv',
         index = False)
 
-    def edit_tbi_branch_logic(self,variable):
+    def edit_tbi_branch_logic(self,variable, orig_bl):
         """Modifies branching logic for 
         TBI form to only check the variables 
         that correspond to the number of injuries.
@@ -159,15 +287,17 @@ class TransformBranchingLogic():
             for injury_count in [4,5]:
                 if f'{injury_count}' in variable:
                     if 'parent' not in variable:
-                        self.branch_logic_edit_dictionary[str(variable)]\
-                        = (f"[chrtbi_number_injs] = '{injury_count}'"
+                        branching_logic = (f"[chrtbi_number_injs] = '{injury_count}'"
                         " and [chrtbi_subject_times] = '3'")
+                        return branching_logic
                     else:
-                        self.branch_logic_edit_dictionary[str(variable)]\
-                        = (f"[chrtbi_number_injs] = '{injury_count}'"
+                        branching_logic = (f"[chrtbi_number_injs] = '{injury_count}'"
                         " and [chrtbi_parent_times] = '3'")
+                        return branching_logic
+                    
+        return orig_bl
 
-    def edit_past_pharm_branch_logic(self, variable):
+    def edit_past_pharm_branch_logic(self, variable, orig_bl):
         """Edits pharm branching logic to account
         for subject selecting no medication for 
         name of medication
@@ -178,7 +308,7 @@ class TransformBranchingLogic():
         """
 
         if 'chrpharm_med' in variable:
-            number = self.collect_digit(variable)
+            number = self.utils.collect_digit(variable)
             if number not in ['1','']:
                 new_branching_logic = \
                 (f"[chrpharm_med{number}_name_past] <> '999' and"\
@@ -188,10 +318,27 @@ class TransformBranchingLogic():
                 (f"[chrpharm_med{number}_name_past] <> '999'"
                 " and [chrpharm_med_past] = '1'")
             if 'onset_past' in variable:
-                self.branch_logic_edit_dictionary[\
-                f"chrpharm_med{number}_onset_past"]\
-                = new_branching_logic
+                return new_branching_logic
             elif 'offset_past' in variable:
-                self.branch_logic_edit_dictionary[\
-                f"chrpharm_med{number}_offset_past"]\
-                =new_branching_logic
+                return new_branching_logic
+
+        return orig_bl
+    
+
+    def edit_av_branch_logic(self, variable, orig_bl):
+
+        if variable == 'chrpsychs_av_audio_expl':
+            new_branching_logic = '[chrpsychs_av_audio_yn] = 0'
+            return new_branching_logic
+        if variable == 'chrpsychs_av_qual_desc':
+            new_branching_logic = '[chrpsychs_av_quality] = 1'
+            return new_branching_logic
+        elif variable == 'chrpsychs_av_dev_desc':
+            new_branching_logic = '[chrpsychs_av_deviation] = 0'
+            return new_branching_logic
+        elif variable == 'chrpsychs_av_pause_reason':
+            new_branching_logic = '[chrpsychs_av_pause_rec] = 1'
+            return new_branching_logic
+
+
+        return orig_bl

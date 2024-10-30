@@ -11,7 +11,6 @@ class Utils():
 
         self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 
-
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
 
@@ -198,10 +197,6 @@ class Utils():
             return True
         else:
             return False
-
-
-
-
         
     def apply_df_str_filter(self, df, filter_list, filter_col):
         excluded_str_filter = '|'.join(filter_list)
@@ -218,6 +213,17 @@ class Utils():
         'w') as json_file:
             json.dump(data, json_file, indent=4)  
 
+    def load_dependency_json(self, filename):
+        dep_path = self.config_info["paths"]["dependencies_path"]
+
+        try:
+            with open(f'{dep_path}{filename}','r') as json_file:
+                json_data = json.load(json_file) 
+                return json_data 
+        except json.JSONDecodeError:
+            return {}
+
+
     def all_dtype(self, inp_list):
         output_list = []
         for number in inp_list:
@@ -228,14 +234,18 @@ class Utils():
                 str(float(int_num))])
         return output_list
 
+    def collect_digit(self,string):
+        """Collects digit in current string
         
+        Parameters
+        ------------
+        string: string containing digit
+        """
 
-
-
+        for char in string:
+            if char.isdigit():
+                return char
+        return ''
 
 
         
-
-
-
-
