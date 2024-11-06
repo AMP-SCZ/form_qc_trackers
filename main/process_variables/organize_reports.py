@@ -65,10 +65,12 @@ class OrganizeReports():
         self.self_report_forms))]
 
         blank_check_vars = {
-        'Main Report':main_report_df.groupby('Form Name')['Variable / Field Name'].apply(list).to_dict(),
+        'Main Report':main_report_df.groupby(
+        'Form Name')['Variable / Field Name'].apply(list).to_dict(),
 
         
-        'Secondary Report':secondary_report_df.groupby('Form Name')['Variable / Field Name'].apply(list).to_dict()
+        'Secondary Report':secondary_report_df.groupby(
+        'Form Name')['Variable / Field Name'].apply(list).to_dict()
         }
         
 
@@ -80,9 +82,9 @@ class OrganizeReports():
         additional_blank_check_vars = self.define_additional_blank_check_vars()
 
         filtered_df = filtered_df[
-        ((self.data_dict_df['Required Field?']=='y') & (self.data_dict_df[
-        'Field Type']!='checkbox') & (self.data_dict_df[
-        'Identifier?']!='y') &(~filtered_df['Form Name'].isin(self.all_psychs_forms))) | (self.data_dict_df[
+        ((filtered_df['Required Field?']=='y') & (filtered_df[
+        'Field Type']!='checkbox') & (filtered_df[
+        'Identifier?']!='y') &(~filtered_df['Form Name'].isin(self.all_psychs_forms))) | (filtered_df[
         'Variable / Field Name'].isin(additional_blank_check_vars))]
 
         return filtered_df
@@ -141,7 +143,8 @@ class OrganizeReports():
         pronet_excl_strings = ['comment', 'note','chrcssrsb_cssrs_yrs_sb',
         'chrcssrsb_sb6l','chrcssrsb_nmapab','chrpas_pmod_adult3v3',
         'chrpas_pmod_adult3v1','chrmri_t2_ge','chrcssrsfu_skip_aa',
-        'chric_surveys','chrdbb_phone_model','chrdbb_phone_software']
+        'chric_surveys','chrdbb_phone_model','chrdbb_phone_software','chrblood_pl1id_2',
+        'chrdemo_parent_fa','chrdemo_parent_mo']
 
         excluded_strings =  {'PRONET':pronet_excl_strings,
         
@@ -181,6 +184,8 @@ class OrganizeReports():
             'chrpsychs_scr_e27','chrpsychs_scr_e11_app',
             'chrpsychs_scr_e27_app','chrpsychs_fu_e27',
             'chrpsychs_fu_e27_app','hcpsychs_fu_e27','hcpsychs_fu_e27_app'])
+        
+        print(essential_psychs_vars)
 
         return essential_psychs_vars
     

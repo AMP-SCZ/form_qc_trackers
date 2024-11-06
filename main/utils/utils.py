@@ -2,6 +2,8 @@ import pandas as pd
 import os
 import json
 import re
+import dropbox
+from datetime import datetime
 class Utils():
     def __init__(self):
         self.missing_code_list = \
@@ -14,6 +16,31 @@ class Utils():
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
 
+        self.all_pronet_sites = ["KC", "BI", "SD", "NL", "OR", "CA", "IR", "MU","YA", "HA",\
+        "MA", "PI", "PV", "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM','SL','SI','SH','UR','OH']
+        self.all_prescient_sites = ['BM', 'CG', 'CP', 'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']
+
+        self.all_sites = {'PRONET' :["KC", "BI", "SD", "NL",
+        "OR", "CA", "IR", "MU","YA", "HA","MA", "PI", "PV",
+        "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM',
+        'SL','SI','SH','UR','OH'] ,'PRESCIENT' : ['BM', 'CG', 'CP',
+        'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']}
+        
+        self.site_full_name_translations = {'BI': 'Beth Israel (Harvard) (BI)',\
+                'CA': 'Calgary, CA (CA)', 'CM': 'Cambridge (CM)', 'GA': 'Georgia (GA)',\
+                'HA': 'Hartford (Institute of Living) (HA)', 'IR': 'UC Irvine (IR)',\
+                'KC': "King's College, UK (KC)", 'LA': 'UCLA (LA)', 'MA': 'Madrid, Spain (MA)',\
+                'MT': 'Montreal, CA (MT)', 'MU': 'Munich, Germany (MU)', 'NC': 'UNC (North Carolina) (NC)',\
+                'NL': 'Northwell (NL)', 'NN': 'Northwestern (NN)', 'OR': 'Oregon (OR)',
+                'PA': 'University of Pennsylvania (PA)', 'PI': 'Pittsburgh (UPMC) (PI)',\
+                'PV': 'Pavia, Italy (PV)', 'SD': 'UCSD (SD)', 'SF': 'UCSF (Mission Bay) (SF)',\
+                'SH': 'Shanghai, China (SH)', 'SI': 'Mt. Sinai (SI)', 'SL': 'Seoul, South Korea (SL)',\
+                'TE': 'Temple (TE)', 'WU': 'Washington University (WU)', 'YA': 'Yale (YA)','UR':'University of Rochester (UR)',\
+                'OH':'Ohio (OH)', 'BM': 'Birmingham, UK (BM)', 'CG': 'Cologne, DE (CG)', \
+                'CP': 'Copenhagen, DK (CP)', 'GW': 'Gwangju, KR (GW)', 'HK': 'Hong Kong (HK)',\
+                'JE': 'Jena, DE (JE)', 'LS': 'Lausanne, CH (LS)', 'ME': 'Melbourne (ME)',\
+                'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
+                'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
 
     def create_timepoint_list(self):
         """
@@ -248,4 +275,32 @@ class Utils():
         return ''
 
 
+    def collect_dropbox_credentials(self):
+        """reads dropbox credentials from
+        JSON file"""
+
+        depend_path = self.config_info['paths']['dependencies_path']
+
+        with open(depend_path +'dropbox_credentials.json', 'r') as file:
+            json_data = json.load(file)
+        APP_KEY = json_data['app_key']
+        APP_SECRET = json_data['app_secret']
+        REFRESH_TOKEN = json_data['refresh_token']
+
+        dbx = dropbox.Dropbox(
+            app_key = APP_KEY,
+            app_secret = APP_SECRET,
+            oauth2_refresh_token = REFRESH_TOKEN
+        )
+
+        return dbx
+
         
+    def days_between(self,date_str, date_format="%Y-%m-%d"):
+        input_date = datetime.strptime(date_str, date_format)
+        
+        today = datetime.today()
+        
+        delta = today - input_date
+        
+        return delta.days

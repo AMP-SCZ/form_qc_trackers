@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 
 class DefineEssentialFormVars():
     """
@@ -209,7 +210,8 @@ class CollectMiscVariables():
 
     def __call__(self):
         var_info = {"blood_vars":self.collect_blood_var_types(),
-                    "var_forms" : self.collect_form_per_var()}
+                    "var_forms" : self.collect_form_per_var(),
+                    'var_translations' : self.create_variable_translations()}
 
         return var_info
 
@@ -237,4 +239,41 @@ class CollectMiscVariables():
         form_per_var = filterered_df.set_index('variable')['form'].to_dict()
 
         return form_per_var
+
+    def create_variable_translations(self):
+        """Removes some unwanted characters from
+        branching loggic and adds them to translation
+        dictionary
+
+        Parameters
+        -----------
+        col_values: values from
+        current data dictionary row
+        """  
+        var_translations = {}
+
+        col_renames = {'Variable / Field Name':'var','Field Label':'field_label',
+        'Choices, Calculations, OR Slider Labels':'choices'}
+
+        filtered_data_dict = self.data_dictionary_df[list(col_renames.keys())]
+        filtered_data_dict.rename(columns=col_renames, inplace=True)
+        
+
+        for row in filtered_data_dict.itertuples():
+            if str(row.field_label) != '':
+                pattern = r'<.*?>'
+                replacement_text = ''
+                translation = row.field_label
+                translation = re.sub(pattern,\
+                replacement_text, translation)
+                for char in ['<','>','/','\n','Â']:
+                    translation =\
+                    translation.replace(char,'')
+                var_translations[
+                row.var] = row.var + ' = ' +  translation
+            else:
+                var_translations[row.var] = row.var + ' = ' +  row.choices
+
+
+        return var_translations
     

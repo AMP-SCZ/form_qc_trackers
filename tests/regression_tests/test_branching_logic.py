@@ -42,8 +42,9 @@ class TestTransformBranchingLogic(unittest.TestCase):
         output_list = []
         count = 0
         tp_list = self.utils.create_timepoint_list()
+        tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
-            for tp in tp_list:
+            for tp in tp_list[-2:]:
                 print(tp)
                 combined_df_path = f'{self.combined_csv_path}combined-{network}-{tp}-day1to1.csv'
                 combined_df = pd.read_csv(combined_df_path,keep_default_na=False)

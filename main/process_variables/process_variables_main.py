@@ -3,16 +3,16 @@ import os
 import sys
 import json
 
-parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
-sys.path.insert(1, parent_dir)
+#parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
+#sys.path.insert(1, parent_dir)
 
-from utils.utils import Utils
-from define_important_variables import DefineEssentialFormVars, CollectMiscVariables
-from transform_branching_logic import TransformBranchingLogic
-from organize_reports import OrganizeReports
-from collect_subject_info import CollectSubjectInfo
+from main.utils.utils import Utils
+from main.process_variables.define_important_variables import DefineEssentialFormVars, CollectMiscVariables
+from main.process_variables.transform_branching_logic import TransformBranchingLogic
+from main.process_variables.organize_reports import OrganizeReports
+from main.process_variables.collect_subject_info import CollectSubjectInfo
 
-from analyze_identifier_effects import AnalyzeIdentifiers
+from main.process_variables.analyze_identifier_effects import AnalyzeIdentifiers
 
 
 class ProcessVariables():
@@ -63,7 +63,5 @@ class ProcessVariables():
         organize_reports.run_script()
         
 
-if __name__ == '__main__':
-    ProcessVariables().run_script()
 
         

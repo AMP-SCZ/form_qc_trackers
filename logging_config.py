@@ -4,8 +4,6 @@ import json
 import os
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-1])
 sys.path.insert(1, parent_dir)
-print('-----')
-print(parent_dir)
 from main.utils.utils import Utils
 
 utils = Utils()

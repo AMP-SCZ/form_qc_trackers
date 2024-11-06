@@ -85,7 +85,7 @@ class VariableMismatches():
                 print(col1)
                 print(col2)
                 similar_columns.append((col1, col2, equality_percentage))
-        similar_columns_df = pd.DataFrame(similar_columns,\
+        similar_columns_df = pd.DataFrame(similar_columns,
         columns=['Column 1', 'Column 2', 'Equality Percentage'])
         
         return similar_columns_df

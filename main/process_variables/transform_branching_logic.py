@@ -25,8 +25,13 @@ class TransformBranchingLogic():
         self.all_vars = self.data_dictionary_df['Variable / Field Name'].tolist()
         self.all_converted_branching_logic = {}
         self.manual_conversions = {"chr_ae1date_dr":
-        "float(curr_row.chrae_aescreen)==float(1) and float(chrae_dr1) == float(1)",
-        "chreeg_entry_date":"curr_row.chreeg_interview_date !=''",
+        ("hasattr(curr_row, 'chrae_aescreen') and"
+        " instance.utils.can_be_float(curr_row.chrae_aescreen)==True"
+        " and float(curr_row.chrae_aescreen)==float(1) and"
+        " hasattr(curr_row, 'chrae_dr1') and"
+        " instance.utils.can_be_float(curr_row.chrae_dr1)==True"
+        " and float(curr_row.chrae_dr1)==float(1)"),
+        "chreeg_entry_date":"hasattr(curr_row,'chreeg_interview_date') and curr_row.chreeg_interview_date !=''",
         
         "chrpsychs_scr_e24":("(hasattr(curr_row,'chrpsychs_scr_ac1') and curr_row.chrpsychs_scr_ac1!=''" 
         " and instance.utils.can_be_float(curr_row.chrpsychs_scr_ac1)==True"
@@ -152,7 +157,7 @@ class TransformBranchingLogic():
             if row.affected_col == 'branching_logic':
                 self.excluded_conversions[row.var] = row.affected_col_val
     
-    def format_floats_and_vars(self): # chrmri_dmri_b0_qc_2
+    def format_floats_and_vars(self):
         pattern_replacements = [
             # Replaces single equals sign "=" with double equals sign "==" 
             (r"(?<!=)(?<![<>!])=(?!=)", r"=="),  
