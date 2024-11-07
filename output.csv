@@ -1,0 +1,449 @@
+,error_message,displayed_form,displayed_timepoint,subject,manually_resolved
+0,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,BI11459,test
+1,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI11459,test
+2,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI11459,test
+3,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI11459,test
+4,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI19401,test
+5,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI19401,test
+6,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI19401,test
+7,chrpsychs_scr_10d16 : Variable is Blank,Psychs P9Ac32,screening,BI21707,test
+8,chrpsychs_scr_10d30 : Variable is Blank,Psychs P9Ac32,screening,BI21707,test
+9,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI21707,test
+10,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI21707,test
+11,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI21707,test
+12,chrpsychs_scr_1b19 : Variable is Blank,Psychs P1P8,screening,BI22917,test
+13,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI22917,test
+14,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI22917,test
+15,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI22917,test
+16,chrpsychs_scr_1d30 : Variable is Blank,Psychs P1P8,screening,BI27478,test
+17,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI45343,test
+18,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI45343,test
+19,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI45343,test
+20,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI27478,test
+21,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI27478,test
+22,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI27478,test
+23,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI28850,test
+24,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI28850,test
+25,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI28850,test
+26,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI30617,test
+27,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI30617,test
+28,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI30617,test
+29,chrpsychs_scr_13b19 : Variable is Blank,Psychs P9Ac32,screening,BI33025,test
+30,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,BI33025,test
+31,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI33542,test
+32,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI33542,test
+33,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI33542,test
+34,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI34174,test
+35,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI34174,test
+36,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI34174,test
+37,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI35251,test
+38,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI35251,test
+39,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI35251,test
+40,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI35873,test
+41,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI35873,test
+42,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI35873,test
+43,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,CA26479,test
+44,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,CA17886,test
+45,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI41008,test
+46,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI41008,test
+47,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI41008,test
+48,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,CA16515,test
+49,chrpsychs_scr_5b19 : Variable is Blank,Psychs P1P8,screening,MT53896,test
+50,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MT18844,test
+51,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,NN01303,test
+52,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR15177,test
+53,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR11959,test
+54,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR11959,test
+55,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR11959,test
+56,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI52744,test
+57,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI52744,test
+58,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI52744,test
+59,chrhealth_lung : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,BI54170,test
+60,chrhealth_slee : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,BI54170,test
+61,chrpsychs_scr_1d30 : Variable is Blank,Psychs P1P8,screening,BI54170,test
+62,chrpsychs_scr_10d30 : Variable is Blank,Psychs P9Ac32,screening,BI54170,test
+63,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI54170,test
+64,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI54170,test
+65,chrpsychs_scr_1b19 : Variable is Blank,Psychs P1P8,screening,BI55063,test
+66,chrpsychs_scr_e11 : Variable is Blank,Psychs P9Ac32,screening,BI55063,test
+67,chrpsychs_scr_e27 : Variable is Blank,Psychs P9Ac32,screening,BI55063,test
+68,chrpsychs_scr_e11 : Variable is Blank,Psychs P9Ac32,screening,BI56728,test
+69,chrpsychs_scr_e27 : Variable is Blank,Psychs P9Ac32,screening,BI56728,test
+70,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI56728,test
+71,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI56728,test
+72,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI56728,test
+73,chrpsychs_scr_1b19 : Variable is Blank,Psychs P1P8,screening,BI59170,test
+74,chrpsychs_scr_2b19 : Variable is Blank,Psychs P1P8,screening,BI59170,test
+75,chrpsychs_scr_2d30 : Variable is Blank,Psychs P1P8,screening,BI59170,test
+76,chrpsychs_scr_e11 : Variable is Blank,Psychs P9Ac32,screening,BI59170,test
+77,chrpsychs_scr_e27 : Variable is Blank,Psychs P9Ac32,screening,BI59170,test
+78,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI47113,test
+79,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI47113,test
+80,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI47113,test
+81,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI59170,test
+82,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI59170,test
+83,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI59170,test
+84,chrpsychs_scr_e11 : Variable is Blank,Psychs P9Ac32,screening,BI59853,test
+85,chrpsychs_scr_e27 : Variable is Blank,Psychs P9Ac32,screening,BI59853,test
+86,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI59853,test
+87,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI59853,test
+88,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI59853,test
+89,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,CA04081,test
+90,chrtbi_subject_length : Variable is Blank,Traumatic Brain Injury Screen,screening,CA04081,test
+91,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,CA07055,test
+92,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI40987,test
+93,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI40987,test
+94,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI40987,test
+95,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI42618,test
+96,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI42618,test
+97,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI42618,test
+98,chrguid_guid_pseudo : Variable is Blank,Guid Form,screening,TE50730,test
+99,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR10222,test
+100,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR10222,test
+101,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR10222,test
+102,chrfigs_mother_s01 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+103,chrfigs_father_s01 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+104,chrfigs_sibling1_s01 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+105,chrfigs_mother_s02 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+106,chrfigs_father_s02 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+107,chrfigs_sibling1_s02 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+108,chrfigs_mother_s03 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+109,chrfigs_father_s03 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+110,chrfigs_mother_s04 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+111,chrfigs_father_s04 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+112,chrfigs_sibling1_s04 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+113,chrfigs_mother_s05 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+114,chrfigs_father_s05 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+115,chrfigs_sibling1_s05 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+116,chrfigs_mother_s06 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+117,chrfigs_father_s06 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+118,chrfigs_sibling1_s06 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+119,chrfigs_mother_s07 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+120,chrfigs_father_s07 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+121,chrfigs_sibling1_s07 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+122,chrfigs_mother_s08 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+123,chrfigs_father_s08 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+124,chrfigs_sibling1_s08 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+125,chrfigs_sibling1_d03 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+126,chrfigs_sibling1_d04 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+127,chrfigs_sibling1_d05 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+128,chrfigs_sibling1_d08 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+129,chrfigs_sibling1_d09 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+130,chrfigs_sibling1_d11 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+131,chrfigs_sibling1_d12 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,GA13951,test
+132,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA11836,test
+133,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA11836,test
+134,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,GA11836,test
+135,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,CA36377,test
+136,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,CM01883,test
+137,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CM02493,test
+138,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CM02493,test
+139,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,CM02493,test
+140,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA13501,test
+141,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA13501,test
+142,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,GA13501,test
+143,chrpsychs_scr_7b6_app : Variable is Blank,Psychs P1P8,screening,CM08170,test
+144,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,CM08170,test
+145,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CM16381,test
+146,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CM16381,test
+147,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,CM16381,test
+148,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CM18717,test
+149,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CM18717,test
+150,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,CM18717,test
+151,chrguid_guid_pseudo : Variable is Blank,Guid Form,screening,CM25968,test
+152,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,CM27538,test
+153,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA04102,test
+154,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA04102,test
+155,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,GA04102,test
+156,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,GA11719,test
+157,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI05529,test
+158,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,BI05529,test
+159,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,BI05529,test
+160,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,SF05231,test
+161,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,NN12594,test
+162,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE15483,test
+163,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE15483,test
+164,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,TE15483,test
+165,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE27717,test
+166,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE27717,test
+167,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,TE27717,test
+168,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,TE42329,test
+169,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE42329,test
+170,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE42329,test
+171,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,TE42329,test
+172,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE45854,test
+173,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,TE45854,test
+174,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,TE50441,test
+175,chrguid_pseudoguid : Variable is Blank,Guid Form,screening,HA36194,test
+176,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR09281,test
+177,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR09281,test
+178,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR09281,test
+179,chrguid_guid_pseudo : Variable is Blank,Guid Form,screening,BI28850,test
+180,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,IR09281,test
+181,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR14628,test
+182,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CA27312,test
+183,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,CA27312,test
+184,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,CA27312,test
+185,chrpsychs_scr_1b19 : Variable is Blank,Psychs P1P8,screening,GA65598,test
+186,chrpsychs_scr_2b19 : Variable is Blank,Psychs P1P8,screening,GA65598,test
+187,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA05741,test
+188,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA05741,test
+189,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,HA05741,test
+190,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA05779,test
+191,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA05779,test
+192,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,HA05779,test
+193,chrfigs_mother_age : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+194,chrfigs_father_age : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+195,chrfigs_sibling1_sex : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+196,chrfigs_sibling1_info : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+197,chrfigs_mother_s01 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+198,chrfigs_father_s01 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+199,chrfigs_mother_s02 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+200,chrfigs_father_s02 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+201,chrfigs_mother_s03 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+202,chrfigs_father_s03 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+203,chrfigs_mother_s04 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+204,chrfigs_father_s04 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+205,chrfigs_mother_s05 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+206,chrfigs_father_s05 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+207,chrfigs_mother_s06 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+208,chrfigs_father_s06 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+209,chrfigs_mother_s07 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+210,chrfigs_father_s07 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+211,chrfigs_mother_s08 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+212,chrfigs_father_s08 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA07422,test
+213,chrguid_pseudoguid : Variable is Blank,Guid Form,screening,HA07422,test
+214,chrpsychs_scr_3b19_app : Variable is Blank,Psychs P1P8,screening,HA10261,test
+215,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA32409,test
+216,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA32409,test
+217,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,HA32409,test
+218,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA32687,test
+219,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA32687,test
+220,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,HA32687,test
+221,chrpsychs_scr_13b19 : Variable is Blank,Psychs P9Ac32,screening,HA33786,test
+222,chrpsychs_scr_13b19 : Variable is Blank,Psychs P9Ac32,screening,HA34257,test
+223,chrpsychs_scr_15b19 : Variable is Blank,Psychs P9Ac32,screening,HA34257,test
+224,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA34257,test
+225,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,HA34257,test
+226,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,HA34257,test
+227,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA22083,test
+228,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,GA22083,test
+229,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,GA22083,test
+230,chrfigs_mother_m02 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,HA35728,test
+231,chrpsychs_scr_7b19_app : Variable is Blank,Psychs P1P8,screening,HA38897,test
+232,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,IR00491,test
+233,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR01762,test
+234,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,IR02677,test
+235,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR02677,test
+236,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR02677,test
+237,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR02677,test
+238,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR05485,test
+239,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR06384,test
+240,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR08198,test
+241,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT50961,test
+242,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT50961,test
+243,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MT50961,test
+244,chrpsychs_scr_13d30 : Variable is Blank,Psychs P9Ac32,screening,MT50961,test
+245,chrpsychs_scr_e27 : Variable is Blank,Psychs P9Ac32,screening,MT50961,test
+246,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT43671,test
+247,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT43671,test
+248,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA49848,test
+249,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA49848,test
+250,chrpsychs_scr_1d30 : Variable is Blank,Psychs P1P8,screening,KC25227,test
+251,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR20186,test
+252,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR20186,test
+253,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR20186,test
+254,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR20881,test
+255,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR22540,test
+256,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR22540,test
+257,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR22540,test
+258,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR22540,test
+259,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR24637,test
+260,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR26152,test
+261,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR31999,test
+262,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR34563,test
+263,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,IR38608,test
+264,chrfigs_sibling1_d05 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,IR52199,test
+265,chrpsychs_scr_1b19 : Variable is Blank,Psychs P1P8,screening,IR53010,test
+266,chrpsychs_av_mic_expl : Variable is Blank,Psychs Av Recording Run Sheet,screening,KC26265,test
+267,chrpsychs_av_deviation : Variable is Blank,Psychs Av Recording Run Sheet,screening,KC26265,test
+268,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,KC26265,test
+269,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR57361,test
+270,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR57361,test
+271,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR57361,test
+272,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC11884,test
+273,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC11884,test
+274,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,KC11884,test
+275,chrpsychs_scr_13b6_app : Variable is Blank,Psychs P9Ac32,screening,KC12905,test
+276,chrsofas_premorbid : Variable is Blank,Sofas Screening,screening,KC12905,test
+277,chrsofas_premorbdate : Variable is Blank,Sofas Screening,screening,KC12905,test
+278,chrsofas_currscore12mo : Variable is Blank,Sofas Screening,screening,KC12905,test
+279,chrsofas_currscore : Variable is Blank,Sofas Screening,screening,KC12905,test
+280,chrsofas_lowscore : Variable is Blank,Sofas Screening,screening,KC12905,test
+281,chrtbi_subject_knockedout : Variable is Blank,Traumatic Brain Injury Screen,screening,KC12905,test
+282,chrtbi_subject_symptoms : Variable is Blank,Traumatic Brain Injury Screen,screening,KC12905,test
+283,chrtbi_subject_med_att : Variable is Blank,Traumatic Brain Injury Screen,screening,KC12905,test
+284,chrsofas_premorbdate : Variable is Blank,Sofas Screening,screening,KC14442,test
+285,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC15274,test
+286,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC15274,test
+287,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,KC15274,test
+288,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC16490,test
+289,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC16490,test
+290,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,KC16490,test
+291,chrsofas_premorbdate : Variable is Blank,Sofas Screening,screening,KC18898,test
+292,chrpsychs_scr_3d16 : Variable is Blank,Psychs P1P8,screening,KC24695,test
+293,chrpsychs_scr_9b19 : Variable is Blank,Psychs P9Ac32,screening,KC33050,test
+294,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA16336,test
+295,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA16336,test
+296,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA16336,test
+297,chrpsychs_scr_e11_app : Variable is Blank,Psychs P9Ac32,screening,MT42550,test
+298,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA49848,test
+299,chrpsychs_scr_9b19 : Variable is Blank,Psychs P9Ac32,screening,KC41433,test
+300,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA00612,test
+301,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA07315,test
+302,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA09341,test
+303,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA09541,test
+304,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA09541,test
+305,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA09541,test
+306,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA09541,test
+307,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA13106,test
+308,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA13106,test
+309,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA13106,test
+310,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA14055,test
+311,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA14300,test
+312,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA14300,test
+313,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA14300,test
+314,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA14300,test
+315,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA15443,test
+316,chrpsychs_scr_13b6_app : Variable is Blank,Psychs P9Ac32,screening,KC34943,test
+317,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA15443,test
+318,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA15443,test
+319,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA15443,test
+320,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA17657,test
+321,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA17657,test
+322,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA18590,test
+323,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA18590,test
+324,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA18590,test
+325,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA22800,test
+326,chrpsychs_scr_2b5_app : Variable is Blank,Psychs P1P8,screening,LA22800,test
+327,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA22800,test
+328,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA22800,test
+329,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA22800,test
+330,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA23121,test
+331,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA23121,test
+332,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA23121,test
+333,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA34845,test
+334,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA34845,test
+335,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA34845,test
+336,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA35483,test
+337,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA35483,test
+338,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA35483,test
+339,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,LA46385,test
+340,chrpsychs_scr_3b19 : Variable is Blank,Psychs P1P8,screening,KC24790,test
+341,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC24790,test
+342,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC24790,test
+343,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,KC24790,test
+344,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC07974,test
+345,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,KC07974,test
+346,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,KC07974,test
+347,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR19595,test
+348,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,IR19595,test
+349,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,IR19595,test
+350,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU13446,test
+351,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU13446,test
+352,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MU13446,test
+353,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,LA51994,test
+354,chrpsychs_av_interview_date : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03287,test
+355,chrpsychs_av_entry_date : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03287,test
+356,chrpsychs_av_upload : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03287,test
+357,chrpsychs_av_pause_reason : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03287,test
+358,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03287,test
+359,chrpsychs_av_method : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU00229,test
+360,chrpsychs_av_machine : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU00229,test
+361,chrpsychs_av_mic_expl : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU00229,test
+362,chrpsychs_av_dev_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU00229,test
+363,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA60032,test
+364,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA60032,test
+365,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA60032,test
+366,chrpsychs_scr_1d30 : Variable is Blank,Psychs P1P8,screening,LA73043,test
+367,chrpsychs_scr_e27 : Variable is Blank,Psychs P9Ac32,screening,LA73043,test
+368,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MA05213,test
+369,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MA05213,test
+370,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MA05213,test
+371,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MA06340,test
+372,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MT03607,test
+373,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MT12595,test
+374,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MT15919,test
+375,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT15919,test
+376,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT15919,test
+377,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MT15919,test
+378,chrguid_interview_date : Variable is Blank,Guid Form,screening,MT16868,test
+379,chrguid_entry_date : Variable is Blank,Guid Form,screening,MT16868,test
+380,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MT18250,test
+381,chrsofas_premorbdate : Variable is Blank,Sofas Screening,screening,MU00229,test
+382,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MT18272,test
+383,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT24007,test
+384,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT24007,test
+385,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MT24007,test
+386,chrpsychs_av_mic_yn : Variable is Blank,Psychs Av Recording Run Sheet,screening,MT25112,test
+387,chrfigs_mother_m08 : Variable is Blank,Family Interview For Genetic Studies Figs,screening,MT26211,test
+388,chrpsychs_scr_15b19 : Variable is Blank,Psychs P9Ac32,screening,MT26211,test
+389,chrpsychs_scr_e27 : Variable is Blank,Psychs P9Ac32,screening,MT26211,test
+390,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT29146,test
+391,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MT29146,test
+392,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MT29146,test
+393,chrguid_guid : Variable is Blank,Guid Form,screening,MT34638,test
+394,chrsofas_premorbid : Variable is Blank,Sofas Screening,screening,NL29763,test
+395,chrsofas_premorbdate : Variable is Blank,Sofas Screening,screening,NL29763,test
+396,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,NL18544,test
+397,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,NL10958,test
+398,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU10016,test
+399,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU10016,test
+400,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MU10016,test
+401,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,LA51827,test
+402,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA59841,test
+403,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,LA59841,test
+404,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,LA59841,test
+405,chrpsychs_av_mic_yn : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03948,test
+406,chrpsychs_av_upload : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03948,test
+407,chrsofas_premorbdate : Variable is Blank,Sofas Screening,screening,MU05891,test
+408,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU05891,test
+409,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU05891,test
+410,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MU05891,test
+411,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU06978,test
+412,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU06978,test
+413,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MU06978,test
+414,chrguid_interview_date : Variable is Blank,Guid Form,screening,MU08582,test
+415,chrhealth_entry_date : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+416,chrhealth_alle : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+417,chrhealth_lung : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+418,chrhealth_arth : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+419,chrhealth_bloo : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+420,chrhealth_deve : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+421,chrhealth_skin : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+422,chrhealth_heart : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+423,chrhealth_gast : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+424,chrhealth_neur : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+425,chrhealth_vira : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+426,chrhealth_canc : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+427,chrhealth_slee : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+428,chrhealth_ging : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+429,chrhealth_pcos : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+430,chrhealth_other : Variable is Blank,Health Conditions Genetics Fluid Biomarkers,screening,MU08582,test
+431,chrpsychs_av_upload : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU08582,test
+432,chrpsychs_scr_4b5_app : Variable is Blank,Psychs P1P8,screening,MU08582,test
+433,chrpsychs_scr_1b19 : Variable is Blank,Psychs P1P8,screening,MU10561,test
+434,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,NC35467,test
+435,chrrecruit_psychiatry : Variable is Blank,Recruitment Source,screening,MU12125,test
+436,chrpsychs_av_interview_date : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03332,test
+437,chrpsychs_av_entry_date : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03332,test
+438,chrpsychs_av_upload : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03332,test
+439,chrpsychs_av_qual_desc : Variable is Blank,Psychs Av Recording Run Sheet,screening,MU03332,test
+440,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU13313,test
+441,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU13313,test
+442,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MU13313,test
+443,chrtbi_age_first_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU14228,test
+444,chrtbi_age_recent_inj : Variable is Blank,Traumatic Brain Injury Screen,screening,MU14228,test
+445,chrtbi_number_injs : Variable is Blank,Traumatic Brain Injury Screen,screening,MU14228,test
+446,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,NC13774,test
+447,chrrecruit_selfheard_onlineads : Variable is Blank,Recruitment Source,screening,NC15499,test

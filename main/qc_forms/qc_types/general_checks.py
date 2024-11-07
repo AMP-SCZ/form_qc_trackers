@@ -15,19 +15,16 @@ class GeneralChecks(FormCheck):
         super().__init__(timepoint, network,form_check_info)
         self.test_val = 0
         self.call_checks(row)
-        
-        
+               
     def __call__(self):
 
         return self.final_output_list
-
 
     def call_checks(self, row):
         self.row = row
         self.check_blank_values(row)
         self.call_spec_val_check(row)
         self.check_form_completion(row)
-    
 
     def check_blank_values(self, row):
         #TODO:optimize performance of this part
@@ -41,7 +38,6 @@ class GeneralChecks(FormCheck):
                 if self.standard_form_filter(row, form):
                     for var in blank_check_forms[form]:
                         self.check_if_blank(row, [form], [var],{"reports": report_list},[var])
-
 
     @FormCheck.standard_qc_check_filter
     def check_if_blank(self, row, filtered_forms,

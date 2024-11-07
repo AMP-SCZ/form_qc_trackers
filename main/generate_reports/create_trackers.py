@@ -28,7 +28,7 @@ from utils.utils import Utils
 
 class CreateTrackers():
 
-    def __init__(self):
+    def __init__(self, formatted_col_names):
         self.utils = Utils()
         with open(f'{self.utils.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
@@ -59,32 +59,9 @@ class CreateTrackers():
         self.thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'),bottom=Side(style='thin'))
         
-        self.formatted_column_names = {
-            "PRONET" : {
-            "subject":"Participant",
-            "displayed_timepoint":"Timepoint",
-            "displayed_form" : "Form",
-            "flag_count" : "Flag Count",
-            "error_message" : "Flags",
-            "var_translations":"Translations",
-            "time_since_last_detection": "Days Since Detected",
-            "date_resolved":"Date Resolved",
-            "manually_resolved": "Manually Resolved",
-            "comments": "Comments"},
-
-            "PRESCIENT" :{
-            "subject":"Participant",
-            "displayed_timepoint":"Timepoint",
-            "displayed_form" : "Form",
-            "flag_count" : "Flag Count",
-            "error_message" : "Flags",
-            "var_translations":"Translations",
-            "time_since_last_detection": "Days Since Detected",
-            "date_resolved":"Date Resolved",
-            "manually_resolved": "Manually Resolved",
-            "comments": "Comments"},
-        }
-
+        self.formatted_column_names = formatted_col_names
+        
+    
     def __call__(self):
         pass
 
@@ -123,7 +100,11 @@ class CreateTrackers():
                     self.format_excl_sheet(report_df,report,
                     combined_path,
                     f'{network}_combined_Output.xlsx')
-                    for site in self.all_sites[network]:
+                    for site_abr in self.all_sites[network]:
+                        if site_abr in self.utils.site_full_name_translations.keys():
+                            site = self.utils.site_full_name_translations[site_abr]
+                        else:
+                            site = site_abr
                         print(site)
                         if report != 'Main Report' and site != 'ME':
                             continue 
@@ -132,10 +113,10 @@ class CreateTrackers():
                         site_path = f'{self.dropbox_output_path}{network}/{site}/'
                         if not os.path.exists(site_path):
                             os.makedirs(site_path)
-                        site_df = report_df[report_df['Participant'].str[:2] == site]
+                        site_df = report_df[report_df['Participant'].str[:2] == site_abr]
                         self.format_excl_sheet(site_df,
                         report,site_path,
-                        f'{network}_{site}_Output.xlsx')
+                        f'{network}_{site_abr}_Output.xlsx')
 
                         #site_df.to_csv(f'{self.dropbox_output_path}{site}/{network}_{site}_Output.csv')
 
@@ -273,7 +254,7 @@ class CreateTrackers():
 
         merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
         merged_df['flag_count'] = merged_df['error_message'].str.count(r'\|') + 1
-        merged_df['displayed_form'] = merged_df['displayed_form'].str.title().str.replace('_',' ')
+        #merged_df['displayed_form'] = merged_df['displayed_form'].str.title().str.replace('_',' ')
         merged_df.rename(columns=columns_names, inplace=True)
         merged_df = merged_df[list(columns_names.values())]
         #move manually resolved to the bottom
@@ -294,5 +275,3 @@ class CreateTrackers():
             mode=dropbox.files.WriteMode.overwrite)
 
 
-if __name__ == '__main__':
-    CreateTrackers().run_script()

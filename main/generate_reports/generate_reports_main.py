@@ -13,11 +13,40 @@ from main.generate_reports.calculate_resolved_errors import CalculateResolvedErr
 class GenerateReports():
 
     def __init__(self):
+                
+        self.formatted_column_names = {
+            "PRONET" : {
+            "subject":"Participant",
+            "displayed_timepoint":"Timepoint",
+            "displayed_form" : "Form",
+            "flag_count" : "Flag Count",
+            "error_message" : "Flags",
+            "var_translations":"Translations",
+            "time_since_last_detection": "Days Since Detected",
+            "date_resolved":"Date Resolved",
+            "manually_resolved": "Manually Resolved",
+            "comments": "Comments"},
+
+            "PRESCIENT" :{
+            "subject":"Participant",
+            "displayed_timepoint":"Timepoint",
+            "displayed_form" : "Form",
+            "flag_count" : "Flag Count",
+            "error_message" : "Flags",
+            "var_translations":"Translations",
+            "time_since_last_detection": "Days Since Detected",
+            "date_resolved":"Date Resolved",
+            "manually_resolved": "Manually Resolved",
+            "comments": "Comments"},
+        }
+
         self.utils = Utils()
-        self.calc_resolved = CalculateResolvedErrors()
-        self.create_trackers = CreateTrackers()
+        self.calc_resolved = CalculateResolvedErrors(self.formatted_column_names)
+        self.create_trackers = CreateTrackers(self.formatted_column_names)
+
+
 
     def run_script(self):
-        self.calc_resolved.run_script()
+        #self.calc_resolved.run_script()
         self.create_trackers.run_script()
    

@@ -9,6 +9,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from datetime import datetime
+from io import BytesIO
 
 
 """
@@ -28,7 +29,7 @@ if row exists in both outputs
 
 class CalculateResolvedErrors():
 
-    def __init__(self):
+    def __init__(self,formatted_col_names):
         self.old_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/old_output/combined_qc_flags.csv'
         self.new_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/new_output/combined_qc_flags.csv'
         self.new_output = []
@@ -43,13 +44,17 @@ class CalculateResolvedErrors():
         self.new_output_csv_path = f'{self.output_path}combined_outputs/new_output/combined_qc_flags.csv'
         self.dropbox_data_folder = f'{self.output_path}formatted_outputs/dropbox_files/'
 
+        self.formatted_column_names = formatted_col_names
+
 
     def run_script(self):
         if os.path.exists(self.old_output_csv_path):
             print('exists')
-            self.determine_resolved_rows()
+            self.loop_dropbox_files()
+            #self.determine_resolved_rows()
 
-    def read_dropbox_data(self):
+
+    def loop_dropbox_files(self):
         # define columns to read over
         # match formatted spreadsheet to old one by the sheet name,
         # subject','displayed_timepoint', and displayed_form
@@ -60,60 +65,84 @@ class CalculateResolvedErrors():
         dbx = self.utils.collect_dropbox_credentials()
 
         dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests'
-        for entry in dbx.files_list_folder(dropbox_path).entries:
-            print(entry.name)
-            if entry.name != f'AMPSCZ_Output.csv':
-                continue
-            _, res = dbx.files_download(dropbox_path + f'/{entry.name}')
-            data = res.content
-            with open(f'self.dropbox_data_folder/test.csv', "wb") as f:
-                f.write(data)
+        for network in dbx.files_list_folder(dropbox_path).entries:
+            if network.name in ['PRONET','PRESCIENT']:
+                print(network.name)
+                print(dropbox_path + f'/{network.name}')
+                network_dir = dropbox_path + f'/{network.name}'
+                #for network_entry in dbx.files_list_folder(network_dir).entries:
+                combined_output = network_dir + f'/combined/{network.name}_combined_Output.xlsx'
+                self.read_dropbox_data(['manually_resolved'], combined_output, dbx, network.name)
+                _, res = dbx.files_download(combined_output)
+                data = res.content
+                #if network_entry.name == 'combined'
+                #print(network_entry.name)
+            #_, res = dbx.files_download(dropbox_path + f'/{entry.name}')
+            #data = res.content
+            #with open(f'self.dropbox_data_folder/test.csv', "wb") as f:
+            #    f.write(data)
 
-        columns_to_read = ['manually_resolved']
-        output_list = []
-        df = pd.read_csv('/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/test.csv',keep_default_na = False)
-        cols_to_keep = ['error_message','displayed_variable','displayed_form',
-        'displayed_timepoint','subject','manually_resolved']
-        cols_to_split = ['error_message','displayed_variable']
-        all_columns = df.columns
-        for row in df.itertuples():
-            if row.manually_resolved == '':
+        return 
+
+    def read_dropbox_data(self,columns_to_read, dropbox_path, dbx, network):
+        print('---------')
+        print(dropbox_path)
+        reversed_col_translations = self.utils.reverse_dictionary(self.formatted_column_names[network])
+        _, res = dbx.files_download(dropbox_path)
+        data = res.content
+        excel_data = pd.ExcelFile(BytesIO(data))
+        sheet_names = excel_data.sheet_names
+        for report in sheet_names:
+            if report != 'Main Report':
                 continue
-            splt_col_vals = {}
-            for splt_col in cols_to_split:
-                splt_col_vals[splt_col] = (getattr(row, splt_col)).split(' | ')
-            for ind in range(0,len(splt_col_vals['error_message'])):
-                print(ind)
-                print(row.manually_resolved)
-                curr_row_output = {}
-                for col in all_columns:
-                    curr_row_output[col] = getattr(row, col)
+            report_df = pd.read_excel(BytesIO(data),\
+                    sheet_name=report, keep_default_na = False)
+            report_df.rename(columns=reversed_col_translations, inplace=True)
+            output_list = []
+            
+            cols_to_keep = ['error_message','displayed_form',
+            'displayed_timepoint','subject','manually_resolved']
+            cols_to_split = ['error_message']
+            all_columns = report_df.columns
+            for row in report_df.itertuples():
+                if row.manually_resolved == '':
+                    continue
+                else:
+                    print(row.manually_resolved)
+                    print(report)
+                    print(row.subject)
+                splt_col_vals = {}
                 for splt_col in cols_to_split:
-                    curr_row_output[splt_col] = splt_col_vals[splt_col][ind]
-                print(curr_row_output)
-                output_list.append(curr_row_output)
-        
-        output_df = pd.DataFrame(output_list)
-        cols_to_keep = [col for col in cols_to_keep if col in output_df.columns]
-        print(cols_to_keep)
-        print(output_df.columns)
+                    splt_col_vals[splt_col] = (getattr(row, splt_col)).split(' | ')
+                for ind in range(0,len(splt_col_vals['error_message'])):
+                    curr_row_output = {}
+                    for col in all_columns:
+                        curr_row_output[col] = getattr(row, col)
+                    for splt_col in cols_to_split:
+                        curr_row_output[splt_col] = splt_col_vals[splt_col][ind]
+                    output_list.append(curr_row_output)
+            
+            if output_list == []:
+                continue
+            
+            output_df = pd.DataFrame(output_list)
+            cols_to_keep = [col for col in cols_to_keep if col in output_df.columns]
+            output_df = output_df[cols_to_keep]
+            output_df.to_csv('output.csv')
+            prev_output_df = pd.read_csv(self.new_output_csv_path,keep_default_na = False)
+            new_df_cols = [col for col in prev_output_df.columns if col not in columns_to_read]
 
-        output_df = output_df[cols_to_keep]
-        output_df.to_csv('manualtest.csv')
-        prev_output_df = pd.read_csv(self.old_output_csv_path,keep_default_na = False)
-        new_df_cols = [col for col in prev_output_df.columns if col not in columns_to_read]
+            prev_output_df = prev_output_df[new_df_cols]
+            prev_output_df.to_csv('prevetest.csv')
+            #output_df['displayed_form'] = output_df['displayed_form'].str.replace(' ','_').str.lower()
+            merged = prev_output_df.merge(output_df, on=[
+            'displayed_form','displayed_timepoint','subject','error_message'], how = 'left')
 
-        prev_output_df = prev_output_df[new_df_cols]
-        prev_output_df.to_csv('prevetest.csv')
-
-        merged = prev_output_df.merge(output_df, on=['displayed_variable',
-        'displayed_form','displayed_timepoint','subject','error_message'], how = 'left')
-        print(merged[merged['subject']=='GA04102']['manually_resolved'])
-
-        merged.to_csv('reversed_test.csv', index = False)
+            merged.to_csv('reversed_test.csv', index = False)
 
     def determine_resolved_rows(self):
         new_df = pd.read_csv(self.new_path, keep_default_na = False)
+        new_df = new_df[new_df['currently_resolved'] == False]
         old_df = pd.read_csv(self.old_path, keep_default_na = False)
         #new_df = new_df.drop('NDA Excluder', axis=1)
         #old_df = old_df.drop('NDA Excluder', axis=1)
@@ -198,6 +227,3 @@ class CalculateResolvedErrors():
                     curr_row_output[col] =  getattr(row, col)
 
         return curr_row_output
-
-if __name__ =='__main__':
-    CalculateResolvedErrors().run_script()

@@ -304,3 +304,10 @@ class Utils():
         delta = today - input_date
         
         return delta.days
+
+    def reverse_dictionary(self, inp_dict):
+        reversed_dict = {}
+        for key, value in inp_dict.items():
+            reversed_dict[value] = key
+
+        return reversed_dict
