@@ -271,13 +271,6 @@ class CreateTrackers():
             .apply(lambda x: x.split(' | ')[-1])
         )
 
-        #raw_df = raw_df.sort_values(by='manually_resolved', key=lambda x: x == "", ascending=True)
-        print(raw_df)
-        #raw_df = raw_df.sort_values(by='date_resolved', key=lambda x: x == "", ascending=True)
-        #raw_df['is_blank'] = raw_df['date_resolved'] == ''
-        #raw_df = raw_df.sort_values(by='is_blank', ascending=False).drop(columns=['is_blank']).reset_index(drop=True)
-
-        print(raw_df)
         merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
         merged_df['flag_count'] = merged_df['error_message'].str.count(r'\|') + 1
         merged_df['displayed_form'] = merged_df['displayed_form'].str.title().str.replace('_',' ')
