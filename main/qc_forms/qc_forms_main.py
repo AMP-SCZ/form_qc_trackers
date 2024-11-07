@@ -24,6 +24,8 @@ class QCFormsMain():
             self.conv_bl = json.load(file)
 
         self.output_path = self.config_info['paths']['output_path']
+        if self.config_info['testing_enabled'] == "True":
+            self.output_path += "testing/"
 
         self.final_output_list = []
 
@@ -35,7 +37,7 @@ class QCFormsMain():
         'important_form_vars','forms_per_timepoint','var_info',
         'converted_branching_logic','excluded_branching_logic_vars',
         'team_report_forms']:
-                self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
+            self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
 
     def run_script(self):
@@ -43,6 +45,7 @@ class QCFormsMain():
         self.iterate_combined_dfs()
 
     def move_previous_output(self):
+        print('moving')
         for path in [f"{self.combined_flags_path}new_output",
         f"{self.combined_flags_path}old_output",self.combined_flags_path]:
             if not os.path.exists(path):
@@ -54,6 +57,7 @@ class QCFormsMain():
                 df = pd.read_csv(new_path, keep_default_na=False)
                 df.to_csv(old_path, index = False)
             except pd.errors.EmptyDataError:
+                print('EMPTY')
                 return
 
     def iterate_combined_dfs(self):
@@ -64,11 +68,11 @@ class QCFormsMain():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
-            for tp in tp_list[0:1]:
+            for tp in tp_list[0:2]:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
-                combined_df = combined_df.iloc[0:450]
+                combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=300)
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 print(combined_df)

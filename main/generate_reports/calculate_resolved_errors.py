@@ -8,9 +8,9 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
-
-
 from datetime import datetime
+
+
 """
 cols to match : subject, displayed timepoint, displayed form, displayed variable, error message
 if row exists in current output and not at all in old
@@ -46,6 +46,7 @@ class CalculateResolvedErrors():
 
     def run_script(self):
         if os.path.exists(self.old_output_csv_path):
+            print('exists')
             self.determine_resolved_rows()
 
     def read_dropbox_data(self):
