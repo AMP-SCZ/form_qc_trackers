@@ -144,7 +144,7 @@ class OrganizeReports():
         'chrcssrsb_sb6l','chrcssrsb_nmapab','chrpas_pmod_adult3v3',
         'chrpas_pmod_adult3v1','chrmri_t2_ge','chrcssrsfu_skip_aa',
         'chric_surveys','chrdbb_phone_model','chrdbb_phone_software','chrblood_pl1id_2',
-        'chrdemo_parent_fa','chrdemo_parent_mo']
+        'chrdemo_parent_fa','chrdemo_parent_mo','chrmri_dmri176_qc']
 
         excluded_strings =  {'PRONET':pronet_excl_strings,
         

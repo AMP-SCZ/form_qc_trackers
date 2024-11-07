@@ -18,6 +18,6 @@ class GenerateReports():
         self.create_trackers = CreateTrackers()
 
     def run_script(self):
-        #self.calc_resolved.run_script()
+        self.calc_resolved.run_script()
         self.create_trackers.run_script()
    

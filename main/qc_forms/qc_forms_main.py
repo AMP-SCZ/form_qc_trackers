@@ -68,11 +68,11 @@ class QCFormsMain():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
-            for tp in tp_list[0:2]:
+            for tp in tp_list[0:1]:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
-                combined_df = combined_df.iloc[80:120]
+                #combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=300)
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 print(combined_df)
