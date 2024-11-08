@@ -1020,9 +1020,7 @@ class FormChecks():
                 self.variable,self.form,['Secondary Report'])
 
 
-    def cbc_differential_check(self):
-        """Checks for additional errors in
-        CBC with differntial form"""
+    """def cbc_differential_check(self):
 
         if hasattr(self.row,'chrcbc_missing') and self.row.chrcbc_missing in ['','nan','False', "0", "0.0" ,"'0'","'0.0'"]:
             if self.variable == 'chrcbc_wbcinrange':
@@ -1057,7 +1055,7 @@ class FormChecks():
                     self.compile_errors.append_error(\
                     self.row,('Blood form indicates EDTA tube was not sent to lab for CBC'
                     f', but CBC form has been completed and not marked as missing.'),\
-                    self.variable,self.form, ['Main Report','Blood Report'])
+                    self.variable,self.form, ['Main Report','Blood Report'])"""
 
 
     def check_prescient_na_values(self,form):

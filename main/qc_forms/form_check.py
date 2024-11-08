@@ -141,8 +141,6 @@ class FormCheck():
                 return True
             else:
                 return False
-            
-            
     
     def create_row_output(
         self, curr_row : tuple, forms: list,
