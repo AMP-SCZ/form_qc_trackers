@@ -319,7 +319,7 @@ class FormChecks():
                 " but all interview dates are required"),\
                 self.variable,form,self.current_report_list)
 
-    def guid_format_check(self):
+    """def guid_format_check(self):
         """Checks if GUID is in proper format"""
         if self.variable == 'chrguid_guid':
             if getattr(self.row,self.variable) != ''\
@@ -327,7 +327,7 @@ class FormChecks():
             getattr(self.row,self.variable)):
                 self.compile_errors.append_error(self.row,\
                 f'GUID in incorrect format. GUID was reported to be {getattr(self.row,self.variable)}.',\
-                self.variable, self.form,['Main Report','NDA Errors', 'Non Team Forms'])
+                self.variable, self.form,['Main Report','NDA Errors', 'Non Team Forms'])"""
 
     def checkbox_check(self):
         """checks if any of the possible 
@@ -443,7 +443,7 @@ class FormChecks():
                 f"Blood volume ({getattr(self.row,self.variable)}) is greater than 1.1.",\
                 self.variable,self.form,['Blood Report','Fluids Report'])
 
-    def check_blood_dates(self):
+    """def check_blood_dates(self):
         """Function to check if the blood
         draw date is later than the date
         sent to lab."""
@@ -463,7 +463,7 @@ class FormChecks():
             self.row.chrblood_labdate,"%Y-%m-%d %H:%M"):
                 self.compile_errors.append_error(self.row,\
                 f"Blood draw date ({self.row.chrblood_drawdate}) is later than date sent to lab ({self.row.chrblood_labdate}).",\
-                self.variable,self.form,report_list)
+                self.variable,self.form,report_list)"""
 
     def barcode_format_check(self):
         """Makes sure blood barcodes are in

@@ -8,7 +8,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
-
+import re
 class GeneralChecks(FormCheck):
     
     def __init__(self, row, timepoint, network, form_check_info):
@@ -25,6 +25,11 @@ class GeneralChecks(FormCheck):
         self.check_blank_values(row)
         self.call_spec_val_check(row)
         self.check_form_completion(row)
+        for guid_var in ['chrguid_guid','chrguid_pseudoguid']:
+            self.guid_format_check(row, ['guid_form'],
+            [guid_var],{'reports':['Main Report','Non Team Forms'],"withdrawn_enabled" : True},
+            bl_filtered_vars=[guid_var],filter_excl_vars=True,
+            checked_guid_var=guid_var)
 
     def check_blank_values(self, row):
         #TODO:optimize performance of this part
@@ -88,13 +93,18 @@ class GeneralChecks(FormCheck):
 
                     self.final_output_list.append(error_output)
 
-
-
-                
-
-
-
-        
+    @FormCheck.standard_qc_check_filter
+    def guid_format_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, checked_guid_var = 'chrguid_guid'
+    ):
+        """Checks if GUID is in proper format"""
+        guid = str(getattr(row,'chrguid_guid'))
+        if guid == '':
+            return
+        if not re.search(r"^NDA[A-Z0-9]+$", guid):
+            
+            return f'GUID in incorrect format. GUID was reported to be {guid}.'
 
 
         

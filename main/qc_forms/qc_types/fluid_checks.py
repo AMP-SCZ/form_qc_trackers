@@ -10,15 +10,14 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 from datetime import datetime
+
 class FluidChecks(FormCheck):
-    
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network,form_check_info)
         self.test_val = 0
         self.call_checks(row)
                
     def __call__(self):
-
         return self.final_output_list
 
     def call_checks(self, row):
@@ -35,6 +34,7 @@ class FluidChecks(FormCheck):
         for proc_time_var in proc_time_vars:
             self.check_blood_freeze(row,[form],[proc_time_var],{"reports":blood_reports})
         self.cbc_differential_check(row)
+        self.check_blood_date(row,[form],['chrblood_drawdate','chrblood_labdate'],{"reports":blood_reports})
 
     def cbc_differential_check(self,row):
         """Checks for additional errors in
@@ -42,18 +42,17 @@ class FluidChecks(FormCheck):
         forms = ['cbc_with_differential']
         blood_reports =  ['Main Report','Blood Report','Fluids Report']
 
-        self.white_bc_check(row,forms,['chrcbc_wbcinrange','chrcbc_wbcsum','chrcbc_wbc'],{"reports":blood_reports})
+        self.white_bc_check(row,forms,['chrcbc_wbcinrange',
+        'chrcbc_wbcsum','chrcbc_wbc'],{"reports":blood_reports})
         self.cbc_compl_check(row,['cbc_with_differential'],
         ['cbc_with_differential_complete','chrblood_cbc'],{"reports":blood_reports,"affected_forms":
         ['cbc_with_differential','blood_sample_preanalytic_quality_assurance']})
 
         self.cbc_unit_checks(row)
 
-
     def cbc_unit_checks(self,row):
         forms = ['cbc_with_differential']
         reports =  ['Main Report','Blood Report','Fluids Report']
-        
         gt_unit_ranges = {'chrcbc_wbc':30,'chrcbc_neut':20,'chrcbc_rbc':12,\
         'chrcbc_lymph':20,'chrcbc_eos':5,'chrcbc_monos':5,'chrcbc_baso':5}
         lt_unit_ranges = {'chrcbc_monos':0.1,'chrcbc_hct':1}
@@ -64,7 +63,25 @@ class FluidChecks(FormCheck):
         for var,value_range in lt_unit_ranges.items():
             self.cbc_range_check(row,forms, [var],
              {'reports':reports},[],True, gt = False, threshold=value_range)
-        
+    
+    @FormCheck.standard_qc_check_filter 
+    def check_blood_date(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        """Function to check if the blood
+        draw date is later than the date
+        sent to lab."""
+
+        drawdate = row.chrblood_drawdate
+        labdate = row.chrblood_labdate
+        if any(date in (self.missing_code_list +['']) for\
+        date in [drawdate,labdate]):
+            return
+        if (datetime.strptime(drawdate,"%Y-%m-%d %H:%M") > 
+        datetime.strptime(labdate,"%Y-%m-%d %H:%M")):
+            return  f"Blood draw date ({drawdate}) is later than date sent to lab ({labdate})."
+
     @FormCheck.standard_qc_check_filter    
     def cbc_range_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -123,7 +140,7 @@ class FluidChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ): 
-        if getattr(row, 'cbc_with_differential') in self.utils.all_dtype([2]):
+        if getattr(row, 'cbc_with_differential_complete') not in self.utils.all_dtype([2]):
             if (row.chrblood_cbc in self.utils.all_dtype([1]) and
             row.chrblood_interview_date not in (self.missing_code_list+[''])):
                 time_since_blood = self.utils.find_days_between(str(row.chrblood_interview_date),
@@ -132,7 +149,7 @@ class FluidChecks(FormCheck):
                     return ('Blood form indicates EDTA tube was sent to lab for CBC'
                     f', but CBC form has not been completed.')         
         elif getattr(row, 'cbc_with_differential_complete') not in self.utils.all_dtype([2]):
-            if self.check_if_missing(row,'cbc_with_differential_complete') != True:
+            if self.check_if_missing(row,'cbc_with_differential') != True:
                 if row.chrblood_cbc not in self.utils.all_dtype([1]):
                     return ('Blood form indicates EDTA tube was not sent to lab for CBC'
                     f', but CBC form has been completed and not marked as missing.')
