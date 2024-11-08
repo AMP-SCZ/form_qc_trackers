@@ -40,7 +40,6 @@ class QCFormsMain():
         'team_report_forms','grouped_variables']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
-
     def run_script(self):
         self.move_previous_output()
         self.iterate_combined_dfs()
@@ -82,13 +81,11 @@ class QCFormsMain():
                     if row.subjectid not in self.form_check_info['subject_info']:
                         print(row.subjectid)
                         continue
-                    print(row.Index)
+                    #print(row.Index)
                     gen_checks = GeneralChecks(row,tp,network,self.form_check_info)
                     fluid_checks = FluidChecks(row,tp,network,self.form_check_info)
                     test_output.extend(gen_checks())
                     test_output.extend(fluid_checks())
-                    print(tp)
-                    print(len(test_output))
                     #print(test_output[random.randint(0,len(test_output)-1)])
                 combined_output_df = pd.DataFrame(test_output)
                 combined_flags_path = f'{self.output_path}combined_outputs'

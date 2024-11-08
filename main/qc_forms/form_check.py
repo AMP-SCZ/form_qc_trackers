@@ -43,12 +43,15 @@ class FormCheck():
             cohort = instance.subject_info[curr_row.subjectid]['cohort']
             if cohort.lower() not in ["hc", "chr"]:
                 return
+            
             curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
             if not (all(form in curr_tp_forms for form in filtered_forms)):
                 return
+            
             if not (all(instance.standard_form_filter(
             curr_row, form) for form in filtered_forms)):
                 return
+            
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
             
@@ -100,18 +103,18 @@ class FormCheck():
         # or the subject has not moved onto the next timepoint (prescient only)
         if (compl_var == "" or not hasattr(curr_row, compl_var)):
             return False
-
+        
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
         or getattr(curr_row, compl_var) in self.utils.all_dtype([2])):
             completion_filter = True
-        
         if completion_filter == False:
             return False
+        
         if self.check_if_missing(curr_row, form) == True:
             return False
         
-
-        return False
+        
+        return True
     
     def check_if_missing(self,curr_row : tuple, form):
         compl_var = self.important_form_vars[form]["completion_var"]
@@ -141,6 +144,7 @@ class FormCheck():
                 return True
             else:
                 return False
+
     
     def create_row_output(
         self, curr_row : tuple, forms: list,

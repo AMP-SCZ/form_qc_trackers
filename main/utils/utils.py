@@ -324,9 +324,9 @@ class Utils():
         """
 
         date_format = "%Y-%m-%d"
-        date1 = datetime.datetime.strptime(\
+        date1 = datetime.strptime(\
         d1.split(' ')[0], date_format)
-        date2 = datetime.datetime.strptime(\
+        date2 = datetime.strptime(\
         d2.split(' ')[0], date_format)
         date_difference = date2 - date1
         days_between = date_difference.days

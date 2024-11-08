@@ -47,6 +47,8 @@ class FluidChecks(FormCheck):
         ['cbc_with_differential_complete','chrblood_cbc'],{"reports":blood_reports,"affected_forms":
         ['cbc_with_differential','blood_sample_preanalytic_quality_assurance']})
 
+        self.cbc_unit_checks(row)
+
 
     def cbc_unit_checks(self,row):
         forms = ['cbc_with_differential']
@@ -56,11 +58,12 @@ class FluidChecks(FormCheck):
         'chrcbc_lymph':20,'chrcbc_eos':5,'chrcbc_monos':5,'chrcbc_baso':5}
         lt_unit_ranges = {'chrcbc_monos':0.1,'chrcbc_hct':1}
 
-
         for var,value_range in gt_unit_ranges.items():
-            self.cbc_range_check(row,[forms], [var], {'reports':reports},gt = True, threshold=value_range)
+            self.cbc_range_check(row,forms, [var],
+            {'reports':reports},[],True,gt = True, threshold=value_range)
         for var,value_range in lt_unit_ranges.items():
-            self.cbc_range_check(row,[forms], [var], {'reports':reports},gt = False, threshold=value_range)
+            self.cbc_range_check(row,forms, [var],
+             {'reports':reports},[],True, gt = False, threshold=value_range)
         
     @FormCheck.standard_qc_check_filter    
     def cbc_range_check(self, row, filtered_forms,
@@ -69,9 +72,9 @@ class FluidChecks(FormCheck):
     ):
         cbc_var = all_vars[0]
         cbc_val = getattr(row, cbc_var)
-        if self.utils.can_be_float(cbc_val):
+        if self.utils.can_be_float(cbc_val):            
             if ((gt == True and float(cbc_val) > threshold) or 
-            gt == False and float(cbc_val) < threshold):
+            (gt == False and float(cbc_val) < threshold)):
                 return f'Incorrect units used ({cbc_var} = {cbc_val})'
         
     @FormCheck.standard_qc_check_filter    
@@ -107,8 +110,8 @@ class FluidChecks(FormCheck):
         for x in [row.chrcbc_wbcsum,row.chrcbc_wbc]):
             if (self.utils.can_be_float(row.chrcbc_wbcsum)
             and self.utils.can_be_float(row.chrcbc_wbc)):
-                wbc_sum = float(self.row.chrcbc_wbcsum)
-                wbc = float(self.row.chrcbc_wbc)
+                wbc_sum = float(row.chrcbc_wbcsum)
+                wbc = float(row.chrcbc_wbc)
                 if (wbc_sum < (wbc-(0.1*wbc))) or wbc_sum > (wbc+(0.1*wbc)):
                     return (f'Sum of absolute neutrophils, lymphocytes,'
                         f' monocytes, basophils, and eosinophils'
@@ -116,29 +119,15 @@ class FluidChecks(FormCheck):
                         f' WBC count ({row.chrcbc_wbc}).')
 
     @FormCheck.standard_qc_check_filter
-    def edta_(self,row, filtered_forms,
-        all_vars, changed_output_vals, bl_filtered_vars=[],
-        filter_excl_vars=True
-    ): 
-        if getattr(row, 'cbc_with_differential_complete') in self.utils.all_dtype([2]):
-            if (row.chrblood_cbc in self.utils.all_dtype([1]) and
-            row.chrblood_interview_date not in (self.missing_code_list+[''])):
-                time_since_blood = self.utils.find_days_between(str(self.row.chrblood_interview_date),
-                str(datetime.datetime.today()))
-                if time_since_blood > 5:
-                    return ('Blood form indicates EDTA tube was sent to lab for CBC'
-                    f', but CBC form has not been completed.')          
-    
-    @FormCheck.standard_qc_check_filter
     def cbc_compl_check(self,row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ): 
-        if getattr(row, 'cbc_with_differential_complete') in self.utils.all_dtype([2]):
+        if getattr(row, 'cbc_with_differential') in self.utils.all_dtype([2]):
             if (row.chrblood_cbc in self.utils.all_dtype([1]) and
             row.chrblood_interview_date not in (self.missing_code_list+[''])):
-                time_since_blood = self.utils.find_days_between(str(self.row.chrblood_interview_date),
-                str(datetime.datetime.today()))
+                time_since_blood = self.utils.find_days_between(str(row.chrblood_interview_date),
+                str(datetime.today()))
                 if time_since_blood > 5:
                     return ('Blood form indicates EDTA tube was sent to lab for CBC'
                     f', but CBC form has not been completed.')         
