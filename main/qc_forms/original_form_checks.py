@@ -945,9 +945,7 @@ class FormChecks():
             range_list.append(new_item)
         return range_list
          
-    def global_function_check(self):
-        """Checks for contradictions in the
-        global functioning forma"""
+    """def global_function_check(self):
 
         try:
             if self.variable == 'chrgfs_gf_social_low':
@@ -990,7 +988,7 @@ class FormChecks():
                     f"than the high score ({self.row.chrgfs_gf_role_high})."),\
                     self.variable,self.form,['Main Report','Non Team Forms'])
         except Exception as e:
-            print(e)
+            print(e)"""
 
     def tbi_check(self):
         """Multiple specific checks for the TBI form"""
@@ -1073,7 +1071,7 @@ class FormChecks():
             return getattr(self.row,self.variable_info_dictionary[\
             'unique_form_variables'][form]['complete_variable'])
 
-    def cbc_unit_checks(self):
+   """ def cbc_unit_checks(self):
         def can_be_float(value):
             try:
                 float(value)  
@@ -1095,7 +1093,7 @@ class FormChecks():
                 if can_be_float(getattr(self.row,var)) and float(getattr(self.row,var)) < value_range:
                     self.compile_errors.append_error(self.row,\
                     f'Incorrect units used ({var} = {float(getattr(self.row,var))})',\
-                    self.variable,self.form, ['Main Report','Blood Report'])
+                    self.variable,self.form, ['Main Report','Blood Report'])"""
 
     def penn_data_check(self,subject):
         if 'penncnb' in self.timepoint_variable_lists[self.timepoint]\

@@ -11,6 +11,8 @@ from utils.utils import Utils
 
 from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
+from qc_forms.qc_types.clinical_checks import ClinicalChecks
+
 
 class QCFormsMain():
     def __init__(self):
@@ -84,8 +86,10 @@ class QCFormsMain():
                     #print(row.Index)
                     gen_checks = GeneralChecks(row,tp,network,self.form_check_info)
                     fluid_checks = FluidChecks(row,tp,network,self.form_check_info)
+                    clinical_checks = ClinicalChecks(row,tp,network,self.form_check_info)
                     test_output.extend(gen_checks())
                     test_output.extend(fluid_checks())
+                    test_output.extend(clinical_checks())
                     #print(test_output[random.randint(0,len(test_output)-1)])
                 combined_output_df = pd.DataFrame(test_output)
                 combined_flags_path = f'{self.output_path}combined_outputs'
