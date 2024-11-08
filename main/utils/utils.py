@@ -296,7 +296,7 @@ class Utils():
         return dbx
 
         
-    def days_between(self,date_str, date_format="%Y-%m-%d"):
+    def days_since_today(self,date_str, date_format="%Y-%m-%d"):
         input_date = datetime.strptime(date_str, date_format)
         
         today = datetime.today()
@@ -311,3 +311,24 @@ class Utils():
             reversed_dict[value] = key
 
         return reversed_dict
+
+    
+    def find_days_between(self,d1,d2):
+        """
+        finds the days between two dates
+        
+        Parameters
+        -----------------
+        d1: first date
+        d2: second date
+        """
+
+        date_format = "%Y-%m-%d"
+        date1 = datetime.datetime.strptime(\
+        d1.split(' ')[0], date_format)
+        date2 = datetime.datetime.strptime(\
+        d2.split(' ')[0], date_format)
+        date_difference = date2 - date1
+        days_between = date_difference.days
+
+        return abs(days_between)

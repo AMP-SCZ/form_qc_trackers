@@ -45,15 +45,15 @@ class CalculateResolvedErrors():
         self.dropbox_data_folder = f'{self.output_path}formatted_outputs/dropbox_files/'
 
         self.formatted_column_names = formatted_col_names
+        self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
 
     def run_script(self):
         if os.path.exists(self.old_output_csv_path):
             print('exists')
+            self.determine_resolved_rows()
             self.loop_dropbox_files()
-            #self.determine_resolved_rows()
-
-
+            
     def loop_dropbox_files(self):
         # define columns to read over
         # match formatted spreadsheet to old one by the sheet name,
@@ -72,19 +72,24 @@ class CalculateResolvedErrors():
                 network_dir = dropbox_path + f'/{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_combined_Output.xlsx'
-                self.read_dropbox_data(['manually_resolved'], combined_output, dbx, network.name)
-                _, res = dbx.files_download(combined_output)
-                data = res.content
-                #if network_entry.name == 'combined'
-                #print(network_entry.name)
-            #_, res = dbx.files_download(dropbox_path + f'/{entry.name}')
-            #data = res.content
-            #with open(f'self.dropbox_data_folder/test.csv', "wb") as f:
-            #    f.write(data)
-
+                self.read_dropbox_data(['manually_resolved','comments'], combined_output, dbx, network.name, ['Main Report'])
+                for site_abr in self.utils.all_sites[network.name]:
+                    site = self.utils.site_full_name_translations[site_abr]
+                    site_output = network_dir + f'/{site}/{network.name}_{site_abr}_Output.xlsx'
+                    if site_abr == 'ME':
+                        reports_to_read = ['Non Team Forms']
+                        for ra in self.melbourne_ras:
+                            ra_output = network_dir + f'/{site}/{ra}/{network.name}_Melbourne_RA_Output.xlsx'
+                            self.read_dropbox_data(['site_comments'], ra_output, dbx, network.name, reports_to_read)
+                        excl_reports = False
+                    else:
+                        reports_to_read = ['Main Report']
+                        excl_reports = True
+                    print(site_output)
+                    self.read_dropbox_data(['site_comments'], site_output, dbx, network.name, reports_to_read,excl_reports)
         return 
 
-    def read_dropbox_data(self,columns_to_read, dropbox_path, dbx, network):
+    def read_dropbox_data(self,columns_to_read, dropbox_path, dbx, network, reports_to_read, excl_report = True):
         print('---------')
         print(dropbox_path)
         reversed_col_translations = self.utils.reverse_dictionary(self.formatted_column_names[network])
@@ -92,53 +97,31 @@ class CalculateResolvedErrors():
         data = res.content
         excel_data = pd.ExcelFile(BytesIO(data))
         sheet_names = excel_data.sheet_names
+        prev_output_df = pd.read_csv(self.new_output_csv_path,keep_default_na = False)
+        orig_columns = prev_output_df.columns
         for report in sheet_names:
-            if report != 'Main Report':
+            if report not in [reports_to_read] and excl_report == True:
                 continue
+            print(report)
+            
             report_df = pd.read_excel(BytesIO(data),\
-                    sheet_name=report, keep_default_na = False)
+                sheet_name=report, keep_default_na = False)
+            
             report_df.rename(columns=reversed_col_translations, inplace=True)
-            output_list = []
             
-            cols_to_keep = ['error_message','displayed_form',
-            'displayed_timepoint','subject','manually_resolved']
-            cols_to_split = ['error_message']
-            all_columns = report_df.columns
-            for row in report_df.itertuples():
-                if row.manually_resolved == '':
-                    continue
-                else:
-                    print(row.manually_resolved)
-                    print(report)
-                    print(row.subject)
-                splt_col_vals = {}
-                for splt_col in cols_to_split:
-                    splt_col_vals[splt_col] = (getattr(row, splt_col)).split(' | ')
-                for ind in range(0,len(splt_col_vals['error_message'])):
-                    curr_row_output = {}
-                    for col in all_columns:
-                        curr_row_output[col] = getattr(row, col)
-                    for splt_col in cols_to_split:
-                        curr_row_output[splt_col] = splt_col_vals[splt_col][ind]
-                    output_list.append(curr_row_output)
+            prev_output_df = pd.merge(prev_output_df,report_df, on=[
+            'displayed_form','displayed_timepoint','subject','error_message'],
+            how = 'left',suffixes=('', '_dbx'))
+            prev_output_df = prev_output_df.fillna('')
             
-            if output_list == []:
-                continue
+            for col_to_read in columns_to_read:
+                print(col_to_read)
+                dbx_col = col_to_read + '_dbx'
+                prev_output_df[col_to_read] = prev_output_df[dbx_col]
             
-            output_df = pd.DataFrame(output_list)
-            cols_to_keep = [col for col in cols_to_keep if col in output_df.columns]
-            output_df = output_df[cols_to_keep]
-            output_df.to_csv('output.csv')
-            prev_output_df = pd.read_csv(self.new_output_csv_path,keep_default_na = False)
-            new_df_cols = [col for col in prev_output_df.columns if col not in columns_to_read]
-
-            prev_output_df = prev_output_df[new_df_cols]
-            prev_output_df.to_csv('prevetest.csv')
-            #output_df['displayed_form'] = output_df['displayed_form'].str.replace(' ','_').str.lower()
-            merged = prev_output_df.merge(output_df, on=[
-            'displayed_form','displayed_timepoint','subject','error_message'], how = 'left')
-
-            merged.to_csv('reversed_test.csv', index = False)
+            prev_output_df = prev_output_df[orig_columns]
+            
+        prev_output_df.to_csv(self.new_output_csv_path, index = False)
 
     def determine_resolved_rows(self):
         new_df = pd.read_csv(self.new_path, keep_default_na = False)
@@ -197,7 +180,7 @@ class CalculateResolvedErrors():
 
             dates_detected = curr_row_output['dates_detected'].split(' | ')
             most_recent_detection = dates_detected[-1]
-            curr_row_output['time_since_last_detection'] = self.utils.days_between(
+            curr_row_output['time_since_last_detection'] = self.utils.days_since_today(
             str(most_recent_detection))
 
             self.new_output.append(curr_row_output)

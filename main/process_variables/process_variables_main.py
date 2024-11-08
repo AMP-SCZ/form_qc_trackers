@@ -13,6 +13,7 @@ from main.process_variables.organize_reports import OrganizeReports
 from main.process_variables.collect_subject_info import CollectSubjectInfo
 
 from main.process_variables.analyze_identifier_effects import AnalyzeIdentifiers
+from main.process_variables.collect_ra_subjects import RaSubjects
 
 
 class ProcessVariables():
@@ -61,6 +62,10 @@ class ProcessVariables():
 
         organize_reports = OrganizeReports()
         organize_reports.run_script()
+
+        ra_subs = RaSubjects()
+        self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
+
         
 
 

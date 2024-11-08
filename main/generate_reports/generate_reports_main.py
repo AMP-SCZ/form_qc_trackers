@@ -25,7 +25,8 @@ class GenerateReports():
             "time_since_last_detection": "Days Since Detected",
             "date_resolved":"Date Resolved",
             "manually_resolved": "Manually Resolved",
-            "comments": "Comments"},
+            "comments" : "Network Comments",
+            "site_comments": "Site Comments"},
 
             "PRESCIENT" :{
             "subject":"Participant",
@@ -37,16 +38,27 @@ class GenerateReports():
             "time_since_last_detection": "Days Since Detected",
             "date_resolved":"Date Resolved",
             "manually_resolved": "Manually Resolved",
-            "comments": "Comments"},
+            "comments" : "Network Comments",
+            "site_comments": "Site Comments"},
         }
+
+        """self.formatted_column_names['sites'] = {'PRONET' : {}, 'PRESCIENT' : {}}
+        for network in ['PRONET','PRESCIENT']:
+            for orig, trans in self.formatted_column_names[network].items():
+                if orig == 'comments':
+                    self.formatted_column_names['sites'][network]['site_comments'] = 
+
+                self.formatted_column_names['sites'][network][orig] = trans
+
+            self.formatted_column_names['sites'][network] = self.formatted_column_names[network]
+            self.formatted_column_names['sites'][network][] """
+
 
         self.utils = Utils()
         self.calc_resolved = CalculateResolvedErrors(self.formatted_column_names)
         self.create_trackers = CreateTrackers(self.formatted_column_names)
 
-
-
     def run_script(self):
-        #self.calc_resolved.run_script()
+        self.calc_resolved.run_script()
         self.create_trackers.run_script()
    

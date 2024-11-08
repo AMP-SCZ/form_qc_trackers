@@ -29,6 +29,8 @@ class FormCheck():
         self.conv_bl = form_check_info['converted_branching_logic']
         self.excl_bl = form_check_info['excluded_branching_logic_vars']
         self.forms_per_report = form_check_info['team_report_forms']
+        self.grouped_vars = form_check_info['grouped_variables']
+        self.missing_code_list = self.utils.missing_code_list
 
     def call_checks(self):
         pass
@@ -91,8 +93,7 @@ class FormCheck():
         compl_var = self.important_form_vars[form]["completion_var"]
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
-        non_bl_vars_filled_out = 0
-
+        
         formatted_visit_status = (curr_row.visit_status).replace('_','')
         completion_filter = False
         # will not check the form if it is not marked as complete
@@ -106,24 +107,42 @@ class FormCheck():
         
         if completion_filter == False:
             return False
-        
-        elif (missing_var != "" and not hasattr(curr_row, missing_var)):
+        if self.check_if_missing(curr_row, form) == True:
             return False
         
-        if missing_var == "":
+
+        return False
+    
+    def check_if_missing(self,curr_row : tuple, form):
+        compl_var = self.important_form_vars[form]["completion_var"]
+        missing_var = self.important_form_vars[form]["missing_var"]
+        non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
+        non_bl_vars_filled_out = 0
+
+        
+        if missing_var != "":
+            if not hasattr(curr_row, missing_var):
+                return False
+            # prescient missingness can also be indicated by the completion var
+            if (self.network == 'PRESCIENT' and
+            getattr(curr_row, compl_var) in self.utils.all_dtype([3,4])):
+                return True
+            if getattr(curr_row, missing_var) not in self.utils.all_dtype([1]):
+                return False
+            else:
+                return True
+        
+        elif missing_var == "":
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
                     non_bl_vars_filled_out +=1
             if non_bl_vars_filled_out < (len(non_bl_vars)/2):
-                return False
-            else:
                 return True
+            else:
+                return False
             
-        elif getattr(curr_row, missing_var) not in self.utils.all_dtype([1]):
-            return True
-
-        return False
+            
     
     def create_row_output(
         self, curr_row : tuple, forms: list,
@@ -164,7 +183,8 @@ class FormCheck():
             "dates_resolved" : "",
             "currently_resolved": False,
             "manually_resolved" : "",
-            "comments" : ""
+            "comments" : "",
+            "site_comments" : ""
         }
 
         if "Main Report" in row_output["reports"]:

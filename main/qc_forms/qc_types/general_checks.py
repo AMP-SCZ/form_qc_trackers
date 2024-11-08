@@ -43,8 +43,8 @@ class GeneralChecks(FormCheck):
     def check_if_blank(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
-    ): 
-        if getattr(row, all_vars[0]) == '':
+    ):  
+        if getattr(row, all_vars[0]) == 'None':
             return "Variable is Blank"
         return 
     

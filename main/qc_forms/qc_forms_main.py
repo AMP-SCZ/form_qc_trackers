@@ -10,6 +10,7 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 
 from qc_forms.qc_types.general_checks import GeneralChecks
+from qc_forms.qc_types.fluid_checks import FluidChecks
 
 class QCFormsMain():
     def __init__(self):
@@ -36,7 +37,7 @@ class QCFormsMain():
         for filename in ['subject_info','general_check_vars',
         'important_form_vars','forms_per_timepoint','var_info',
         'converted_branching_logic','excluded_branching_logic_vars',
-        'team_report_forms']:
+        'team_report_forms','grouped_variables']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
 
@@ -68,20 +69,26 @@ class QCFormsMain():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
-            for tp in tp_list[0:1]:
+            for tp in tp_list[1:2]:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
                 #combined_df = combined_df.iloc[80:120]
-                #combined_df = combined_df.sample(n=300)
+                #combined_df = combined_df.sample(n=100)
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 print(combined_df)
-                for row in combined_df.itertuples():
+                for row in combined_df.itertuples(): 
+                    #TODO: Add tracker for all subjects not existing here 
+                    if row.subjectid not in self.form_check_info['subject_info']:
+                        print(row.subjectid)
+                        continue
                     print(row.Index)
                     gen_checks = GeneralChecks(row,tp,network,self.form_check_info)
+                    fluid_checks = FluidChecks(row,tp,network,self.form_check_info)
                     test_output.extend(gen_checks())
-                    #print(tp)
-                    #print(len(test_output))
+                    test_output.extend(fluid_checks())
+                    print(tp)
+                    print(len(test_output))
                     #print(test_output[random.randint(0,len(test_output)-1)])
                 combined_output_df = pd.DataFrame(test_output)
                 combined_flags_path = f'{self.output_path}combined_outputs'

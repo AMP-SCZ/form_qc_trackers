@@ -224,7 +224,7 @@ class CollectMiscVariables():
         blood_var_categs['position_variables'] = [
         var for var in all_blood_vars if 'pos' in var]
         blood_var_categs['id_variables'] = [
-        var for var in all_blood_vars if 'id' in var]
+        var for var in all_blood_vars if 'id' in var and var != 'chrblood_pl1id_2']
         blood_var_categs['volume_variables'] =  [
         var for var in all_blood_vars if 'vol' in var and 'error' not in var]
 

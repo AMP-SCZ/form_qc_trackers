@@ -55,22 +55,16 @@ class CreateTrackers():
                        "orange" : PatternFill(start_color='ebba83', end_color='ebba83', fill_type='gray125'),
                        "red" : PatternFill(start_color='de9590', end_color='de9590', fill_type='gray125'),
                        "grey" : PatternFill(start_color='ededed', end_color='ededed', fill_type='gray125')}
-        
         self.thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'),bottom=Side(style='thin'))
-        
         self.formatted_column_names = formatted_col_names
+        self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
         
-    
-    def __call__(self):
-        pass
-
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.new_output_csv_path, keep_default_na= False)
         self.collect_new_reports()
         self.generate_reports()
         self.upload_trackers()
-        #self.save_to_dropbox()
 
     def collect_new_reports(self):
         for row in self.combined_tracker.itertuples():
@@ -100,25 +94,37 @@ class CreateTrackers():
                     self.format_excl_sheet(report_df,report,
                     combined_path,
                     f'{network}_combined_Output.xlsx')
-                    for site_abr in self.all_sites[network]:
-                        if site_abr in self.utils.site_full_name_translations.keys():
-                            site = self.utils.site_full_name_translations[site_abr]
-                        else:
-                            site = site_abr
-                        print(site)
-                        if report != 'Main Report' and site != 'ME':
-                            continue 
-                        if report != 'Non Team Forms' and site == 'ME':
-                            continue 
-                        site_path = f'{self.dropbox_output_path}{network}/{site}/'
-                        if not os.path.exists(site_path):
-                            os.makedirs(site_path)
-                        site_df = report_df[report_df['Participant'].str[:2] == site_abr]
-                        self.format_excl_sheet(site_df,
-                        report,site_path,
-                        f'{network}_{site_abr}_Output.xlsx')
+                    self.loop_sites(network, report, report_df)
 
-                        #site_df.to_csv(f'{self.dropbox_output_path}{site}/{network}_{site}_Output.csv')
+    def loop_sites(self, network, report, report_df):
+        for site_abr in self.all_sites[network]:
+            if site_abr in self.utils.site_full_name_translations.keys():
+                site = self.utils.site_full_name_translations[site_abr]
+            else:
+                site = site_abr
+            print(site)
+            if report != 'Main Report' and site_abr != 'ME':
+                continue 
+            if report != 'Non Team Forms' and site_abr == 'ME':
+                continue 
+            if site_abr == 'ME':
+                self.loop_ras(network,site, report, report_df)
+            site_path = f'{self.dropbox_output_path}{network}/{site}/'
+            if not os.path.exists(site_path):
+                os.makedirs(site_path)
+            site_df = report_df[report_df['Participant'].str[:2] == site_abr]
+            self.format_excl_sheet(site_df,
+            report,site_path,
+            f'{network}_{site_abr}_Output.xlsx')
+
+    def loop_ras(self,network,site, report, report_df):
+        for ra, subjects in self.melbourne_ras.items():
+            print(ra)
+            ra_path = f'{self.dropbox_output_path}{network}/{site}/{ra}/'
+            ra_df = report_df[report_df['Participant'].isin(subjects)]
+            self.format_excl_sheet(ra_df,
+            report,ra_path,
+            f'{network}_Melbourne_RA_Output.xlsx')
 
     def upload_trackers(self):
         fullpath = self.output_path + '/formatted_outputs/dropbox_files/'
@@ -138,6 +144,7 @@ class CreateTrackers():
             os.makedirs(folder)
 
         if not os.path.exists(folder + filename):
+
             df.to_excel(folder + filename, sheet_name = report, index = False)
 
         with pd.ExcelWriter(full_path, mode='a',\
@@ -258,14 +265,23 @@ class CreateTrackers():
         merged_df.rename(columns=columns_names, inplace=True)
         merged_df = merged_df[list(columns_names.values())]
         #move manually resolved to the bottom
-        merged_df = merged_df.sort_values(by='Manually Resolved',
-        key=lambda x: x.str.strip() == "", ascending=False)
-        # move date resolved below manually resolved
-        merged_df = merged_df.sort_values(by='Date Resolved',
-        key=lambda x: x.str.strip() == "", ascending=False)
+        merged_df = self.move_rows_to_bottom('Manually Resolved',None, merged_df)
+        merged_df = self.move_rows_to_bottom('Date Resolved','Manually Resolved', merged_df)
+        
         merged_df.to_csv(f'{self.formatted_outputs_path}AMPSCZ_Output.csv',index = False)
 
         return merged_df
+    
+    def move_rows_to_bottom(self, incl_col_name,excl_col_name, df):
+        if excl_col_name != None:
+            moving_df = df[(df[incl_col_name] != '') & (df[excl_col_name]=='')]
+            df = df[(df[incl_col_name] == '') | (df[excl_col_name]!='')]
+        else:
+            moving_df = df[df[incl_col_name] != '']
+            df = df[df[incl_col_name] == '']
+
+        result = pd.concat([df, moving_df], ignore_index=True)
+        return result
 
     def save_to_dropbox(self, fullpath, local_path):
         dbx = self.utils.collect_dropbox_credentials()
