@@ -332,3 +332,10 @@ class Utils():
         days_between = date_difference.days
 
         return abs(days_between)
+    
+    def check_if_val_date_format(self,string, date_format="%Y-%m-%d"):
+        try:
+            datetime.strptime(string, date_format)
+            return True
+        except ValueError:
+            return False

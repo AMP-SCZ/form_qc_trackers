@@ -35,6 +35,7 @@ class FluidChecks(FormCheck):
             self.check_blood_freeze(row,[form],[proc_time_var],{"reports":blood_reports})
         self.cbc_differential_check(row)
         self.check_blood_date(row,[form],['chrblood_drawdate','chrblood_labdate'],{"reports":blood_reports})
+        self.barcode_format_check(row)
 
     def cbc_differential_check(self,row):
         """Checks for additional errors in
@@ -89,7 +90,8 @@ class FluidChecks(FormCheck):
     ):
         cbc_var = all_vars[0]
         cbc_val = getattr(row, cbc_var)
-        if self.utils.can_be_float(cbc_val):            
+        if (self.utils.can_be_float(cbc_val)
+        and cbc_val not in self.utils.missing_code_list):            
             if ((gt == True and float(cbc_val) > threshold) or 
             (gt == False and float(cbc_val) < threshold)):
                 return f'Incorrect units used ({cbc_var} = {cbc_val})'
@@ -154,30 +156,33 @@ class FluidChecks(FormCheck):
                     return ('Blood form indicates EDTA tube was not sent to lab for CBC'
                     f', but CBC form has been completed and not marked as missing.')
                 
-    def barcode_format_check(self):
+    def barcode_format_check(self, row):
         """Makes sure blood barcodes are in
         proper format"""
 
-        if self.variable in self.all_barcode_variables\
-        and 'blood' in self.variable:
-            if hasattr(self.row,self.variable):
-                barcode = getattr(self.row,self.variable)
-                if barcode not in (self.missing_code_list + [''])\
-                and 'pronet' not in barcode.lower(): 
-                    if len(barcode) < 10:
-                        self.compile_errors.append_error(self.row,\
-                        f"Barcode ({barcode}) length is less than 10 characters.",\
-                        self.variable,self.form,['Blood Report','Fluids Report'])
-                    if any(not char.isdigit() for char in barcode):
-                        self.compile_errors.append_error(self.row,\
-                        f"Barcode ({barcode}) contains non-numeric characters.",\
-                        self.variable,self.form,['Blood Report','Fluids Report'])
+        forms = 'blood_sample_preanalytic_quality_assurance'
+        reports = ['Main Report', 'Blood Report', 'Fluids Report']
+        barcode_vars = self.grouped_vars['blood_vars']['barcode_variables']
+        output_changes = {'reports' : reports}
 
-    def barcode_len_check(self,row, filtered_forms,
-        all_vars, changed_output_vals, bl_filtered_vars=[],
-        filter_excl_vars=True, barcode_val = ''
-    ): 
-        pass
-        
+        for barcode_var in barcode_vars:
+            if (hasattr(row, barcode_var) 
+            and getattr(row, barcode_var) not in
+            (self.utils.missing_code_list + [''])):
+                barcode_val = str(getattr(row,barcode_var))
+                # blood team said to ignore these 
+                if 'pronet' in barcode_val.lower():
+                    continue
+                if len(barcode_val) < 10:
+                    error_message = f"Barcode ({barcode_val}) length is less than 10 characters."
+                    error_output = self.create_row_output(
+                    row,forms,[barcode_var], error_message, output_changes)
+                    self.final_output_list.append(error_output)
+                if any(not char.isdigit() for char in barcode_val):
+                    error_message = f"Barcode ({barcode_val}) contains non-numeric characters."
+                    error_output = self.create_row_output(
+                    row,forms,[barcode_var], error_message, output_changes)
+                    self.final_output_list.append(error_output)
+
 
     

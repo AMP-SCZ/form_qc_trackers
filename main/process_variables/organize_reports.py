@@ -27,7 +27,6 @@ class OrganizeReports():
 
         self.rel_psychs_vars = self.collect_psychs_variables()
 
-
     def run_script(self):
         self.organize_variable_checks()
 
@@ -68,11 +67,9 @@ class OrganizeReports():
         'Main Report':main_report_df.groupby(
         'Form Name')['Variable / Field Name'].apply(list).to_dict(),
 
-        
         'Secondary Report':secondary_report_df.groupby(
         'Form Name')['Variable / Field Name'].apply(list).to_dict()
         }
-        
 
         return blank_check_vars
     
@@ -101,10 +98,13 @@ class OrganizeReports():
         & self.data_dict_df['Variable / Field Name'].str.contains('name_past'))]
 
         pharm_vars = pharm_vars_df['Variable / Field Name'].tolist()
-
+        scid_df = self.data_dict_df[
+        self.data_dict_df['Form Name '] == 'scid5_psychosis_mood_substance_abuse']
+        all_scid_vars = scid_df['Variable / Field Name'].tolist()
         additional_blank_check_vars.extend(pharm_vars)
 
         additional_blank_check_vars.extend(self.collect_psychs_variables())
+        additional_blank_check_vars.extend(all_scid_vars)
 
         return additional_blank_check_vars
     

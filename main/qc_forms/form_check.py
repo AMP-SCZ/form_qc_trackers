@@ -91,7 +91,6 @@ class FormCheck():
         
         return False
 
-
     def standard_form_filter(self, curr_row : tuple, form):
         compl_var = self.important_form_vars[form]["completion_var"]
         missing_var = self.important_form_vars[form]["missing_var"]
@@ -112,8 +111,7 @@ class FormCheck():
         
         if self.check_if_missing(curr_row, form) == True:
             return False
-        
-        
+           
         return True
     
     def check_if_missing(self,curr_row : tuple, form):
@@ -122,7 +120,6 @@ class FormCheck():
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         non_bl_vars_filled_out = 0
 
-        
         if missing_var != "":
             if not hasattr(curr_row, missing_var):
                 return False
@@ -144,7 +141,6 @@ class FormCheck():
                 return True
             else:
                 return False
-
     
     def create_row_output(
         self, curr_row : tuple, forms: list,

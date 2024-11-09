@@ -113,7 +113,7 @@ class FormChecks():
                         self.variable,self.form,\
                         ['Cognition Report'])
 
-    def collect_twenty_one_day_rule_dates(self,row):
+    """def collect_twenty_one_day_rule_dates(self,row):
         """Collectes appropriate baseline
         dates to check the 21 day rule"""
 
@@ -251,7 +251,7 @@ class FormChecks():
         or getattr(self.row,'hcpsychs_fu_missing_spec_fu_2') in ['M6']):
             return (f"M6 clicked, but there are {time_between.days} (> 21) days between"\
             f" screening PSYCHS ({self.psychs_interview_date}) and most recently"\
-            f" completed baseline visit component ({final_baseline_date}). ") + sing_or_plur_str  
+            f" completed baseline visit component ({final_baseline_date}). ") + sing_or_plur_str  """
 
     def convert_date_format(self,date_string):
         """Function to convert dates to a y-m-d format"""
@@ -465,7 +465,7 @@ class FormChecks():
                 f"Blood draw date ({self.row.chrblood_drawdate}) is later than date sent to lab ({self.row.chrblood_labdate}).",\
                 self.variable,self.form,report_list)"""
 
-    def barcode_format_check(self):
+    """def barcode_format_check(self):
         """Makes sure blood barcodes are in
         proper format"""
 
@@ -482,7 +482,7 @@ class FormChecks():
                     if any(not char.isdigit() for char in barcode):
                         self.compile_errors.append_error(self.row,\
                         f"Barcode ({barcode}) contains non-numeric characters.",\
-                        self.variable,self.form,['Blood Report','Fluids Report'])
+                        self.variable,self.form,['Blood Report','Fluids Report'])"""
 
     def call_scid_diagnosis_check(self,variable,row):
         self.variable = variable
@@ -532,7 +532,7 @@ class FormChecks():
         elif variable == 'chrscid_a1':
             if row.chrscid_a1 in [3,3.0,'3','3.0'] and\
             row.chrscid_a2 in [3,3.0,'3','3.0'] and\
-            (row.chrscid_a22_1 not in [2,2.0,'2','2.0']):
+            (row.chrscid_a22_1 n`ot in [2,2.0,'2','2.0']):
                 self.compile_errors.append_error(self.row,(f"Fulfills both main criteria"\
                 " but was counted incorrectly, check a1, a2, a22_1"),\
                 self.variable,self.form,report_list)

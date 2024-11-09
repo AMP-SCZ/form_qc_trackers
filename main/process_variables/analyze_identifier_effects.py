@@ -29,7 +29,6 @@ class AnalyzeIdentifiers():
         'Identifier?']=='y']
         self.identifiers = identifiers_df['Variable / Field Name'].tolist()
 
-
     def run_script(self):
         affected_vars = self.collect_calcs_with_identifiers('calc')
         affected_vars.extend(self.collect_calcs_with_identifiers('branching_logic'))
@@ -61,5 +60,3 @@ class AnalyzeIdentifiers():
                         {'var': row.variable,'affected_col':col_to_check,
                         'affected_col_val':str_to_check,'identifier':ident_var})
         return affected_fields
-
-

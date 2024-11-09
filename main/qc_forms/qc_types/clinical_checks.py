@@ -24,6 +24,11 @@ class ClinicalChecks(FormCheck):
         'global_functioning_role_scale':{'chrgfr_gf_role_low' : [
         'chrgfr_gf_role_scole','chrgfr_gf_role_high']}}}
 
+        self.excluded_21_day_forms = ['cbc_with_differential',
+        'gcp_cbc_with_differential','gcp_current_health_status',
+        'psychs_p1p8_fu','psychs_p1p8_fu_hc'
+        'chrpred_interview_date','sociodemographics']
+
         self.call_checks(row)
                
     def __call__(self):
@@ -33,6 +38,7 @@ class ClinicalChecks(FormCheck):
         self.call_global_function_checks(row)
         self.call_oasis_checks(row)
         self.call_cssrs_checks(row)
+        self.call_twenty_one_day_check(row)
 
     def call_global_function_checks(self,row):
         """
@@ -168,5 +174,57 @@ class ClinicalChecks(FormCheck):
                 elif gt == False and float(compared_score_val) < float(other_score_val):
                     return (f'{compared_score_var} ({compared_score_val}) is'
                     f' not the highest score ({score_var} = {other_score_val})')
-        
         return 
+    
+    def call_twenty_one_day_check(self, row):   
+        if self.timepoint != 'baseline':
+            return 
+        cohort = self.subject_info[row.subjectid]['cohort']
+        if cohort.lower() not in ["hc", "chr"]:
+            return
+        curr_tp_forms = self.forms_per_tp[cohort][self.timepoint]
+        missing_spec_vars = {'psychs_p1p8_fu':'chrpsychs_fu_missing_spec_fu',
+                             'psychs_p1p8_fu_hc': 'hcpsychs_fu_missing_spec_fu'}
+        scr_int_date = str(self.subject_info[row.subjectid]['psychs_screen_date'])
+        if (not self.utils.check_if_val_date_format(scr_int_date)
+        or scr_int_date in self.utils.missing_code_list):
+            return
+        for form in curr_tp_forms:
+            if form in ['psychs_p1p8_fu_hc','psychs_p1p8_fu']:
+                curr_psychs_form = form
+        missing_spec_var = missing_spec_vars[curr_psychs_form]
+        self.check_if_over_21_days(row,missing_spec_var, scr_int_date,curr_tp_forms)
+
+    def check_if_over_21_days(self,
+        row,missing_spec_var, scr_int_date,
+        curr_tp_forms,curr_psychs_form
+    ):
+        reports = ['Main Report', 'Non Team Forms']
+        if (hasattr(row, missing_spec_var)
+        and str(getattr(row, missing_spec_var)) == 'M6'):
+            for form in curr_tp_forms:
+                if form in self.excluded_21_day_forms:
+                    continue
+                if self.check_if_missing(row,form) == True:
+                    continue
+                int_date_var = self.important_form_vars[form]['interview_date_var']
+                if hasattr(row, int_date_var):
+                    int_date = str(getattr(row,int_date_var))
+                    if (not self.utils.check_if_val_date_format(int_date)
+                    or int_date in self.utils.missing_code_list):
+                        continue
+                    days_between = self.utils.find_days_between(int_date,scr_int_date)
+                    if days_between > 21:
+                        error_message = ("M6 clicked on baseline psychs,"
+                        " but there are more than 21 days between"
+                        f" {form} (date = {int_date}) and Screening Psychs (date = {scr_int_date})")
+                        output_changes = {'reports':reports}
+                        error_output = self.create_row_output(
+                        row,[curr_psychs_form],[missing_spec_var],
+                        error_message, output_changes)
+                        self.final_output_list.append(error_output)
+
+
+                    
+
+                
