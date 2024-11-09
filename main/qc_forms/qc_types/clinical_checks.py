@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 import os
@@ -10,12 +9,11 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 from datetime import datetime
-class ClinicalChecks(FormCheck):
-    
+
+class ClinicalChecks(FormCheck):    
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network,form_check_info)
         self.test_val = 0
-        self.call_checks(row)
         self.gf_score_check_vars = {'high':{'global_functioning_social_scale':{
         'chrgfs_gf_social_high':['chrgfs_gf_social_scale','chrgfs_gf_social_low']},
         'global_functioning_role_scale':{'chrgfr_gf_role_low chrgfr_gf_role_high': [
@@ -25,6 +23,8 @@ class ClinicalChecks(FormCheck):
         'chrgfs_gf_social_low':['chrgfs_gf_social_scale','chrgfs_gf_social_high']},
         'global_functioning_role_scale':{'chrgfr_gf_role_low' : [
         'chrgfr_gf_role_scole','chrgfr_gf_role_high']}}}
+
+        self.call_checks(row)
                
     def __call__(self):
         return self.final_output_list
@@ -32,6 +32,7 @@ class ClinicalChecks(FormCheck):
     def call_checks(self, row):
         self.call_global_function_checks(row)
         self.call_oasis_checks(row)
+        self.call_cssrs_checks(row)
 
     def call_global_function_checks(self,row):
         """
@@ -68,7 +69,6 @@ class ClinicalChecks(FormCheck):
             filter_excl_vars=True, lifestyle_var = oasis_lifestyle_var, cutoff = cutoff_val)
 
     def call_cssrs_checks(self,row):
-        # sim past month
         forms = ['cssrs_baseline']
         report_list = ['Main Report','Non Team Forms']
         cssrs_unequal_vals_dict = {'chrcssrsb_cssrs_actual':'chrcssrsb_sb1l',
@@ -80,13 +80,14 @@ class ClinicalChecks(FormCheck):
         'chrcssrsb_nminatl':'chrcssrsb_cssrs_yrs_nia','chrcssrsb_nmabatl':'chrcssrsb_cssrs_yrs_naa'}
         for x in range(1,6):
             cssrs_unequal_vals_dict[f'chrcssrsb_si{x}l'] =  f'chrcssrsb_css_sim{x}'
-        for lifetime_cssrs_var, recent_cssrs_var in cssrs_unequal_vals_dict.items():
-            self.cssrs_unequal_vals_check(row, forms, [lifetime_cssrs_var, recent_cssrs_var],
-            [],True,lifetime_var=lifetime_cssrs_var, recent_var=recent_cssrs_var)
 
-        for lifetime_cssrs_var, recent_cssrs_var in cssrs_unequal_vals_dict.items():
-            self.cssrs_unequal_vals_check(row, forms, [lifetime_cssrs_var, recent_cssrs_var],
-            [],True,lifetime_var=lifetime_cssrs_var, recent_var=recent_cssrs_var)
+        for cssrs_dict, method in [
+            (cssrs_unequal_vals_dict, self.cssrs_unequal_vals_check),
+            (cssr_greater_vals_dict, self.cssrs_greater_vals_check)
+        ]:
+            for lifetime_cssrs_var, recent_cssrs_var in cssrs_dict.items():
+                method(row, forms, [lifetime_cssrs_var, recent_cssrs_var],{'reports':report_list}, [], True, 
+                    lifetime_var=lifetime_cssrs_var, recent_var=recent_cssrs_var)
             
     @FormCheck.standard_qc_check_filter 
     def cssrs_unequal_vals_check(self, row, filtered_forms,
