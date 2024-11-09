@@ -50,8 +50,9 @@ class CalculateResolvedErrors():
 
     def run_script(self):
         if os.path.exists(self.old_output_csv_path):
-            print('exists')
-            self.determine_resolved_rows()
+            # determine which errors no longer exist in the new output
+            self.determine_resolved_rows() 
+            # read specified columns from dropbox to new output
             self.loop_dropbox_files()
             
     def loop_dropbox_files(self):
@@ -90,8 +91,6 @@ class CalculateResolvedErrors():
         dropbox_path, dbx, network, reports_to_read,
         excl_report = True
     ):
-        print('---------')
-        print(dropbox_path)
         reversed_col_translations = self.utils.reverse_dictionary(self.formatted_column_names[network])
         _, res = dbx.files_download(dropbox_path)
         data = res.content
@@ -99,13 +98,9 @@ class CalculateResolvedErrors():
         sheet_names = excel_data.sheet_names
         prev_output_df = pd.read_csv(self.new_output_csv_path,keep_default_na = False)
         orig_columns = prev_output_df.columns
-        print(sheet_names)
-        print(reports_to_read)
         for report in sheet_names:
-            print(report)
             if report not in reports_to_read and excl_report == True:
                 continue
-            print(report)
             
             report_df = pd.read_excel(BytesIO(data),\
                 sheet_name=report, keep_default_na = False)

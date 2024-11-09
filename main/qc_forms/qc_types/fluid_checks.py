@@ -105,9 +105,12 @@ class FluidChecks(FormCheck):
         if hasattr(row ,vol_var):
             vol = getattr(row,vol_var)
             if vol not in (self.missing_code_list+['']) and\
-            self.utils.can_be_float(vol) and float(vol) <= 0:
-                print(f'Volume ({vol_var} = {vol}) is less than or equal to 0')
-                return  f'Volume ({vol_var} = {vol}) is less than or equal to 0'
+            self.utils.can_be_float(vol):
+                if float(vol) <= 0:
+                    return  f'Volume ({vol_var} = {vol}) is less than or equal to 0'
+                elif float(vol) > 1.1:
+                    return  f'Volume ({vol_var} = {vol}) is greater than 1.1'
+            
     
     @FormCheck.standard_qc_check_filter 
     def check_blood_freeze(self, row, filtered_forms,

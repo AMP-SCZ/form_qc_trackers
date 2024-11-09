@@ -15,6 +15,7 @@ from main.process_variables.collect_subject_info import CollectSubjectInfo
 from main.process_variables.analyze_identifier_effects import AnalyzeIdentifiers
 from main.process_variables.collect_ra_subjects import RaSubjects
 
+from main.process_variables.collect_multi_timepoint_data import MultiTPDataCollector
 
 class ProcessVariables():
     """
@@ -35,6 +36,12 @@ class ProcessVariables():
 
     def run_script(self):
         data_dict_df = self.utils.read_data_dictionary()
+        grouped_variables = CollectMiscVariables(data_dict_df)
+        self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
+
+        # run this after collecting grouped
+        self.multi_tp_data = MultiTPDataCollector()
+
         important_form_vars = DefineEssentialFormVars(data_dict_df)
 
         # needs to run before branching logic conversion
@@ -43,18 +50,12 @@ class ProcessVariables():
 
         self.utils.save_dependency_json(important_form_vars(), 'important_form_vars.json')
 
-        grouped_variables = CollectMiscVariables(data_dict_df)
-
-        self.utils.save_dependency_json(grouped_variables(), 'var_info.json')
-
         transform_bl = TransformBranchingLogic(data_dict_df)
         converted_branching_logic = transform_bl()
         self.utils.save_dictionary_as_csv(converted_branching_logic,
         f"{self.config_info['paths']['dependencies_path']}converted_branching_logic.csv")
 
         self.utils.save_dependency_json(converted_branching_logic, 'converted_branching_logic.json')
-
-        self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
 
         subject_info = CollectSubjectInfo()
 

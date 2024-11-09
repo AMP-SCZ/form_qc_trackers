@@ -55,8 +55,8 @@ class GeneralChecks(FormCheck):
     
     def call_spec_val_check(self,row):
         for var, conditions in self.general_check_vars["specific_val_check_vars"].items():
-            if var in self.var_info['var_forms'].keys():
-                form = self.var_info['var_forms'][var]
+            if var in self.grouped_vars['var_forms'].keys():
+                form = self.grouped_vars['var_forms'][var]
                 if self.standard_form_filter(row, form):
                     self.specific_value_checks(row,[form],[var],
                     {'reports':conditions['report']},[],True,conditions=conditions)
@@ -81,8 +81,10 @@ class GeneralChecks(FormCheck):
             return
         curr_tp_forms = self.forms_per_tp[cohort][self.timepoint]
 
-        if self.check_if_next_tp(row) == True:
+        if (self.check_if_next_tp(row) == True ):
             for form in curr_tp_forms:
+                if form in self.prescient_forms_no_compl_status:
+                    continue
                 compl_var = self.important_form_vars[form]['completion_var']                
                 if (hasattr(row, compl_var) and 
                 getattr(row, compl_var) not in self.utils.all_dtype([2,3,4])):

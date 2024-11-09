@@ -25,12 +25,14 @@ class FormCheck():
         self.general_check_vars = form_check_info['general_check_vars'] 
         self.important_form_vars = form_check_info['important_form_vars'] 
         self.forms_per_tp = form_check_info['forms_per_timepoint'] 
-        self.var_info = form_check_info['var_info']
         self.conv_bl = form_check_info['converted_branching_logic']
         self.excl_bl = form_check_info['excluded_branching_logic_vars']
         self.forms_per_report = form_check_info['team_report_forms']
         self.grouped_vars = form_check_info['grouped_variables']
         self.missing_code_list = self.utils.missing_code_list
+
+        self.prescient_forms_no_compl_status = [
+        'family_interview_for_genetic_studies_figs']
 
     def call_checks(self):
         pass
@@ -106,6 +108,10 @@ class FormCheck():
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
         or getattr(curr_row, compl_var) in self.utils.all_dtype([2])):
             completion_filter = True
+        if (self.network == 'PRESCIENT' and form
+        in self.prescient_forms_no_compl_status 
+        and self.check_if_next_tp(curr_row) == False):
+            completion_filter = False
         if completion_filter == False:
             return False
         
@@ -188,12 +194,12 @@ class FormCheck():
         if "Main Report" in row_output["reports"]:
             row_output["nda_excluder"] = True
 
-        var_translations = self.var_info['var_translations']
+        var_translations = self.grouped_vars['var_translations']
 
         for var in variables:
             if var in var_translations.keys():
                 row_output["var_translations"].append(
-                self.var_info['var_translations'][var]) 
+                self.grouped_vars['var_translations'][var]) 
 
         if self.timepoint == 'screening':
             row_output["priority"] = True

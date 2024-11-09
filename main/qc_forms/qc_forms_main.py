@@ -37,7 +37,7 @@ class QCFormsMain():
         self.form_check_info = {}
 
         for filename in ['subject_info','general_check_vars',
-        'important_form_vars','forms_per_timepoint','var_info',
+        'important_form_vars','forms_per_timepoint',
         'converted_branching_logic','excluded_branching_logic_vars',
         'team_report_forms','grouped_variables']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")

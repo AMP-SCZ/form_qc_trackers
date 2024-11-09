@@ -1,3 +1,7 @@
+PRONET
+baseline
+month2
+['-3', '-9', -3, -9, -3.0, -9.0, '-3.0', '-9.0', '1909-09-09', '1903-03-03', '1901-01-01', '-99', -99, -99.0, '-99.0', 999, 999.0, '999', '999.0', '']
 chrmiss_time_comment
 curr_row.chrmiss_time_spec=='A11'
 1
@@ -1385,8 +1389,8 @@ ME18383_ClientListWithDpaccID.csv
    fkLocationID subjectkey            RAname       LastModifiedDate
 0            50    ME18383  Matilda Tonkovic  17/10/2024 3:03:56 AM
 ME44786_ClientListWithDpaccID.csv
-   fkLocationID subjectkey       RAname      LastModifiedDate
-0            50    ME44786  Coco Beylot  6/06/2024 5:05:14 AM
+   fkLocationID subjectkey       RAname       LastModifiedDate
+0            50    ME44786  Coco Beylot  9/11/2024 12:13:44 PM
 ME68849_ClientListWithDpaccID.csv
    fkLocationID subjectkey     RAname       LastModifiedDate
 0            50    ME68849  John Chen  13/08/2024 2:01:52 AM
@@ -4771,90 +4775,66 @@ ST52109_ClientListWithDpaccID.csv
 ST06188_ClientListWithDpaccID.csv
    fkLocationID subjectkey RAname       LastModifiedDate
 0             3    ST06188         5/11/2024 10:45:42 AM
+ST29320_ClientListWithDpaccID.csv
+   fkLocationID subjectkey RAname      LastModifiedDate
+0             3    ST29320         8/11/2024 7:10:50 AM
 moving
      subject_id       event_name  ... age_at_consent subjectid
-0       BI20331  screening_arm_1  ...            nan   BI20331
-1       BI26674  screening_arm_1  ...            nan   BI26674
-2       BI15522  screening_arm_1  ...             18   BI15522
-3       BI07622  screening_arm_2  ...             19   BI07622
-4       CA08221  screening_arm_1  ...             24   CA08221
+0       BI37815  screening_arm_1  ...             19   BI37815
+1       BI03026  screening_arm_1  ...            nan   BI03026
+2       BI15172  screening_arm_1  ...             19   BI15172
+3       CA07833  screening_arm_1  ...             25   CA07833
+4       BI44016  screening_arm_1  ...             26   BI44016
 ...         ...              ...  ...            ...       ...
-1737    UR02041  screening_arm_1  ...             19   UR02041
-1738    GA19927  screening_arm_1  ...             26   GA19927
-1739    KC37501  screening_arm_1  ...             25   KC37501
-1740    OH15078  screening_arm_1  ...            nan   OH15078
-1741    PA26311  screening_arm_1  ...             28   PA26311
+1739    UR02041  screening_arm_1  ...             19   UR02041
+1740    GA19927  screening_arm_1  ...             26   GA19927
+1741    KC37501  screening_arm_1  ...             25   KC37501
+1742    OH15078  screening_arm_1  ...            nan   OH15078
+1743    PA26311  screening_arm_1  ...             28   PA26311
 
-[1742 rows x 3950 columns]
+[1744 rows x 3950 columns]
      subject_id      event_name  ... age_at_consent subjectid
-0       BI40987  baseline_arm_1  ...             25   BI40987
-1       BI26602  baseline_arm_1  ...            nan   BI26602
-2       BI00157  baseline_arm_1  ...            nan   BI00157
-3       BI59114  baseline_arm_1  ...             25   BI59114
-4       BI51473  baseline_arm_1  ...             29   BI51473
+0       BI22917  baseline_arm_1  ...            nan   BI22917
+1       BI12081  baseline_arm_2  ...            nan   BI12081
+2       BI00141  baseline_arm_1  ...            nan   BI00141
+3       BI00157  baseline_arm_1  ...            nan   BI00157
+4       BI59964  baseline_arm_1  ...             22   BI59964
 ...         ...             ...  ...            ...       ...
-1736    UR02041  baseline_arm_1  ...             19   UR02041
-1737    GA19927  baseline_arm_1  ...             26   GA19927
-1738    KC37501  baseline_arm_1  ...             25   KC37501
-1739    OH15078  baseline_arm_1  ...            nan   OH15078
-1740    PA26311  baseline_arm_1  ...             28   PA26311
+1738    UR02041  baseline_arm_1  ...             19   UR02041
+1739    GA19927  baseline_arm_1  ...             26   GA19927
+1740    KC37501  baseline_arm_1  ...             25   KC37501
+1741    OH15078  baseline_arm_1  ...            nan   OH15078
+1742    PA26311  baseline_arm_1  ...             28   PA26311
 
-[1741 rows x 3801 columns]
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl4vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_bc1vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
+[1743 rows x 3801 columns]
+     subject_id     event_name chric_record_id  ... cohort age_at_consent subjectid
+0       BI05529  month_1_arm_2         BI05529  ...     HC             22   BI05529
+1       BI04369  month_1_arm_2         BI04369  ...     HC             22   BI04369
+2       BI05652  month_1_arm_1         BI05652  ...    CHR             18   BI05652
+3       BI00141  month_1_arm_1         BI00141  ...    CHR            nan   BI00141
+4       BI07622  month_1_arm_2         BI07622  ...     HC             19   BI07622
+...         ...            ...             ...  ...    ...            ...       ...
+1556    OR41615  month_1_arm_1         OR41615  ...    CHR            nan   OR41615
+1557    GA19927  month_1_arm_1         GA19927  ...    CHR             26   GA19927
+1558    OH15078  month_1_arm_1         OH15078  ...    CHR            nan   OH15078
+1559    KC37501  month_1_arm_1         KC37501  ...    CHR             25   KC37501
+1560    PA26311  month_1_arm_1         PA26311  ...    CHR             28   PA26311
+
+[1561 rows x 1300 columns]
      subject_id     event_name  ... age_at_consent subjectid
-0       BI05529  month_1_arm_2  ...             22   BI05529
-1       BI04369  month_1_arm_2  ...             22   BI04369
-2       BI05652  month_1_arm_1  ...             18   BI05652
-3       BI00141  month_1_arm_1  ...            nan   BI00141
-4       BI07622  month_1_arm_2  ...             19   BI07622
+0       BI20331  month_2_arm_1  ...            nan   BI20331
+1       BI11459  month_2_arm_1  ...             22   BI11459
+2       BI52744  month_2_arm_1  ...            nan   BI52744
+3       BI20575  month_2_arm_1  ...            nan   BI20575
+4       BI59370  month_2_arm_1  ...             21   BI59370
 ...         ...            ...  ...            ...       ...
-1555    OR41615  month_1_arm_1  ...            nan   OR41615
-1556    GA19927  month_1_arm_1  ...             26   GA19927
-1557    OH15078  month_1_arm_1  ...            nan   OH15078
-1558    KC37501  month_1_arm_1  ...             25   KC37501
-1559    PA26311  month_1_arm_1  ...             28   PA26311
+1707    TE30590  month_2_arm_2  ...             19   TE30590
+1708    GA19927  month_2_arm_1  ...             26   GA19927
+1709    KC37501  month_2_arm_1  ...             25   KC37501
+1710    OH15078  month_2_arm_1  ...            nan   OH15078
+1711    PA26311  month_2_arm_1  ...             28   PA26311
 
-[1560 rows x 1300 columns]
-     subject_id     event_name  ... age_at_consent subjectid
-0       BI13174  month_2_arm_1  ...             22   BI13174
-1       BI51473  month_2_arm_1  ...             29   BI51473
-2       BI44749  month_2_arm_1  ...             25   BI44749
-3       BI59114  month_2_arm_1  ...             25   BI59114
-4       BI20575  month_2_arm_1  ...            nan   BI20575
-...         ...            ...  ...            ...       ...
-1706    TE30590  month_2_arm_2  ...             19   TE30590
-1707    GA19927  month_2_arm_1  ...             26   GA19927
-1708    KC37501  month_2_arm_1  ...             25   KC37501
-1709    OH15078  month_2_arm_1  ...            nan   OH15078
-1710    PA26311  month_2_arm_1  ...             28   PA26311
-
-[1711 rows x 2523 columns]
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl1vol = 0) is less than or equal to 0
-Volume (chrblood_pl2vol = 0) is less than or equal to 0
-Volume (chrblood_pl3vol = 0) is less than or equal to 0
-Volume (chrblood_pl4vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_wb1vol = 0) is less than or equal to 0
-Volume (chrblood_wb2vol = 0) is less than or equal to 0
-Volume (chrblood_wb3vol = 0) is less than or equal to 0
-Volume (chrblood_pl1vol = 0) is less than or equal to 0
-Volume (chrblood_pl2vol = 0) is less than or equal to 0
-Volume (chrblood_pl3vol = 0) is less than or equal to 0
-Volume (chrblood_pl4vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_bc1vol = 0) is less than or equal to 0
+[1712 rows x 2523 columns]
      subject_id     event_name  ... age_at_consent subjectid
 0       BI05529  month_3_arm_2  ...             22   BI05529
 1       BI04369  month_3_arm_2  ...             22   BI04369
@@ -4862,41 +4842,41 @@ Volume (chrblood_bc1vol = 0) is less than or equal to 0
 3       BI00141  month_3_arm_1  ...            nan   BI00141
 4       BI07622  month_3_arm_2  ...             19   BI07622
 ...         ...            ...  ...            ...       ...
-1513    OR41615  month_3_arm_1  ...            nan   OR41615
-1514    GA19927  month_3_arm_1  ...             26   GA19927
-1515    OH15078  month_3_arm_1  ...            nan   OH15078
-1516    KC37501  month_3_arm_1  ...             25   KC37501
-1517    PA26311  month_3_arm_1  ...             28   PA26311
+1514    OR41615  month_3_arm_1  ...            nan   OR41615
+1515    GA19927  month_3_arm_1  ...             26   GA19927
+1516    OH15078  month_3_arm_1  ...            nan   OH15078
+1517    KC37501  month_3_arm_1  ...             25   KC37501
+1518    PA26311  month_3_arm_1  ...             28   PA26311
 
-[1518 rows x 1183 columns]
-     subject_id     event_name chric_record_id  ... cohort  age_at_consent  subjectid
-0       BI05529  month_4_arm_2         BI05529  ...     HC              22    BI05529
-1       BI04369  month_4_arm_2         BI04369  ...     HC              22    BI04369
-2       BI05652  month_4_arm_1         BI05652  ...    CHR              18    BI05652
-3       BI00141  month_4_arm_1         BI00141  ...    CHR             nan    BI00141
-4       BI07622  month_4_arm_2         BI07622  ...     HC              19    BI07622
-...         ...            ...             ...  ...    ...             ...        ...
-1503    OR41615  month_4_arm_1         OR41615  ...    CHR             nan    OR41615
-1504    GA19927  month_4_arm_1         GA19927  ...    CHR              26    GA19927
-1505    OH15078  month_4_arm_1         OH15078  ...    CHR             nan    OH15078
-1506    KC37501  month_4_arm_1         KC37501  ...    CHR              25    KC37501
-1507    PA26311  month_4_arm_1         PA26311  ...    CHR              28    PA26311
+[1519 rows x 1183 columns]
+     subject_id     event_name  ... age_at_consent subjectid
+0       BI05529  month_4_arm_2  ...             22   BI05529
+1       BI04369  month_4_arm_2  ...             22   BI04369
+2       BI05652  month_4_arm_1  ...             18   BI05652
+3       BI00141  month_4_arm_1  ...            nan   BI00141
+4       BI07622  month_4_arm_2  ...             19   BI07622
+...         ...            ...  ...            ...       ...
+1504    OR41615  month_4_arm_1  ...            nan   OR41615
+1505    GA19927  month_4_arm_1  ...             26   GA19927
+1506    OH15078  month_4_arm_1  ...            nan   OH15078
+1507    KC37501  month_4_arm_1  ...             25   KC37501
+1508    PA26311  month_4_arm_1  ...             28   PA26311
 
-[1508 rows x 199 columns]
-     subject_id     event_name chric_record_id  ... cohort  age_at_consent  subjectid
-0       BI05529  month_5_arm_2         BI05529  ...     HC              22    BI05529
-1       BI04369  month_5_arm_2         BI04369  ...     HC              22    BI04369
-2       BI05652  month_5_arm_1         BI05652  ...    CHR              18    BI05652
-3       BI00141  month_5_arm_1         BI00141  ...    CHR             nan    BI00141
-4       BI07622  month_5_arm_2         BI07622  ...     HC              19    BI07622
-...         ...            ...             ...  ...    ...             ...        ...
-1494    OR41615  month_5_arm_1         OR41615  ...    CHR             nan    OR41615
-1495    GA19927  month_5_arm_1         GA19927  ...    CHR              26    GA19927
-1496    OH15078  month_5_arm_1         OH15078  ...    CHR             nan    OH15078
-1497    KC37501  month_5_arm_1         KC37501  ...    CHR              25    KC37501
-1498    PA26311  month_5_arm_1         PA26311  ...    CHR              28    PA26311
+[1509 rows x 199 columns]
+     subject_id     event_name  ... age_at_consent subjectid
+0       BI05529  month_5_arm_2  ...             22   BI05529
+1       BI04369  month_5_arm_2  ...             22   BI04369
+2       BI05652  month_5_arm_1  ...             18   BI05652
+3       BI00141  month_5_arm_1  ...            nan   BI00141
+4       BI07622  month_5_arm_2  ...             19   BI07622
+...         ...            ...  ...            ...       ...
+1495    OR41615  month_5_arm_1  ...            nan   OR41615
+1496    GA19927  month_5_arm_1  ...             26   GA19927
+1497    OH15078  month_5_arm_1  ...            nan   OH15078
+1498    KC37501  month_5_arm_1  ...             25   KC37501
+1499    PA26311  month_5_arm_1  ...             28   PA26311
 
-[1499 rows x 198 columns]
+[1500 rows x 198 columns]
      subject_id     event_name chraxci_missing  ... cohort age_at_consent subjectid
 0       BI05529  month_6_arm_2               1  ...     HC             22   BI05529
 1       BI04369  month_6_arm_2               1  ...     HC             22   BI04369
@@ -4904,13 +4884,13 @@ Volume (chrblood_bc1vol = 0) is less than or equal to 0
 3       BI00141  month_6_arm_1                  ...    CHR            nan   BI00141
 4       BI07622  month_6_arm_2               1  ...     HC             19   BI07622
 ...         ...            ...             ...  ...    ...            ...       ...
-1479    OR41615  month_6_arm_1                  ...    CHR            nan   OR41615
-1480    GA19927  month_6_arm_1               1  ...    CHR             26   GA19927
-1481    OH15078  month_6_arm_1                  ...    CHR            nan   OH15078
-1482    KC37501  month_6_arm_1                  ...    CHR             25   KC37501
-1483    PA26311  month_6_arm_1               1  ...    CHR             28   PA26311
+1480    OR41615  month_6_arm_1                  ...    CHR            nan   OR41615
+1481    GA19927  month_6_arm_1               1  ...    CHR             26   GA19927
+1482    OH15078  month_6_arm_1                  ...    CHR            nan   OH15078
+1483    KC37501  month_6_arm_1                  ...    CHR             25   KC37501
+1484    PA26311  month_6_arm_1               1  ...    CHR             28   PA26311
 
-[1484 rows x 1305 columns]
+[1485 rows x 1305 columns]
      subject_id     event_name chric_record_id  ... cohort  age_at_consent  subjectid
 0       BI05529  month_7_arm_2         BI05529  ...     HC              22    BI05529
 1       BI04369  month_7_arm_2         BI04369  ...     HC              22    BI04369
@@ -4918,55 +4898,55 @@ Volume (chrblood_bc1vol = 0) is less than or equal to 0
 3       BI00141  month_7_arm_1         BI00141  ...    CHR             nan    BI00141
 4       BI07622  month_7_arm_2         BI07622  ...     HC              19    BI07622
 ...         ...            ...             ...  ...    ...             ...        ...
-1469    OR41615  month_7_arm_1         OR41615  ...    CHR             nan    OR41615
-1470    GA19927  month_7_arm_1         GA19927  ...    CHR              26    GA19927
-1471    OH15078  month_7_arm_1         OH15078  ...    CHR             nan    OH15078
-1472    KC37501  month_7_arm_1         KC37501  ...    CHR              25    KC37501
-1473    PA26311  month_7_arm_1         PA26311  ...    CHR              28    PA26311
+1470    OR41615  month_7_arm_1         OR41615  ...    CHR             nan    OR41615
+1471    GA19927  month_7_arm_1         GA19927  ...    CHR              26    GA19927
+1472    OH15078  month_7_arm_1         OH15078  ...    CHR             nan    OH15078
+1473    KC37501  month_7_arm_1         KC37501  ...    CHR              25    KC37501
+1474    PA26311  month_7_arm_1         PA26311  ...    CHR              28    PA26311
 
-[1474 rows x 198 columns]
-     subject_id     event_name chric_record_id  ... cohort  age_at_consent  subjectid
-0       BI05529  month_8_arm_2         BI05529  ...     HC              22    BI05529
-1       BI04369  month_8_arm_2         BI04369  ...     HC              22    BI04369
-2       BI05652  month_8_arm_1         BI05652  ...    CHR              18    BI05652
-3       BI00141  month_8_arm_1         BI00141  ...    CHR             nan    BI00141
-4       BI07622  month_8_arm_2         BI07622  ...     HC              19    BI07622
-...         ...            ...             ...  ...    ...             ...        ...
-1460    OR41615  month_8_arm_1         OR41615  ...    CHR             nan    OR41615
-1461    GA19927  month_8_arm_1         GA19927  ...    CHR              26    GA19927
-1462    OH15078  month_8_arm_1         OH15078  ...    CHR             nan    OH15078
-1463    KC37501  month_8_arm_1         KC37501  ...    CHR              25    KC37501
-1464    PA26311  month_8_arm_1         PA26311  ...    CHR              28    PA26311
+[1475 rows x 198 columns]
+     subject_id     event_name chraxci_missing  ... cohort age_at_consent subjectid
+0       BI05529  month_8_arm_2               1  ...     HC             22   BI05529
+1       BI04369  month_8_arm_2               1  ...     HC             22   BI04369
+2       BI05652  month_8_arm_1               1  ...    CHR             18   BI05652
+3       BI00141  month_8_arm_1                  ...    CHR            nan   BI00141
+4       BI07622  month_8_arm_2               1  ...     HC             19   BI07622
+...         ...            ...             ...  ...    ...            ...       ...
+1461    OR41615  month_8_arm_1                  ...    CHR            nan   OR41615
+1462    GA19927  month_8_arm_1               1  ...    CHR             26   GA19927
+1463    OH15078  month_8_arm_1                  ...    CHR            nan   OH15078
+1464    KC37501  month_8_arm_1                  ...    CHR             25   KC37501
+1465    PA26311  month_8_arm_1               1  ...    CHR             28   PA26311
 
-[1465 rows x 199 columns]
-     subject_id     event_name chric_record_id  ... cohort  age_at_consent  subjectid
-0       BI05529  month_9_arm_2         BI05529  ...     HC              22    BI05529
-1       BI04369  month_9_arm_2         BI04369  ...     HC              22    BI04369
-2       BI05652  month_9_arm_1         BI05652  ...    CHR              18    BI05652
-3       BI00141  month_9_arm_1         BI00141  ...    CHR             nan    BI00141
-4       BI07622  month_9_arm_2         BI07622  ...     HC              19    BI07622
-...         ...            ...             ...  ...    ...             ...        ...
-1456    OR41615  month_9_arm_1         OR41615  ...    CHR             nan    OR41615
-1457    GA19927  month_9_arm_1         GA19927  ...    CHR              26    GA19927
-1458    OH15078  month_9_arm_1         OH15078  ...    CHR             nan    OH15078
-1459    KC37501  month_9_arm_1         KC37501  ...    CHR              25    KC37501
-1460    PA26311  month_9_arm_1         PA26311  ...    CHR              28    PA26311
+[1466 rows x 199 columns]
+     subject_id     event_name chraxci_missing  ... cohort age_at_consent subjectid
+0       BI05529  month_9_arm_2               1  ...     HC             22   BI05529
+1       BI04369  month_9_arm_2               1  ...     HC             22   BI04369
+2       BI05652  month_9_arm_1                  ...    CHR             18   BI05652
+3       BI00141  month_9_arm_1                  ...    CHR            nan   BI00141
+4       BI07622  month_9_arm_2               1  ...     HC             19   BI07622
+...         ...            ...             ...  ...    ...            ...       ...
+1457    OR41615  month_9_arm_1                  ...    CHR            nan   OR41615
+1458    GA19927  month_9_arm_1               1  ...    CHR             26   GA19927
+1459    OH15078  month_9_arm_1                  ...    CHR            nan   OH15078
+1460    KC37501  month_9_arm_1                  ...    CHR             25   KC37501
+1461    PA26311  month_9_arm_1               1  ...    CHR             28   PA26311
 
-[1461 rows x 198 columns]
-     subject_id      event_name chraxci_missing  ... cohort age_at_consent subjectid
-0       BI05529  month_10_arm_2               1  ...     HC             22   BI05529
-1       BI04369  month_10_arm_2                  ...     HC             22   BI04369
-2       BI05652  month_10_arm_1                  ...    CHR             18   BI05652
-3       BI00141  month_10_arm_1                  ...    CHR            nan   BI00141
-4       BI07622  month_10_arm_2               1  ...     HC             19   BI07622
-...         ...             ...             ...  ...    ...            ...       ...
-1449    OR41615  month_10_arm_1                  ...    CHR            nan   OR41615
-1450    GA19927  month_10_arm_1               1  ...    CHR             26   GA19927
-1451    OH15078  month_10_arm_1                  ...    CHR            nan   OH15078
-1452    KC37501  month_10_arm_1                  ...    CHR             25   KC37501
-1453    PA26311  month_10_arm_1                  ...    CHR             28   PA26311
+[1462 rows x 198 columns]
+     subject_id      event_name chric_record_id  ... cohort  age_at_consent  subjectid
+0       BI05529  month_10_arm_2         BI05529  ...     HC              22    BI05529
+1       BI04369  month_10_arm_2         BI04369  ...     HC              22    BI04369
+2       BI05652  month_10_arm_1         BI05652  ...    CHR              18    BI05652
+3       BI00141  month_10_arm_1         BI00141  ...    CHR             nan    BI00141
+4       BI07622  month_10_arm_2         BI07622  ...     HC              19    BI07622
+...         ...             ...             ...  ...    ...             ...        ...
+1450    OR41615  month_10_arm_1         OR41615  ...    CHR             nan    OR41615
+1451    GA19927  month_10_arm_1         GA19927  ...    CHR              26    GA19927
+1452    OH15078  month_10_arm_1         OH15078  ...    CHR             nan    OH15078
+1453    KC37501  month_10_arm_1         KC37501  ...    CHR              25    KC37501
+1454    PA26311  month_10_arm_1         PA26311  ...    CHR              28    PA26311
 
-[1454 rows x 199 columns]
+[1455 rows x 199 columns]
      subject_id      event_name chric_record_id  ... cohort  age_at_consent  subjectid
 0       BI05529  month_11_arm_2         BI05529  ...     HC              22    BI05529
 1       BI04369  month_11_arm_2         BI04369  ...     HC              22    BI04369
@@ -4974,87 +4954,87 @@ Volume (chrblood_bc1vol = 0) is less than or equal to 0
 3       BI00141  month_11_arm_1         BI00141  ...    CHR             nan    BI00141
 4       BI07622  month_11_arm_2         BI07622  ...     HC              19    BI07622
 ...         ...             ...             ...  ...    ...             ...        ...
-1446    OR41615  month_11_arm_1         OR41615  ...    CHR             nan    OR41615
-1447    GA19927  month_11_arm_1         GA19927  ...    CHR              26    GA19927
-1448    OH15078  month_11_arm_1         OH15078  ...    CHR             nan    OH15078
-1449    KC37501  month_11_arm_1         KC37501  ...    CHR              25    KC37501
-1450    PA26311  month_11_arm_1         PA26311  ...    CHR              28    PA26311
+1447    OR41615  month_11_arm_1         OR41615  ...    CHR             nan    OR41615
+1448    GA19927  month_11_arm_1         GA19927  ...    CHR              26    GA19927
+1449    OH15078  month_11_arm_1         OH15078  ...    CHR             nan    OH15078
+1450    KC37501  month_11_arm_1         KC37501  ...    CHR              25    KC37501
+1451    PA26311  month_11_arm_1         PA26311  ...    CHR              28    PA26311
 
-[1451 rows x 191 columns]
-     subject_id      event_name chric_record_id  ... cohort age_at_consent subjectid
-0       BI00157  month_12_arm_1         BI00157  ...    CHR            nan   BI00157
-1       BI03026  month_12_arm_1         BI03026  ...    CHR            nan   BI03026
-2       BI10700  month_12_arm_2         BI10700  ...     HC             15   BI10700
-3       CA07833  month_12_arm_1         CA07833  ...    CHR             25   CA07833
-4       BI47113  month_12_arm_1         BI47113  ...    CHR            nan   BI47113
-...         ...             ...             ...  ...    ...            ...       ...
-1699    TE30590  month_12_arm_2         TE30590  ...     HC             19   TE30590
-1700    GA19927  month_12_arm_1         GA19927  ...    CHR             26   GA19927
-1701    KC37501  month_12_arm_1         KC37501  ...    CHR             25   KC37501
-1702    OH15078  month_12_arm_1         OH15078  ...    CHR            nan   OH15078
-1703    PA26311  month_12_arm_1         PA26311  ...    CHR             28   PA26311
-
-[1704 rows x 2700 columns]
-     subject_id      event_name chric_record_id  ... cohort age_at_consent subjectid
-0       BI05652  month_18_arm_1         BI05652  ...    CHR             18   BI05652
-1       BI00141  month_18_arm_1         BI00141  ...    CHR            nan   BI00141
-2       BI00157  month_18_arm_1         BI00157  ...    CHR            nan   BI00157
-3       BI03026  month_18_arm_1         BI03026  ...    CHR            nan   BI03026
-4       BI05874  month_18_arm_1         BI05874  ...    CHR             15   BI05874
-...         ...             ...             ...  ...    ...            ...       ...
-1346    OR41615  month_18_arm_1         OR41615  ...    CHR            nan   OR41615
-1347    GA19927  month_18_arm_1         GA19927  ...    CHR             26   GA19927
-1348    OH15078  month_18_arm_1         OH15078  ...    CHR            nan   OH15078
-1349    KC37501  month_18_arm_1         KC37501  ...    CHR             25   KC37501
-1350    PA26311  month_18_arm_1         PA26311  ...    CHR             28   PA26311
-
-[1351 rows x 1105 columns]
+[1452 rows x 191 columns]
      subject_id      event_name  ... age_at_consent subjectid
-0       BI13174  month_24_arm_1  ...             22   BI13174
-1       BI35251  month_24_arm_1  ...             23   BI35251
-2       BI04369  month_24_arm_2  ...             22   BI04369
-3       BI19401  month_24_arm_1  ...             21   BI19401
-4       BI35873  month_24_arm_1  ...             19   BI35873
+0       BI15522  month_12_arm_1  ...             18   BI15522
+1       BI05652  month_12_arm_1  ...             18   BI05652
+2       BI11459  month_12_arm_1  ...             22   BI11459
+3       BI04369  month_12_arm_2  ...             22   BI04369
+4       BI35873  month_12_arm_1  ...             19   BI35873
 ...         ...             ...  ...            ...       ...
-1697    TE30590  month_24_arm_2  ...             19   TE30590
-1698    GA19927  month_24_arm_1  ...             26   GA19927
-1699    KC37501  month_24_arm_1  ...             25   KC37501
-1700    OH15078  month_24_arm_1  ...            nan   OH15078
-1701    PA26311  month_24_arm_1  ...             28   PA26311
+1700    TE30590  month_12_arm_2  ...             19   TE30590
+1701    GA19927  month_12_arm_1  ...             26   GA19927
+1702    KC37501  month_12_arm_1  ...             25   KC37501
+1703    OH15078  month_12_arm_1  ...            nan   OH15078
+1704    PA26311  month_12_arm_1  ...             28   PA26311
 
-[1702 rows x 1872 columns]
+[1705 rows x 2700 columns]
+     subject_id      event_name chric_record_id  ... cohort  age_at_consent  subjectid
+0       BI05652  month_18_arm_1         BI05652  ...    CHR              18    BI05652
+1       BI00141  month_18_arm_1         BI00141  ...    CHR             nan    BI00141
+2       BI00157  month_18_arm_1         BI00157  ...    CHR             nan    BI00157
+3       BI03026  month_18_arm_1         BI03026  ...    CHR             nan    BI03026
+4       BI05874  month_18_arm_1         BI05874  ...    CHR              15    BI05874
+...         ...             ...             ...  ...    ...             ...        ...
+1347    OR41615  month_18_arm_1         OR41615  ...    CHR             nan    OR41615
+1348    GA19927  month_18_arm_1         GA19927  ...    CHR              26    GA19927
+1349    OH15078  month_18_arm_1         OH15078  ...    CHR             nan    OH15078
+1350    KC37501  month_18_arm_1         KC37501  ...    CHR              25    KC37501
+1351    PA26311  month_18_arm_1         PA26311  ...    CHR              28    PA26311
+
+[1352 rows x 1105 columns]
+     subject_id      event_name  ... age_at_consent subjectid
+0       BI10744  month_24_arm_1  ...            nan   BI10744
+1       BI00141  month_24_arm_1  ...            nan   BI00141
+2       BI22917  month_24_arm_1  ...            nan   BI22917
+3       BI11621  month_24_arm_1  ...             18   BI11621
+4       BI26602  month_24_arm_1  ...            nan   BI26602
+...         ...             ...  ...            ...       ...
+1698    TE30590  month_24_arm_2  ...             19   TE30590
+1699    GA19927  month_24_arm_1  ...             26   GA19927
+1700    KC37501  month_24_arm_1  ...             25   KC37501
+1701    OH15078  month_24_arm_1  ...            nan   OH15078
+1702    PA26311  month_24_arm_1  ...             28   PA26311
+
+[1703 rows x 1872 columns]
      subject_id            event_name  ... age_at_consent subjectid
-0       BI05874  floating_forms_arm_1  ...             15   BI05874
-1       BI41008  floating_forms_arm_1  ...             20   BI41008
+0       BI05529  floating_forms_arm_2  ...             22   BI05529
+1       BI08676  floating_forms_arm_1  ...             19   BI08676
 2       BI00141  floating_forms_arm_1  ...            nan   BI00141
-3       BI07622  floating_forms_arm_2  ...             19   BI07622
-4       BI03026  floating_forms_arm_1  ...            nan   BI03026
+3       BI03026  floating_forms_arm_1  ...            nan   BI03026
+4       BI00157  floating_forms_arm_1  ...            nan   BI00157
 ...         ...                   ...  ...            ...       ...
-1737    UR02041  floating_forms_arm_1  ...             19   UR02041
-1738    GA19927  floating_forms_arm_1  ...             26   GA19927
-1739    KC37501  floating_forms_arm_1  ...             25   KC37501
-1740    OH15078  floating_forms_arm_1  ...            nan   OH15078
-1741    PA26311  floating_forms_arm_1  ...             28   PA26311
+1739    UR02041  floating_forms_arm_1  ...             19   UR02041
+1740    GA19927  floating_forms_arm_1  ...             26   GA19927
+1741    KC37501  floating_forms_arm_1  ...             25   KC37501
+1742    OH15078  floating_forms_arm_1  ...            nan   OH15078
+1743    PA26311  floating_forms_arm_1  ...             28   PA26311
 
-[1742 rows x 1265 columns]
+[1744 rows x 1265 columns]
      subject_id        event_name  ... age_at_consent subjectid
-0       BI35873  conversion_arm_1  ...             19   BI35873
-1       BI33542  conversion_arm_1  ...             19   BI33542
-2       BI54170  conversion_arm_1  ...             23   BI54170
-3       CA05435  conversion_arm_2  ...             21   CA05435
-4       BI40987  conversion_arm_1  ...             25   BI40987
+0       BI03026  conversion_arm_1  ...            nan   BI03026
+1       BI05874  conversion_arm_1  ...             15   BI05874
+2       BI05652  conversion_arm_1  ...             18   BI05652
+3       BI05529  conversion_arm_2  ...             22   BI05529
+4       BI27478  conversion_arm_1  ...             24   BI27478
 ...         ...               ...  ...            ...       ...
-1698    TE30590  conversion_arm_2  ...             19   TE30590
-1699    GA19927  conversion_arm_1  ...             26   GA19927
-1700    KC37501  conversion_arm_1  ...             25   KC37501
-1701    OH15078  conversion_arm_1  ...            nan   OH15078
-1702    PA26311  conversion_arm_1  ...             28   PA26311
+1699    TE30590  conversion_arm_2  ...             19   TE30590
+1700    GA19927  conversion_arm_1  ...             26   GA19927
+1701    KC37501  conversion_arm_1  ...             25   KC37501
+1702    OH15078  conversion_arm_1  ...            nan   OH15078
+1703    PA26311  conversion_arm_1  ...             28   PA26311
 
-[1703 rows x 1608 columns]
+[1704 rows x 1608 columns]
      subject_id       event_name  ... age_at_consent subjectid
 0       BM00644  screening_arm_1  ...             23   BM00644
-1       BM08191  screening_arm_2  ...             18   BM08191
-2       BM06276  screening_arm_2  ...             17   BM06276
+1       BM06276  screening_arm_2  ...             17   BM06276
+2       BM08191  screening_arm_2  ...             18   BM08191
 3       BM10164  screening_arm_2  ...             17   BM10164
 4       BM13227  screening_arm_1  ...             24   BM13227
 ...         ...              ...  ...            ...       ...
@@ -5067,8 +5047,8 @@ Volume (chrblood_bc1vol = 0) is less than or equal to 0
 [1584 rows x 3242 columns]
      subject_id      event_name chrpgi_2  ... cohort age_at_consent subjectid
 0       BM00644  baseline_arm_1        4  ...    CHR             23   BM00644
-1       BM08191  baseline_arm_2        1  ...     HC             18   BM08191
-2       BM06276  baseline_arm_2        1  ...     HC             17   BM06276
+1       BM06276  baseline_arm_2        1  ...     HC             17   BM06276
+2       BM08191  baseline_arm_2        1  ...     HC             18   BM08191
 3       BM10164  baseline_arm_2        1  ...     HC             17   BM10164
 4       BM13227  baseline_arm_1        3  ...    CHR             24   BM13227
 ...         ...             ...      ...  ...    ...            ...       ...
@@ -5079,84 +5059,48 @@ Volume (chrblood_bc1vol = 0) is less than or equal to 0
 1374    ME02170  baseline_arm_2           ...     HC             16   ME02170
 
 [1375 rows x 5152 columns]
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_se3vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl3vol = 0) is less than or equal to 0
-Volume (chrblood_pl4vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_se3vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl4vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_se3vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_wb3vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_se3vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_se3vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_se3vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl5vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_wb1vol = 0) is less than or equal to 0
-Volume (chrblood_wb2vol = 0) is less than or equal to 0
-Volume (chrblood_wb3vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-Volume (chrblood_pl6vol = 0) is less than or equal to 0
-    subject_id     event_name chrbprs_missing  ... cohort age_at_consent subjectid
-0      BM29357  month_1_arm_1               0  ...    CHR             16   BM29357
-1      BM13061  month_1_arm_1               0  ...    CHR             22   BM13061
-2      BM42961  month_1_arm_1               0  ...    CHR             22   BM42961
-3      BM45141  month_1_arm_2                  ...     HC             25   BM45141
-4      BM44608  month_1_arm_1               0  ...    CHR             20   BM44608
-..         ...            ...             ...  ...    ...            ...       ...
-832    ME53735  month_1_arm_1               0  ...    CHR             18   ME53735
-833    ME64726  month_1_arm_1               0  ...    CHR             18   ME64726
-834    JE00907  month_1_arm_2                  ...     HC             22   JE00907
-835    ME30537  month_1_arm_1               0  ...    CHR             24   ME30537
-836    ME90802  month_1_arm_1               0  ...    CHR             23   ME90802
+    subject_id     event_name chroasis_missing  ... cohort age_at_consent subjectid
+0      BM29357  month_1_arm_1                0  ...    CHR             16   BM29357
+1      BM13061  month_1_arm_1                1  ...    CHR             22   BM13061
+2      BM42961  month_1_arm_1                0  ...    CHR             22   BM42961
+3      BM45141  month_1_arm_2                   ...     HC             25   BM45141
+4      BM44608  month_1_arm_1                0  ...    CHR             20   BM44608
+..         ...            ...              ...  ...    ...            ...       ...
+835    ME53735  month_1_arm_1                0  ...    CHR             18   ME53735
+836    ME64726  month_1_arm_1                0  ...    CHR             18   ME64726
+837    JE00907  month_1_arm_2                   ...     HC             22   JE00907
+838    ME30537  month_1_arm_1                1  ...    CHR             24   ME30537
+839    ME90802  month_1_arm_1                0  ...    CHR             23   ME90802
 
-[837 rows x 1419 columns]
-    subject_id     event_name chrassist_missing  ... cohort age_at_consent subjectid
-0      BM29357  month_2_arm_1                 0  ...    CHR             16   BM29357
-1      BM13061  month_2_arm_1                 0  ...    CHR             22   BM13061
-2      BM42961  month_2_arm_1                 0  ...    CHR             22   BM42961
-3      BM45141  month_2_arm_2                 0  ...     HC             25   BM45141
-4      BM44608  month_2_arm_1                 0  ...    CHR             20   BM44608
-..         ...            ...               ...  ...    ...            ...       ...
-790    ME88823  month_2_arm_1                    ...    CHR             19   ME88823
-791    HK49561  month_2_arm_1                 0  ...    CHR             23   HK49561
-792    ME45368  month_2_arm_1                 0  ...    CHR             18   ME45368
-793    ME30537  month_2_arm_1                 0  ...    CHR             24   ME30537
-794    ME90802  month_2_arm_1                 1  ...    CHR             23   ME90802
+[840 rows x 1419 columns]
+    subject_id     event_name chrblood_cbc  ... cohort age_at_consent subjectid
+0      BM29357  month_2_arm_1               ...    CHR             16   BM29357
+1      BM13061  month_2_arm_1            1  ...    CHR             22   BM13061
+2      BM42961  month_2_arm_1            1  ...    CHR             22   BM42961
+3      BM45141  month_2_arm_2            1  ...     HC             25   BM45141
+4      BM44608  month_2_arm_1            1  ...    CHR             20   BM44608
+..         ...            ...          ...  ...    ...            ...       ...
+791    ME88823  month_2_arm_1               ...    CHR             19   ME88823
+792    HK49561  month_2_arm_1            1  ...    CHR             23   HK49561
+793    ME45368  month_2_arm_1            1  ...    CHR             18   ME45368
+794    ME30537  month_2_arm_1               ...    CHR             24   ME30537
+795    ME90802  month_2_arm_1            1  ...    CHR             23   ME90802
 
-[795 rows x 3213 columns]
-    subject_id     event_name chrbprs_missing  ... cohort age_at_consent subjectid
-0      BM13061  month_3_arm_1               0  ...    CHR             22   BM13061
-1      BM45141  month_3_arm_2                  ...     HC             25   BM45141
-2      BM44608  month_3_arm_1               0  ...    CHR             20   BM44608
-3      BM60731  month_3_arm_2                  ...     HC             19   BM60731
-4      BM73097  month_3_arm_1               0  ...    CHR             23   BM73097
-..         ...            ...             ...  ...    ...            ...       ...
-688    ME88823  month_3_arm_1               1  ...    CHR             19   ME88823
-689    HK49561  month_3_arm_1               0  ...    CHR             23   HK49561
-690    ME45368  month_3_arm_1               0  ...    CHR             18   ME45368
-691    ME30537  month_3_arm_1               0  ...    CHR             24   ME30537
-692    ME90802  month_3_arm_1               0  ...    CHR             23   ME90802
+[796 rows x 3213 columns]
+    subject_id     event_name  ... age_at_consent subjectid
+0      BM13061  month_3_arm_1  ...             22   BM13061
+1      BM42961  month_3_arm_1  ...             22   BM42961
+2      BM45141  month_3_arm_2  ...             25   BM45141
+3      BM44608  month_3_arm_1  ...             20   BM44608
+4      BM60731  month_3_arm_2  ...             19   BM60731
+..         ...            ...  ...            ...       ...
+689    ME88823  month_3_arm_1  ...             19   ME88823
+690    HK49561  month_3_arm_1  ...             23   HK49561
+691    ME45368  month_3_arm_1  ...             18   ME45368
+692    ME30537  month_3_arm_1  ...             24   ME30537
+693    ME90802  month_3_arm_1  ...             23   ME90802
 
-[693 rows x 1380 columns]
+[694 rows x 1380 columns]
     subject_id     event_name chrbprs_missing  ... cohort age_at_consent subjectid
 0      BM13061  month_4_arm_1               0  ...    CHR             22   BM13061
 1      BM45141  month_4_arm_2                  ...     HC             25   BM45141
@@ -5185,20 +5129,20 @@ Volume (chrblood_pl6vol = 0) is less than or equal to 0
 582    ME90802  month_5_arm_1  ...             23   ME90802
 
 [583 rows x 128 columns]
-    subject_id     event_name  ... age_at_consent subjectid
-0      BM13061  month_6_arm_1  ...             22   BM13061
-1      BM45141  month_6_arm_2  ...             25   BM45141
-2      BM44608  month_6_arm_1  ...             20   BM44608
-3      BM60731  month_6_arm_2  ...             19   BM60731
-4      BM73097  month_6_arm_1  ...             23   BM73097
-..         ...            ...  ...            ...       ...
-535    ME88823  month_6_arm_1  ...             19   ME88823
-536    HK49561  month_6_arm_1  ...             23   HK49561
-537    ME45368  month_6_arm_1  ...             18   ME45368
-538    ME90802  month_6_arm_1  ...             23   ME90802
-539    ME30537  month_6_arm_1  ...             24   ME30537
+    subject_id     event_name chrassist_missing  ... cohort age_at_consent subjectid
+0      BM13061  month_6_arm_1                 0  ...    CHR             22   BM13061
+1      BM45141  month_6_arm_2                    ...     HC             25   BM45141
+2      BM44608  month_6_arm_1                 0  ...    CHR             20   BM44608
+3      BM60731  month_6_arm_2                    ...     HC             19   BM60731
+4      BM73097  month_6_arm_1                 0  ...    CHR             23   BM73097
+..         ...            ...               ...  ...    ...            ...       ...
+536    ME88823  month_6_arm_1                    ...    CHR             19   ME88823
+537    HK49561  month_6_arm_1                 0  ...    CHR             23   HK49561
+538    ME45368  month_6_arm_1                 0  ...    CHR             18   ME45368
+539    ME90802  month_6_arm_1                 0  ...    CHR             23   ME90802
+540    ME30537  month_6_arm_1                 0  ...    CHR             24   ME30537
 
-[540 rows x 1498 columns]
+[541 rows x 1498 columns]
     subject_id     event_name  ... age_at_consent subjectid
 0      BM13061  month_7_arm_1  ...             22   BM13061
 1      BM45141  month_7_arm_2  ...             25   BM45141
@@ -5206,27 +5150,27 @@ Volume (chrblood_pl6vol = 0) is less than or equal to 0
 3      BM60731  month_7_arm_2  ...             19   BM60731
 4      BM73097  month_7_arm_1  ...             23   BM73097
 ..         ...            ...  ...            ...       ...
-464    ME88823  month_7_arm_1  ...             19   ME88823
-465    HK49561  month_7_arm_1  ...             23   HK49561
-466    ME45368  month_7_arm_1  ...             18   ME45368
-467    ME90802  month_7_arm_1  ...             23   ME90802
-468    ME30537  month_7_arm_1  ...             24   ME30537
+466    ME88823  month_7_arm_1  ...             19   ME88823
+467    HK49561  month_7_arm_1  ...             23   HK49561
+468    ME45368  month_7_arm_1  ...             18   ME45368
+469    ME90802  month_7_arm_1  ...             23   ME90802
+470    ME30537  month_7_arm_1  ...             24   ME30537
 
-[469 rows x 128 columns]
-    subject_id     event_name chrbprs_missing  ... cohort age_at_consent subjectid
-0      BM13061  month_8_arm_1               0  ...    CHR             22   BM13061
-1      BM45141  month_8_arm_2                  ...     HC             25   BM45141
-2      BM44608  month_8_arm_1               0  ...    CHR             20   BM44608
-3      BM60731  month_8_arm_2                  ...     HC             19   BM60731
-4      BM73097  month_8_arm_1               0  ...    CHR             23   BM73097
-..         ...            ...             ...  ...    ...            ...       ...
-421    ME19909  month_8_arm_1               0  ...    CHR             22   ME19909
-422    ME31808  month_8_arm_2                  ...     HC             16   ME31808
-423    ME45368  month_8_arm_1               0  ...    CHR             18   ME45368
-424    ME90802  month_8_arm_1               0  ...    CHR             23   ME90802
-425    ME30537  month_8_arm_1               0  ...    CHR             24   ME30537
+[471 rows x 128 columns]
+    subject_id     event_name  ... age_at_consent subjectid
+0      BM13061  month_8_arm_1  ...             22   BM13061
+1      BM45141  month_8_arm_2  ...             25   BM45141
+2      BM44608  month_8_arm_1  ...             20   BM44608
+3      BM60731  month_8_arm_2  ...             19   BM60731
+4      BM73097  month_8_arm_1  ...             23   BM73097
+..         ...            ...  ...            ...       ...
+422    ME19909  month_8_arm_1  ...             22   ME19909
+423    ME31808  month_8_arm_2  ...             16   ME31808
+424    ME45368  month_8_arm_1  ...             18   ME45368
+425    ME90802  month_8_arm_1  ...             23   ME90802
+426    ME30537  month_8_arm_1  ...             24   ME30537
 
-[426 rows x 128 columns]
+[427 rows x 128 columns]
     subject_id     event_name chrbprs_missing  ... cohort age_at_consent subjectid
 0      BM13061  month_9_arm_1               0  ...    CHR             22   BM13061
 1      BM45141  month_9_arm_2                  ...     HC             25   BM45141
@@ -5234,25 +5178,25 @@ Volume (chrblood_pl6vol = 0) is less than or equal to 0
 3      BM60731  month_9_arm_2                  ...     HC             19   BM60731
 4      BM73097  month_9_arm_1               1  ...    CHR             23   BM73097
 ..         ...            ...             ...  ...    ...            ...       ...
-388    ME19909  month_9_arm_1               0  ...    CHR             22   ME19909
-389    ME31808  month_9_arm_2                  ...     HC             16   ME31808
-390    ME45368  month_9_arm_1               0  ...    CHR             18   ME45368
-391    ME90802  month_9_arm_1               0  ...    CHR             23   ME90802
-392    ME30537  month_9_arm_1                  ...    CHR             24   ME30537
+389    ME19909  month_9_arm_1               0  ...    CHR             22   ME19909
+390    ME31808  month_9_arm_2                  ...     HC             16   ME31808
+391    ME45368  month_9_arm_1               0  ...    CHR             18   ME45368
+392    ME90802  month_9_arm_1               0  ...    CHR             23   ME90802
+393    ME30537  month_9_arm_1                  ...    CHR             24   ME30537
 
-[393 rows x 128 columns]
-    subject_id      event_name chrbprs_missing  ... cohort age_at_consent subjectid
-0      BM45141  month_10_arm_2                  ...     HC             25   BM45141
-1      BM44608  month_10_arm_1               0  ...    CHR             20   BM44608
-2      BM60731  month_10_arm_2                  ...     HC             19   BM60731
-3      BM73097  month_10_arm_1               1  ...    CHR             23   BM73097
-4      BM83373  month_10_arm_1               0  ...    CHR             18   BM83373
-..         ...             ...             ...  ...    ...            ...       ...
-364    ME19909  month_10_arm_1                  ...    CHR             22   ME19909
-365    ME31808  month_10_arm_2                  ...     HC             16   ME31808
-366    ME90802  month_10_arm_1               0  ...    CHR             23   ME90802
-367    ME45368  month_10_arm_1                  ...    CHR             18   ME45368
-368    ME30537  month_10_arm_1                  ...    CHR             24   ME30537
+[394 rows x 128 columns]
+    subject_id      event_name  ... age_at_consent subjectid
+0      BM45141  month_10_arm_2  ...             25   BM45141
+1      BM44608  month_10_arm_1  ...             20   BM44608
+2      BM60731  month_10_arm_2  ...             19   BM60731
+3      BM73097  month_10_arm_1  ...             23   BM73097
+4      BM83373  month_10_arm_1  ...             18   BM83373
+..         ...             ...  ...            ...       ...
+364    ME19909  month_10_arm_1  ...             22   ME19909
+365    ME31808  month_10_arm_2  ...             16   ME31808
+366    ME90802  month_10_arm_1  ...             23   ME90802
+367    ME45368  month_10_arm_1  ...             18   ME45368
+368    ME30537  month_10_arm_1  ...             24   ME30537
 
 [369 rows x 128 columns]
     subject_id      event_name chrbprs_missing  ... cohort age_at_consent subjectid
@@ -5283,737 +5227,3 @@ Volume (chrblood_pl6vol = 0) is less than or equal to 0
 351    ME30537  month_12_arm_1  ...             24   ME30537
 
 [352 rows x 3904 columns]
-   subject_id      event_name chrmiss_time  ... cohort age_at_consent subjectid
-0     BM60731  month_18_arm_2            0  ...     HC             19   BM60731
-1     BM73097  month_18_arm_1            0  ...    CHR             23   BM73097
-2     CP01128  month_18_arm_1            0  ...    CHR             26   CP01128
-3     CP88631  month_18_arm_1            0  ...    CHR             22   CP88631
-4     JE35473  month_18_arm_1            0  ...    CHR             20   JE35473
-5     LS26846  month_18_arm_1            0  ...    CHR             18   LS26846
-6     LS40571  month_18_arm_1            1  ...    CHR             18   LS40571
-7     ME03013  month_18_arm_1            0  ...    CHR             22   ME03013
-8     ME04106  month_18_arm_1               ...    CHR             17   ME04106
-9     ME04934  month_18_arm_1            0  ...    CHR             25   ME04934
-10    ME06748  month_18_arm_1               ...    CHR             19   ME06748
-11    ME10642  month_18_arm_1            0  ...    CHR             19   ME10642
-12    ME12284  month_18_arm_1               ...    CHR             17   ME12284
-13    ME14432  month_18_arm_1            0  ...    CHR             21   ME14432
-14    ME19787  month_18_arm_2            0  ...     HC             19   ME19787
-15    ME20845  month_18_arm_1            0  ...    CHR             25   ME20845
-16    ME21922  month_18_arm_1            0  ...    CHR             18   ME21922
-17    ME25689  month_18_arm_1            0  ...    CHR             20   ME25689
-18    ME29980  month_18_arm_1               ...    CHR             14   ME29980
-19    ME48643  month_18_arm_1            0  ...    CHR             21   ME48643
-20    ME50511  month_18_arm_1            0  ...    CHR             19   ME50511
-21    ME50599  month_18_arm_1            0  ...    CHR             13   ME50599
-22    ME53985  month_18_arm_1               ...    CHR             23   ME53985
-23    ME54628  month_18_arm_1            0  ...    CHR             17   ME54628
-24    ME54256  month_18_arm_1            0  ...    CHR             25   ME54256
-25    ME56454  month_18_arm_1            0  ...    CHR             22   ME56454
-26    ME67495  month_18_arm_1            0  ...    CHR             16   ME67495
-27    ME67990  month_18_arm_1            0  ...    CHR             18   ME67990
-28    ME73814  month_18_arm_1            0  ...    CHR             25   ME73814
-29    ME77159  month_18_arm_1               ...    CHR             17   ME77159
-30    ME77143  month_18_arm_2            0  ...     HC             23   ME77143
-31    ME77848  month_18_arm_1            0  ...    CHR             18   ME77848
-32    ME78070  month_18_arm_1            0  ...    CHR             14   ME78070
-33    ME78581  month_18_arm_2            0  ...     HC             26   ME78581
-34    ME81520  month_18_arm_1            0  ...    CHR             22   ME81520
-35    ME84344  month_18_arm_1               ...    CHR             20   ME84344
-36    ME91012  month_18_arm_1               ...    CHR             18   ME91012
-37    ME91028  month_18_arm_2            0  ...     HC             19   ME91028
-38    ME93565  month_18_arm_1               ...    CHR             17   ME93565
-39    ME97666  month_18_arm_1               ...    CHR             15   ME97666
-40    JE27456  month_18_arm_2            1  ...     HC             28   JE27456
-41    ME06059  month_18_arm_1               ...    CHR             20   ME06059
-42    ME21588  month_18_arm_1            0  ...    CHR             18   ME21588
-43    ME33634  month_18_arm_1               ...    CHR             16   ME33634
-44    ME33795  month_18_arm_1            0  ...    CHR             19   ME33795
-45    ME54434  month_18_arm_1            0  ...    CHR             18   ME54434
-46    ME65714  month_18_arm_2            0  ...     HC             26   ME65714
-47    ME87491  month_18_arm_2            0  ...     HC             30   ME87491
-
-[48 rows x 2711 columns]
-   subject_id      event_name  ... age_at_consent subjectid
-0     CP36238  month_24_arm_1  ...             27   CP36238
-1     JE35473  month_24_arm_1  ...             20   JE35473
-2     LS26846  month_24_arm_1  ...             18   LS26846
-3     LS40571  month_24_arm_1  ...             18   LS40571
-4     ME00772  month_24_arm_2  ...             19   ME00772
-5     ME04106  month_24_arm_1  ...             17   ME04106
-6     ME10642  month_24_arm_1  ...             19   ME10642
-7     ME21922  month_24_arm_1  ...             18   ME21922
-8     ME25689  month_24_arm_1  ...             20   ME25689
-9     ME39933  month_24_arm_1  ...             26   ME39933
-10    ME50361  month_24_arm_1  ...             23   ME50361
-11    ME54256  month_24_arm_1  ...             25   ME54256
-12    ME56454  month_24_arm_1  ...             22   ME56454
-13    ME67990  month_24_arm_1  ...             18   ME67990
-14    ME77159  month_24_arm_1  ...             17   ME77159
-15    ME77848  month_24_arm_1  ...             18   ME77848
-16    ME78581  month_24_arm_2  ...             26   ME78581
-17    ME81520  month_24_arm_1  ...             22   ME81520
-18    ME97666  month_24_arm_1  ...             15   ME97666
-19    SG97600  month_24_arm_2  ...             26   SG97600
-20    JE27456  month_24_arm_2  ...             28   JE27456
-21    ME21700  month_24_arm_2  ...             22   ME21700
-22    ME33634  month_24_arm_1  ...             16   ME33634
-23    ME33795  month_24_arm_1  ...             19   ME33795
-24    ME40663  month_24_arm_2  ...             21   ME40663
-
-[25 rows x 3828 columns]
-   subject_id            event_name  ... age_at_consent subjectid
-0     GW45007  floating_forms_arm_1  ...             20   GW45007
-1     ME46934  floating_forms_arm_2  ...             23   ME46934
-2     ME48154  floating_forms_arm_2  ...            114   ME48154
-3     ME50200  floating_forms_arm_1  ...            nan   ME50200
-4     ME55105  floating_forms_arm_1  ...            nan   ME55105
-5     ME56410  floating_forms_arm_1  ...            nan   ME56410
-6     ME58563  floating_forms_arm_1  ...             29   ME58563
-7     ME60219  floating_forms_arm_1  ...             22   ME60219
-8     ME62873  floating_forms_arm_1  ...            nan   ME62873
-9     ME63227  floating_forms_arm_1  ...            nan   ME63227
-10    ME73175  floating_forms_arm_2  ...            nan   ME73175
-11    ME84194  floating_forms_arm_1  ...            nan   ME84194
-12    ME87407  floating_forms_arm_1  ...            nan   ME87407
-13    ME91345  floating_forms_arm_1  ...            nan   ME91345
-14    ME94519  floating_forms_arm_1  ...            nan   ME94519
-15    ME98559  floating_forms_arm_1  ...             22   ME98559
-16    SG25706  floating_forms_arm_1  ...             24   SG25706
-17    ME79402  floating_forms_arm_1  ...            nan   ME79402
-18    ME88712  floating_forms_arm_1  ...             25   ME88712
-19    ME57981  floating_forms_arm_1  ...            114   ME57981
-
-[20 rows x 279 columns]
-   subject_id        event_name  ... age_at_consent subjectid
-0     CG97315  conversion_arm_1  ...             22   CG97315
-1     CP85340  conversion_arm_1  ...             29   CP85340
-2     GW05566  conversion_arm_2  ...             23   GW05566
-3     GW31325  conversion_arm_1  ...             19   GW31325
-4     GW88512  conversion_arm_1  ...             20   GW88512
-5     ME12189  conversion_arm_1  ...             22   ME12189
-6     ME14298  conversion_arm_1  ...             19   ME14298
-7     ME14898  conversion_arm_2  ...             19   ME14898
-8     ME20378  conversion_arm_1  ...             19   ME20378
-9     ME21138  conversion_arm_1  ...             17   ME21138
-10    ME23992  conversion_arm_1  ...             15   ME23992
-11    ME33612  conversion_arm_1  ...             22   ME33612
-12    ME35971  conversion_arm_1  ...             17   ME35971
-13    ME49269  conversion_arm_1  ...             20   ME49269
-14    ME53830  conversion_arm_1  ...             15   ME53830
-15    ME54256  conversion_arm_1  ...             25   ME54256
-16    ME67495  conversion_arm_1  ...             16   ME67495
-17    ME72626  conversion_arm_1  ...             21   ME72626
-18    ME74779  conversion_arm_1  ...             19   ME74779
-19    ME77060  conversion_arm_1  ...             23   ME77060
-20    ME77848  conversion_arm_1  ...             18   ME77848
-21    ME79624  conversion_arm_1  ...             21   ME79624
-22    ME01932  conversion_arm_1  ...             18   ME01932
-23    ME19232  conversion_arm_1  ...             22   ME19232
-24    ME33795  conversion_arm_1  ...             19   ME33795
-25    ME34961  conversion_arm_1  ...             20   ME34961
-
-[26 rows x 2556 columns]
-exists
-PRONET
-/Apps/Automated QC Trackers/refactoring_tests/PRONET
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/combined/PRONET_combined_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/King's College, UK (KC)/PRONET_KC_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/King's College, UK (KC)/PRONET_KC_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Beth Israel (Harvard) (BI)/PRONET_BI_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Beth Israel (Harvard) (BI)/PRONET_BI_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UCSD (SD)/PRONET_SD_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UCSD (SD)/PRONET_SD_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Northwell (NL)/PRONET_NL_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Northwell (NL)/PRONET_NL_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Oregon (OR)/PRONET_OR_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Oregon (OR)/PRONET_OR_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Calgary, CA (CA)/PRONET_CA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Calgary, CA (CA)/PRONET_CA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UC Irvine (IR)/PRONET_IR_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UC Irvine (IR)/PRONET_IR_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Munich, Germany (MU)/PRONET_MU_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Munich, Germany (MU)/PRONET_MU_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Yale (YA)/PRONET_YA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Yale (YA)/PRONET_YA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Hartford (Institute of Living) (HA)/PRONET_HA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Hartford (Institute of Living) (HA)/PRONET_HA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Madrid, Spain (MA)/PRONET_MA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Madrid, Spain (MA)/PRONET_MA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Pittsburgh (UPMC) (PI)/PRONET_PI_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Pittsburgh (UPMC) (PI)/PRONET_PI_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Pavia, Italy (PV)/PRONET_PV_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Pavia, Italy (PV)/PRONET_PV_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Montreal, CA (MT)/PRONET_MT_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Montreal, CA (MT)/PRONET_MT_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UCSF (Mission Bay) (SF)/PRONET_SF_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UCSF (Mission Bay) (SF)/PRONET_SF_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UNC (North Carolina) (NC)/PRONET_NC_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UNC (North Carolina) (NC)/PRONET_NC_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Northwestern (NN)/PRONET_NN_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Northwestern (NN)/PRONET_NN_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/University of Pennsylvania (PA)/PRONET_PA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/University of Pennsylvania (PA)/PRONET_PA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Washington University (WU)/PRONET_WU_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Washington University (WU)/PRONET_WU_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UCLA (LA)/PRONET_LA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/UCLA (LA)/PRONET_LA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Georgia (GA)/PRONET_GA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Georgia (GA)/PRONET_GA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Temple (TE)/PRONET_TE_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Temple (TE)/PRONET_TE_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Cambridge (CM)/PRONET_CM_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Cambridge (CM)/PRONET_CM_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Seoul, South Korea (SL)/PRONET_SL_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Seoul, South Korea (SL)/PRONET_SL_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Mt. Sinai (SI)/PRONET_SI_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Mt. Sinai (SI)/PRONET_SI_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Shanghai, China (SH)/PRONET_SH_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Shanghai, China (SH)/PRONET_SH_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/University of Rochester (UR)/PRONET_UR_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/University of Rochester (UR)/PRONET_UR_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Ohio (OH)/PRONET_OH_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRONET/Ohio (OH)/PRONET_OH_Output.xlsx
-PRESCIENT
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/combined/PRESCIENT_combined_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Birmingham, UK (BM)/PRESCIENT_BM_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Birmingham, UK (BM)/PRESCIENT_BM_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Cologne, DE (CG)/PRESCIENT_CG_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Cologne, DE (CG)/PRESCIENT_CG_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Copenhagen, DK (CP)/PRESCIENT_CP_Output.xlsx
----------
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/define_important_variables.py:274: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  filtered_data_dict.rename(columns=col_renames, inplace=True)
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/define_important_variables.py:274: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  filtered_data_dict.rename(columns=col_renames, inplace=True)
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_subject_info.py:65: DtypeWarning: Columns (70,101,113,144,286,298,597,601,602,1224,1225,1228,1230,1245,1247,1341,1391,1392,1393,1404,1577,1679,1893,1911,1936,1938,1939,1952,1954,1960,1961,1962,1967,1974,1975,1982,2031,2038,2197,2198,2199,2200,2201,2202,2203,2204,2205,2206,2207,2208,2209,2210,2211,2212,2213,2214,2215,2216,2217,2218,2219,2220,2226,2228,2230,2232,2234,2236,2238,2239,2241,2242,2244,2245,2247,2249,2251,2253,2255,2257,2259,2261,2262,2264,2265,2267,2268,2270,2271,2273,2274,2275,2276,2277,2278,2279,2377,2378,2379,2384,2385,2386,2394,2395,2401,2521,2522,2523,2528,2546,2562,2570,2578,2589,2590,2592,2593,2594,2595,2604,2607,2621,2691,2692,2693,2694,2695,2696,2697,2698,2699,2700,2701,2702,2703,2704,2705,2706,2707,2708,2709,2710,2711,2712,2713,2714,2715,2716,2717,2718,2719,2721,2722,2724,2725,2726,2728,2729,2731,2733,2734,2736,2737,2739,2741,2743,2744,2746,2747,2749,2750,2752,2753,2755,2757,2885,2887,3078,3189,3196,3197,3198,3202,3227,3316,3317,3327,3328,3329,3600,3601,3612,3613,3614,3615,3616,3623,3630,3631,3632,3633,3634,3635,3636,3637,3642,3668,3669,3670,3671,3672,3680,3686,3687,3688,3706,3707,3709,3715,3716,3717,3724,3725,3726,3732,3733,3737,3805,3842,3843,3844,3850,3856,3875,3909,3910,3911,3913,3914,3920,3921,3922,3923,3938) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_subject_info.py:65: DtypeWarning: Columns (6,8,9,12,13,45,86,372,451,453,454,455,473,475,503,505,508,509,512,515,555,560,561,565,1892,1989,2033,2040,2107,2108,2109,2111,2112,2113,2116,2119,2123,2125,2126,2127,2130,2135,2238,2325,2326,2327,2328,2331,2335,2431,2611,2703,2706,2770,2796,2797,2807,2808,2809,2810,2811,2812,2831,2833,2835,2839,2841,2842,2844,2845,2847,2848,2860,2876,2877,2880,2882,2883,2884,2885,2886,2887,2888,2889,2964,2965,2966,2967,2968,2969,2970,2971,2972,2973,2974,2975,2976,2977,3015,3075,3077,3079,3081,3083,3085,3086,3087,3089,3091,3093,3095,3097,3099,3101,3103,3106,3109,3110,3112,3113,3115,3118,3119,3121,3122,3124,3125,3127,3128,3130,3133,3136,3139,3142,3145,3148,3150,3151,3152,3153,3154,3155,3156,3157,3158,3159,3160,3161,3162,3163,3164,3204,3206,3209,3212,3230) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_subject_info.py:89: DtypeWarning: Columns (656,667,772,774,816,846,1565,1569,1599,1608,1614,1659,1681,1682,1715,1735,1740,1750,1751,1752,1753,1754,1755,1756,1758,1759,1760,1761,1762,1763,1764,1922,1923,1924,1925,1996,1997,2037,2038,2039,2040,2041,2042,2044,2050,2051,2076,2078,2093,2177,2179,2180,2257,2296,2297,2305,2306,2307,2308,2310,2313,2314,2317,2320,2321,2322,2324,2325,2326,2327,2328,2329,2330,2331,2332,2334,2335,2336,2337,2338,2339,2393,2395,2445,2486,3019,3035,3040,3042,3048,3072,3075,3079,3126,3130,3131,3142,3143,3157,3158,3184,3204,3205,3207,3208,3210,3220,3223,3225,3237,3250,3266,3293,3294,3305,3306,3307,3309,3333,3334,3345,3365,3366,3367,3372,3373,3378,3385,3386,3392,3416,3419,3421,3423,3425,3428,3435,3436,3441,3443,3445,3447,3448,3450,3454,3456,3458,3460,3461,3463,3464,3466,3473,3474,3475,3504,3508,3519,3520,3550,3554,3555,3566,3571,3574,3575,3577,3578,3592,3603,3606,3610,3612,3619,3620,3621,3636,3658,3659,3660,3661,3662,3663,3664,3669,3670,3673,3674,3686,3695,3713,3715,3722,3723,3724,3727,3734,3777,3779,3781,3782,3789) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_subject_info.py:89: DtypeWarning: Columns (19,23,25,26,52,73,197,240,283,297,315,317,319,330,346,383,388,394,415,416,418,419,421,425,426,427,431,434,437,489,504,549,571,587,588,589,590,591,593,594,595,603,604,605,606,607,608,609,610,612,613,614,619,626,627,628,872,1022,1130,1159,1160,1691,1692,1693,1694,1695,1696,1697,1698,1699,1700,1701,1702,1703,1704,1705,1706,1707,1708,1709,1710,1711,1712,1713,1715,1716,1717,1718,1719,1720,1721,1722,1723,1724,1725,1726,1727,1728,1729,1730,1731,1733,1734,1735,1736,1737,1739,1740,1741,2234,2236,2237,2238,2239,2240,2241,2242,2243,2245,2246,2247,2249,2250,2251,2252,2253,2254,2255,2256,2257,2258,2259,2260,2261,2262,2264,2265,2274,2381,2396,2413,2414,2415,2416,2417,2420,2422,2427,2431,2483,2484,2533,2542,2555,2557,2564,2567,2568,3071,3072,3073,3076,3084,3364,3373,3374,3627,3652,3670,3683,3688,3752,3755,3761,3766,3776,3782,3792,3802,3809,3816,3830,3832,3840,4006,4017,4028,4034,4068,4069,4075,4081,4091,4107,4113,4159,4161,4162,4163,4164,4165,4166,4185,4186,4187,4188,4189,4190,4191,4192,4286,4287,4288,4289,4290,4291,4292,4293,4305,4321,4328,4329,4341,4352,4363,4364,4365,4367,4368,4369,4370,4371,4373,4374,4410,4411,4412,4413,4414,4415,4416,4417,4418,4419,4420,4421,4422,4424,4456,4457,4458,4459,4460,4461,4462,4463,4466,4469,4470,4474,4478,4481,4482,4483,4485,4487,4488,4489,4490,4493,4494,4495,4496,4497,4500,4501,4504,4505,4506,4507,4508,4514,4572,4573,4574,4575,4576,4578,4579,4580,4581,4582,4583,4586,4587,4588,4589,4590,4600,4601,4602,4605,4606,4607,4608,4609,4618,4619,4620,4621,4622,4623,4627,4628,4629,4630,4631,4632,4633,4634,4635,4636,4637,4638,4639,4640,4641,4642,4643,4644,4645,4646,4647,4648,4649,4650,4651,4669,4670,4672,4673,4674,4675,4676,4677,4678,4680,4681,4682,4683,4684,4685,4686,4690,4691,4693,4717,4719,4726,4727,4743,4746,4747,4751,4752,4756,4763,4765,4767,4768,4769,4772,4773,4774,4779,4781,4784,4789,4791,4792,5067,5068,5069,5071,5073,5081,5109,5112,5118,5140) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/qc_forms/qc_forms_main.py:74: DtypeWarning: Columns (28,31) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/qc_forms/qc_forms_main.py:74: DtypeWarning: Columns (16,17,18,20,21,23,24,25,26,28,29,30,32,33,34,35,37,38,39,40,41,43,46,47,48,49,50,52,53,54,56,57,58,59,60,61,62,64,65,66,67) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/qc_forms/qc_forms_main.py:74: DtypeWarning: Columns (16,22,32,33,34,35,36,37,38,39,42,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,5150) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/qc_forms/qc_forms_main.py:74: DtypeWarning: Columns (391,3211) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/qc_forms/qc_forms_main.py:74: DtypeWarning: Columns (1496) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/qc_forms/qc_forms_main.py:74: DtypeWarning: Columns (3902) have mixed types. Specify dtype option on import or set low_memory=False.
-  combined_df = pd.read_csv(
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:262: FutureWarning: Dropping invalid columns in DataFrameGroupBy.agg is deprecated. In a future version, a TypeError will be raised. Before calling .agg, select only columns which should be valid for the function.
-  merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:262: FutureWarning: Dropping invalid columns in DataFrameGroupBy.agg is deprecated. In a future version, a TypeError will be raised. Before calling .agg, select only columns which should be valid for the function.
-  merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:256: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame.
-Try using .loc[row_indexer,col_indexer] = value instead
-
-See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-  raw_df['date_resolved'] = ''
-/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py:262: FutureWarning: Dropping invalid columns in DataFrameGroupBy.agg is deprecated. In a future version, a TypeError will be raised. Before calling .agg, select only columns which should be valid for the function.
-  merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Copenhagen, DK (CP)/PRESCIENT_CP_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Gwangju, KR (GW)/PRESCIENT_GW_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Gwangju, KR (GW)/PRESCIENT_GW_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Hong Kong (HK)/PRESCIENT_HK_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Hong Kong (HK)/PRESCIENT_HK_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Jena, DE (JE)/PRESCIENT_JE_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Jena, DE (JE)/PRESCIENT_JE_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Lausanne, CH (LS)/PRESCIENT_LS_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Lausanne, CH (LS)/PRESCIENT_LS_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Kate Reynolds/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Shaheen Samnani/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Ruth Getachew/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Brittany McQueen/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Rebecca Beedham/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Amber Sherriff/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Elle Nguyen/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Neal Morrell/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Sonia Birch/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Holly Still/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Lauren Addamo/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Sophie Tod/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Michael Thwaites/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Josh   Llerena/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Sarah  Whitson/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Coco Beylot/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Keita Rudd/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Beau-Luke Colton/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Jashmina Shetty/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Sarah Youn/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Haley Lam/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Kate Conroy/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Mariam Omar/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Matthew Phung/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Anusha Bharal/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Scott Williams/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/John Chen/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Genevieve Middleton/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Raushaan Seychell/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Matilda Tonkovic/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Clarice Lee/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Romy Schaumann/PRESCIENT_Melbourne_RA_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/Mahlee Langdon/PRESCIENT_Melbourne_RA_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/PRESCIENT_ME_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Melbourne (ME)/PRESCIENT_ME_Output.xlsx
-Non Team Forms
-site_comments
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Singapore (SG)/PRESCIENT_SG_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Singapore (SG)/PRESCIENT_SG_Output.xlsx
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Santiago (ST)/PRESCIENT_ST_Output.xlsx
----------
-/Apps/Automated QC Trackers/refactoring_tests/PRESCIENT/Santiago (ST)/PRESCIENT_ST_Output.xlsx
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-PRONET
-King's College, UK (KC)
-Beth Israel (Harvard) (BI)
-UCSD (SD)
-Northwell (NL)
-Oregon (OR)
-Calgary, CA (CA)
-UC Irvine (IR)
-Munich, Germany (MU)
-Yale (YA)
-Hartford (Institute of Living) (HA)
-Madrid, Spain (MA)
-Pittsburgh (UPMC) (PI)
-Pavia, Italy (PV)
-Montreal, CA (MT)
-UCSF (Mission Bay) (SF)
-UNC (North Carolina) (NC)
-Northwestern (NN)
-University of Pennsylvania (PA)
-Washington University (WU)
-UCLA (LA)
-Georgia (GA)
-Temple (TE)
-Cambridge (CM)
-Seoul, South Korea (SL)
-Mt. Sinai (SI)
-Shanghai, China (SH)
-University of Rochester (UR)
-Ohio (OH)
-Traceback (most recent call last):
-  File "run_qc.py", line 44, in <module>
-    RunQC().run_script()
-  File "run_qc.py", line 41, in run_script
-    self.generate_reports.run_script()
-  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/generate_reports_main.py", line 63, in run_script
-    self.create_trackers.run_script()
-  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py", line 66, in run_script
-    self.generate_reports()
-  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py", line 88, in generate_reports
-    report_df = self.convert_to_shared_format(report_df, network)
-  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/generate_reports/create_trackers.py", line 266, in convert_to_shared_format
-    merged_df = merged_df[list(columns_names.values())]
-  File "/PHShome/ob001/.conda/envs/test/lib/python3.8/site-packages/pandas/core/frame.py", line 3511, in __getitem__
-    indexer = self.columns._get_indexer_strict(key, "columns")[1]
-  File "/PHShome/ob001/.conda/envs/test/lib/python3.8/site-packages/pandas/core/indexes/base.py", line 5782, in _get_indexer_strict
-    self._raise_if_missing(keyarr, indexer, axis_name)
-  File "/PHShome/ob001/.conda/envs/test/lib/python3.8/site-packages/pandas/core/indexes/base.py", line 5845, in _raise_if_missing
-    raise KeyError(f"{not_found} not in index")
-KeyError: "['Days Since Detected'] not in index"

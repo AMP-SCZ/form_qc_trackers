@@ -130,7 +130,6 @@ class ClinicalChecks(FormCheck):
                 return ("Subject and parent not both selected as source of information,"
                 " but answers appear to be provided by both the subject and parent.")
 
-
     @FormCheck.standard_qc_check_filter 
     def cssrs_unequal_vals_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],

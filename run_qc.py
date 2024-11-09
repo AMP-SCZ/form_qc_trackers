@@ -33,10 +33,10 @@ include the main report (for melbourne, non team form report)
 class RunQC():        
         
     def run_script(self):
-        #self.process_vars = ProcessVariables()
-        #self.process_vars.run_script()
-        #self.qc_forms = QCFormsMain()
-        #self.qc_forms.run_script()
+        self.process_vars = ProcessVariables()
+        self.process_vars.run_script()
+        self.qc_forms = QCFormsMain()
+        self.qc_forms.run_script()
         self.generate_reports = GenerateReports()
         self.generate_reports.run_script()
         #TODO: fix figs branching logic, igure our other excluded vars, prescient forms with no compl status

@@ -435,13 +435,13 @@ class FormChecks():
                     (f"Duplicate blood ID ({self.variable} = {getattr(self.row,self.variable)})",\
                     f" found between subjects {self.row.subjectid} and {blood_row.subjectid}."),\
                     self.variable,self.form,report_list)
-        elif self.variable in self.all_blood_volume_variables:
+        """elif self.variable in self.all_blood_volume_variables:
             if hasattr(self.row,self.variable) and\
             getattr(self.row,self.variable) not in (self.missing_code_list + [''])\
             and float(getattr(self.row,self.variable)) > 1.1:
                 self.compile_errors.append_error(self.row,\
                 f"Blood volume ({getattr(self.row,self.variable)}) is greater than 1.1.",\
-                self.variable,self.form,['Blood Report','Fluids Report'])
+                self.variable,self.form,['Blood Report','Fluids Report'])"""
 
     """def check_blood_dates(self):
         """Function to check if the blood
@@ -989,8 +989,7 @@ class FormChecks():
         except Exception as e:
             print(e)"""
 
-    def tbi_check(self):
-        """Multiple specific checks for the TBI form"""
+    """def tbi_check(self):
 
         if self.variable == 'chrtbi_severe_inj':
             injury_rating = self.row.chrtbi_severe_inj
@@ -1014,7 +1013,7 @@ class FormChecks():
                 self.compile_errors.append_error(\
                 self.row,("Subject and parent not both selected as source of information,"\
                 " but answers appear to be provided by both the subject and parent."),\
-                self.variable,self.form,['Secondary Report'])
+                self.variable,self.form,['Secondary Report'])"""
 
 
     """def cbc_differential_check(self):
