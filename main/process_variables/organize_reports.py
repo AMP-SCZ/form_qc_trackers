@@ -99,7 +99,7 @@ class OrganizeReports():
 
         pharm_vars = pharm_vars_df['Variable / Field Name'].tolist()
         scid_df = self.data_dict_df[
-        self.data_dict_df['Form Name '] == 'scid5_psychosis_mood_substance_abuse']
+        self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
         all_scid_vars = scid_df['Variable / Field Name'].tolist()
         additional_blank_check_vars.extend(pharm_vars)
 

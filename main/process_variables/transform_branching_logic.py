@@ -176,7 +176,7 @@ class TransformBranchingLogic():
             # otherwise, checks if it is blank or if it can be a float that is not equal
             # to the value of interest
             (r'(curr_row\.)(\w+)(\s*!=\s*)(float\()',
-            r"(not hasattr(curr_row,'\2') or \1\2=='') or instance.utils.can_be_float(\1\2)==False or float(\1\2)\3\4")
+            r"((not hasattr(curr_row,'\2') or \1\2=='') or instance.utils.can_be_float(\1\2)==False or float(\1\2)\3\4)")
             ]
         
         return pattern_replacements
