@@ -654,7 +654,7 @@ class FormChecks():
                 f'HC subject fulfills CHR-criteria on PSYCHS.',\
                 self.variable,self.form,['Main Report','Non Team Forms'])
 
-    def oasis_additional_checks(self):
+    """def oasis_additional_checks(self):
         """Checks for contradictions in OASIS form"""
 
         try:
@@ -678,7 +678,7 @@ class FormChecks():
                     f'lifestyle situation can be described to be affected (chroasis_oasis_4 and chroasis_oasis_5)'),\
                     self.variable,self.form,['Main Report', 'Non Team Forms'])
         except Exception as e:
-            print(e)
+            print(e)"""
 
     def find_iq_age(self):
         """

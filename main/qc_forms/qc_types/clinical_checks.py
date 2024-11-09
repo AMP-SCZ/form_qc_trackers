@@ -66,7 +66,59 @@ class ClinicalChecks(FormCheck):
             self.oasis_lifestyle_check(row, forms, ['chroasis_oasis_3',oasis_lifestyle_var],
             {'reports': report_list}, bl_filtered_vars=[],
             filter_excl_vars=True, lifestyle_var = oasis_lifestyle_var, cutoff = cutoff_val)
+
+    def call_cssrs_checks(self,row):
+        # sim past month
+        forms = ['cssrs_baseline']
+        report_list = ['Main Report','Non Team Forms']
+        cssrs_unequal_vals_dict = {'chrcssrsb_cssrs_actual':'chrcssrsb_sb1l',
+        'chrcssrsb_cssrs_nssi':'chrcssrsb_sbnssibl','chrcssrsb_cssrs_yrs_ia':'chrcssrsb_sb3l',
+        'chrcssrsb_cssrs_yrs_aa':'chrcssrsb_sb4l',
+        'chrcssrsb_cssrs_yrs_pab':'chrcssrsb_sb5l','chrcssrsb_cssrs_yrs_sb':'chrcssrsb_sb6l'}
+        cssr_greater_vals_dict = {'chrcssrsb_idintsvl':'chrcssrsb_css_sipmms',\
+        'chrcssrsb_snmacatl':'chrcssrsb_cssrs_num_attempt',\
+        'chrcssrsb_nminatl':'chrcssrsb_cssrs_yrs_nia','chrcssrsb_nmabatl':'chrcssrsb_cssrs_yrs_naa'}
+        for x in range(1,6):
+            cssrs_unequal_vals_dict[f'chrcssrsb_si{x}l'] =  f'chrcssrsb_css_sim{x}'
+        for lifetime_cssrs_var, recent_cssrs_var in cssrs_unequal_vals_dict.items():
+            self.cssrs_unequal_vals_check(row, forms, [lifetime_cssrs_var, recent_cssrs_var],
+            [],True,lifetime_var=lifetime_cssrs_var, recent_var=recent_cssrs_var)
+
+        for lifetime_cssrs_var, recent_cssrs_var in cssrs_unequal_vals_dict.items():
+            self.cssrs_unequal_vals_check(row, forms, [lifetime_cssrs_var, recent_cssrs_var],
+            [],True,lifetime_var=lifetime_cssrs_var, recent_var=recent_cssrs_var)
             
+    @FormCheck.standard_qc_check_filter 
+    def cssrs_unequal_vals_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, lifetime_var = '', recent_var = ''
+    ):
+        lifetime_var_val = getattr(row,lifetime_var)
+        recent_var_val = getattr(row,recent_var)
+        for var_val in [lifetime_var_val, recent_var_val]:
+            if (var_val in self.utils.missing_code_list 
+            or not self.utils.can_be_float(var_val)):
+                return
+        if (lifetime_var_val in self.utils.all_dtype([2])
+        and recent_var_val in self.utils.all_dtype([1])):
+            return (f'Lifetime variable ({lifetime_var}) was answered as yes,'
+                    f' but recent variable ({recent_var}) was answered as no.')
+        
+    @FormCheck.standard_qc_check_filter 
+    def cssrs_greater_vals_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, lifetime_var = '', recent_var = ''
+    ):
+        lifetime_var_val = getattr(row,lifetime_var)
+        recent_var_val = getattr(row,recent_var)
+        for var_val in [lifetime_var_val, recent_var_val]:
+            if (var_val in self.utils.missing_code_list 
+            or not self.utils.can_be_float(var_val)):
+                return
+        if float(lifetime_var_val) < float(recent_var_val):
+            return (f'Lifetime variable ({lifetime_var} = {lifetime_var_val}) has lower intensity,'
+                    f' than recent variable ({recent_var} = {recent_var_val}).')
+
     @FormCheck.standard_qc_check_filter
     def oasis_anxiety_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],

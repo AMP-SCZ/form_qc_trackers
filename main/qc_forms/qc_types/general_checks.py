@@ -9,8 +9,8 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 import re
-class GeneralChecks(FormCheck):
-    
+
+class GeneralChecks(FormCheck):    
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network,form_check_info)
         self.test_val = 0
