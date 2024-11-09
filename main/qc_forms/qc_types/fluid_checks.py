@@ -153,4 +153,31 @@ class FluidChecks(FormCheck):
                 if row.chrblood_cbc not in self.utils.all_dtype([1]):
                     return ('Blood form indicates EDTA tube was not sent to lab for CBC'
                     f', but CBC form has been completed and not marked as missing.')
+                
+    def barcode_format_check(self):
+        """Makes sure blood barcodes are in
+        proper format"""
+
+        if self.variable in self.all_barcode_variables\
+        and 'blood' in self.variable:
+            if hasattr(self.row,self.variable):
+                barcode = getattr(self.row,self.variable)
+                if barcode not in (self.missing_code_list + [''])\
+                and 'pronet' not in barcode.lower(): 
+                    if len(barcode) < 10:
+                        self.compile_errors.append_error(self.row,\
+                        f"Barcode ({barcode}) length is less than 10 characters.",\
+                        self.variable,self.form,['Blood Report','Fluids Report'])
+                    if any(not char.isdigit() for char in barcode):
+                        self.compile_errors.append_error(self.row,\
+                        f"Barcode ({barcode}) contains non-numeric characters.",\
+                        self.variable,self.form,['Blood Report','Fluids Report'])
+
+    def barcode_len_check(self,row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, barcode_val = ''
+    ): 
+        pass
+        
+
     

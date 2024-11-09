@@ -49,7 +49,7 @@ class GeneralChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):  
-        if getattr(row, all_vars[0]) == 'None':
+        if getattr(row, all_vars[0]) == '':
             return "Variable is Blank"
         return 
     

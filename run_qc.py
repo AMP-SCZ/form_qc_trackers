@@ -38,8 +38,8 @@ class RunQC():
         self.generate_reports = GenerateReports()
     
     def run_script(self):
-        #self.process_vars.run_script()
-        self.qc_forms.run_script()
-        self.generate_reports.run_script()
+        self.process_vars.run_script()
+        #self.qc_forms.run_script()
+        #self.generate_reports.run_script()
 if __name__ == '__main__':
     RunQC().run_script()

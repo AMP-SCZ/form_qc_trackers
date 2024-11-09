@@ -228,7 +228,21 @@ class CollectMiscVariables():
         blood_var_categs['volume_variables'] =  [
         var for var in all_blood_vars if 'vol' in var and 'error' not in var]
 
+        blood_var_categs['barcode_variables'] = self.collect_blood_barcode_vars()
+
         return blood_var_categs
+    
+    def collect_blood_barcode_vars(self):
+        filterered_df = self.data_dictionary_df[
+        self.data_dictionary_df[
+        'Form Name'] == 'blood_sample_preanalytic_quality_assurance']
+
+        filterered_df = filterered_df[
+        filterered_df['Field Label'].str.contains('barcode')]
+
+        barcode_vars = filterered_df['Variable / Field Name'].tolist()
+
+        return barcode_vars
     
     def collect_form_per_var(self):
         filterered_df = self.data_dictionary_df[['Variable / Field Name','Form Name']]
@@ -239,6 +253,7 @@ class CollectMiscVariables():
         form_per_var = filterered_df.set_index('variable')['form'].to_dict()
 
         return form_per_var
+    
 
     def create_variable_translations(self):
         """Removes some unwanted characters from

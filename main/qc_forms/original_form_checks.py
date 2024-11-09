@@ -600,8 +600,7 @@ class FormChecks():
         except Exception as e:
             print(e)
 
-    def cssr_additional_checks(self):
-        """Checks for contradictions in cssr form"""
+    """def cssr_additional_checks(self):
 
         lifetime_pastyear_dict = {'chrcssrsb_cssrs_actual':'chrcssrsb_sb1l',\
         'chrcssrsb_cssrs_nssi':'chrcssrsb_sbnssibl','chrcssrsb_cssrs_yrs_ia':'chrcssrsb_sb3l',\
@@ -636,7 +635,7 @@ class FormChecks():
                 and getattr(self.row,value_lifetime) in [2,2.0,'2','2.0']:
                     self.compile_errors.append_error(self.row,\
                     f'Lifetime value cannot be different that past month value.',\
-                    self.variable,self.form,['Main Report','Non Team Forms'])
+                    self.variable,self.form,['Main Report','Non Team Forms'])"""
 
     def inclusion_psychs_check(self):
         """Checks for contradictions between
