@@ -144,18 +144,21 @@ class OrganizeReports():
         'chrcssrsb_sb6l','chrcssrsb_nmapab','chrpas_pmod_adult3v3',
         'chrpas_pmod_adult3v1','chrmri_t2_ge','chrcssrsfu_skip_aa',
         'chric_surveys','chrdbb_phone_model','chrdbb_phone_software','chrblood_pl1id_2',
-        'chrdemo_parent_fa','chrdemo_parent_mo','chrmri_dmri176_qc']
+        'chrdemo_parent_fa','chrdemo_parent_mo','chrmri_dmri176_qc','chric_smartphone']
 
         excluded_strings =  {'PRONET':pronet_excl_strings,
         
         'PRESCIENT':(pronet_excl_strings + ['chrdemo_racial','chrsaliva_food',
         'chrscid_overview_version','chrblood_freezerid',
-        'chrdbb_phone_model','chrdbb_phone_software'])}
+        'chrdbb_phone_model','chrdbb_phone_software',
+        'wb3id','se3id','se2id','wb2id','chrblood_rack_barcode'])}
 
         for network in ['PRONET','PRESCIENT']:
             filtered_df = self.utils.apply_df_str_filter(
             self.data_dict_df, excluded_strings[network], 'Variable / Field Name')
             excluded_vars[network] = filtered_df['Variable / Field Name'].tolist()
+        
+        excluded_vars['PRESCIENT'].extend(self.collect_scid_module_b_vars())
         
         return excluded_vars
 
@@ -188,6 +191,20 @@ class OrganizeReports():
         print(essential_psychs_vars)
 
         return essential_psychs_vars
+    
+    def collect_scid_module_b_vars(self):
+        scid_df = self.data_dict_df[
+        self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
+        all_scid_vars = scid_df['Variable / Field Name'].tolist()
+        exceptions = ['chrscid_bipolar_sub_desc',
+        'chrscid_bp_current_severity',
+        'chrscid_bp_recent_ep']
+        
+        module_b_vars = [var
+        for var in all_scid_vars if 'chrscid_b'
+        in var and var not in exceptions]
+    
+        return module_b_vars
     
     def define_team_report_forms(self):
         team_reports = {

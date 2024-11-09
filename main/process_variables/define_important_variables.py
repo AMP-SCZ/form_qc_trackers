@@ -50,6 +50,9 @@ class DefineEssentialFormVars():
             form_df = form_df[
             form_df['Identifier?'] == '']
 
+            form_df = form_df[
+            ~form_df['Field Type'].isin(['checkbox','notes','descriptive'])]
+
             non_branch_logic_vars = form_df['Variable / Field Name'].tolist()
 
             form_vars[form]['non_branch_logic_vars'] = non_branch_logic_vars

@@ -10,7 +10,7 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from datetime import datetime
 from io import BytesIO
-
+import numpy as np 
 
 """
 cols to match : subject, displayed timepoint, displayed form, displayed variable, error message
@@ -81,15 +81,15 @@ class CalculateResolvedErrors():
                         for ra in self.melbourne_ras:
                             ra_output = network_dir + f'/{site}/{ra}/{network.name}_Melbourne_RA_Output.xlsx'
                             self.read_dropbox_data(['site_comments'], ra_output, dbx, network.name, reports_to_read)
-                        excl_reports = False
                     else:
                         reports_to_read = ['Main Report']
-                        excl_reports = True
-                    print(site_output)
-                    self.read_dropbox_data(['site_comments'], site_output, dbx, network.name, reports_to_read,excl_reports)
+                        self.read_dropbox_data(['site_comments'], site_output, dbx, network.name, reports_to_read)
         return 
 
-    def read_dropbox_data(self,columns_to_read, dropbox_path, dbx, network, reports_to_read, excl_report = True):
+    def read_dropbox_data(self,columns_to_read,
+        dropbox_path, dbx, network, reports_to_read,
+        excl_report = True
+    ):
         print('---------')
         print(dropbox_path)
         reversed_col_translations = self.utils.reverse_dictionary(self.formatted_column_names[network])
@@ -99,8 +99,11 @@ class CalculateResolvedErrors():
         sheet_names = excel_data.sheet_names
         prev_output_df = pd.read_csv(self.new_output_csv_path,keep_default_na = False)
         orig_columns = prev_output_df.columns
+        print(sheet_names)
+        print(reports_to_read)
         for report in sheet_names:
-            if report not in [reports_to_read] and excl_report == True:
+            print(report)
+            if report not in reports_to_read and excl_report == True:
                 continue
             print(report)
             
@@ -108,17 +111,30 @@ class CalculateResolvedErrors():
                 sheet_name=report, keep_default_na = False)
             
             report_df.rename(columns=reversed_col_translations, inplace=True)
-            
+            report_df = report_df.assign(
+                error_message=report_df['error_message'].apply(lambda x: x.split(' | '))
+            )
+
+            subjects_to_merge = report_df['subject'].tolist()
+
+            report_df = report_df.explode('error_message').reset_index(drop=True)
+            #report_df['current_report'] = report
+            #prev_output_df['current_report'] = np.where(
+            #prev_output_df['reports'].str.contains(report, case=False), report, '')
+
             prev_output_df = pd.merge(prev_output_df,report_df, on=[
-            'displayed_form','displayed_timepoint','subject','error_message'],
+            'displayed_form','displayed_timepoint',
+            'subject','error_message'],
             how = 'left',suffixes=('', '_dbx'))
+
+
             prev_output_df = prev_output_df.fillna('')
             
             for col_to_read in columns_to_read:
                 print(col_to_read)
                 dbx_col = col_to_read + '_dbx'
-                prev_output_df[col_to_read] = prev_output_df[dbx_col]
-            
+                prev_output_df.loc[
+                prev_output_df['subject'].isin(subjects_to_merge), col_to_read] = prev_output_df[dbx_col]
             prev_output_df = prev_output_df[orig_columns]
             
         prev_output_df.to_csv(self.new_output_csv_path, index = False)

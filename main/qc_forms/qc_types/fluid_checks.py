@@ -160,7 +160,7 @@ class FluidChecks(FormCheck):
         """Makes sure blood barcodes are in
         proper format"""
 
-        forms = 'blood_sample_preanalytic_quality_assurance'
+        forms = ['blood_sample_preanalytic_quality_assurance']
         reports = ['Main Report', 'Blood Report', 'Fluids Report']
         barcode_vars = self.grouped_vars['blood_vars']['barcode_variables']
         output_changes = {'reports' : reports}

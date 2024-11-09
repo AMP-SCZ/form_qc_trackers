@@ -25,6 +25,23 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
+import time
+from functools import wraps
+
+def timeit(func):
+    """
+    A decorator that measures and prints the time a function takes to run.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()  # Record the start time
+        result = func(*args, **kwargs)  # Call the original function
+        end_time = time.time()  # Record the end time
+        elapsed_time = end_time - start_time  # Calculate elapsed time
+        print(f"Function '{func.__name__}' took {elapsed_time:.4f} seconds to run.")
+        return result  # Return the result of the original function
+    return wrapper
+
 
 class CreateTrackers():
 
@@ -77,9 +94,9 @@ class CreateTrackers():
 
     def generate_reports(self):
         for network in ['PRONET','PRESCIENT']:
+            network_df = self.combined_tracker[
+            self.combined_tracker['network']==network]
             for report in self.all_reports:
-                network_df = self.combined_tracker[
-                self.combined_tracker['network']==network]
                 report_df = network_df[
                 network_df['reports'].str.contains(report)]
                 self.all_report_df[report] = report_df
@@ -87,7 +104,6 @@ class CreateTrackers():
                     continue
                 report_df = self.convert_to_shared_format(report_df, network)
                 if report in self.all_reports: 
-                    print(network)
                     combined_path = f'{self.dropbox_output_path}{network}/combined/'
                     if not os.path.exists(combined_path):
                         os.makedirs(combined_path)
@@ -102,7 +118,6 @@ class CreateTrackers():
                 site = self.utils.site_full_name_translations[site_abr]
             else:
                 site = site_abr
-            print(site)
             if report != 'Main Report' and site_abr != 'ME':
                 continue 
             if report != 'Non Team Forms' and site_abr == 'ME':
@@ -119,7 +134,6 @@ class CreateTrackers():
 
     def loop_ras(self,network,site, report, report_df):
         for ra, subjects in self.melbourne_ras.items():
-            print(ra)
             ra_path = f'{self.dropbox_output_path}{network}/{site}/{ra}/'
             ra_df = report_df[report_df['Participant'].isin(subjects)]
             self.format_excl_sheet(ra_df,
@@ -131,12 +145,9 @@ class CreateTrackers():
         for root, dirs, files in os.walk(fullpath):
             for file in files:
                 if file.endswith('Output.xlsx'):
-                    #print(root + '/' + file)
                     full_path = root + '/' + file
                     local_path = root.replace(fullpath,'') + '/' + file
-                    #print(root.replace(fullpath,'') + '/' + file)
                     self.save_to_dropbox(full_path,local_path)
-                    print(local_path)
 
     def format_excl_sheet(self, df, report, folder, filename):
         full_path = folder + filename
@@ -252,14 +263,24 @@ class CreateTrackers():
 
     def convert_to_shared_format(self, raw_df, network):
         columns_names = self.formatted_column_names[network]
-        columns_to_match = ['subject','displayed_timepoint','displayed_form']
-        raw_df['date_resolved'] = ''
+        columns_to_match = ['subject','displayed_timepoint','displayed_form',
+                            'currently_resolved','manually_resolved']
+        raw_df.loc[:, 'date_resolved'] = ''
         raw_df.loc[raw_df['currently_resolved'] == True, 'date_resolved'] = (
             raw_df.loc[raw_df['currently_resolved'] == True, 'dates_resolved']
             .apply(lambda x: x.split(' | ')[-1])
         )
+        agg_args = {}
+        for col in raw_df.columns:
+            if col in columns_to_match:
+                continue
+            agg_args[col] = 'first'
+        for splt_col in ['var_translations','error_message']:
+            agg_args[splt_col] = self.merge_rows
+        agg_args['time_since_last_detection'] = 'max'
+        #merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
+        merged_df = raw_df.groupby(columns_to_match).agg(agg_args).reset_index()
 
-        merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
         merged_df['flag_count'] = merged_df['error_message'].str.count(r'\|') + 1
         #merged_df['displayed_form'] = merged_df['displayed_form'].str.title().str.replace('_',' ')
         merged_df.rename(columns=columns_names, inplace=True)
@@ -268,8 +289,6 @@ class CreateTrackers():
         merged_df = self.move_rows_to_bottom('Manually Resolved',None, merged_df)
         merged_df = self.move_rows_to_bottom('Date Resolved','Manually Resolved', merged_df)
         
-        merged_df.to_csv(f'{self.formatted_outputs_path}AMPSCZ_Output.csv',index = False)
-
         return merged_df
     
     def move_rows_to_bottom(self, incl_col_name,excl_col_name, df):

@@ -36,9 +36,10 @@ class ClinicalChecks(FormCheck):
 
     def call_checks(self, row):
         self.call_global_function_checks(row)
-        self.call_oasis_checks(row)
+        #self.call_oasis_checks(row)
         self.call_cssrs_checks(row)
         self.call_twenty_one_day_check(row)
+        self.call_tbi_checks(row)
 
     def call_global_function_checks(self,row):
         """
@@ -94,7 +95,42 @@ class ClinicalChecks(FormCheck):
             for lifetime_cssrs_var, recent_cssrs_var in cssrs_dict.items():
                 method(row, forms, [lifetime_cssrs_var, recent_cssrs_var],{'reports':report_list}, [], True, 
                     lifetime_var=lifetime_cssrs_var, recent_var=recent_cssrs_var)
-            
+    
+    def call_tbi_checks(self, row):
+        forms = ['traumatic_brain_injury_screen']
+        reports = ['Main Report','Non Team Forms']
+        self.tbi_inj_mismatch_check(row, forms, ['chrtbi_parent_headinjury',
+        'chrtbi_subject_head_injury','chrtbi_sourceinfo'],{'reports': ['Main Report','Non Team Forms']})
+
+        self.tbi_info_source_check(row, forms, ['chrtbi_parent_headinjury',
+        'chrtbi_subject_head_injury','chrtbi_sourceinfo'],{'reports': ['Secondary Report']})
+
+    @FormCheck.standard_qc_check_filter 
+    def tbi_inj_mismatch_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        sub_inj = row.chrtbi_subject_head_injury
+        par_inj = row.chrtbi_parent_headinjury
+        if row.chrtbi_sourceinfo in self.utils.all_dtype([3]):
+            if (self.utils.can_be_float(sub_inj) and self.utils.can_be_float(par_inj)
+            and not any(val in self.utils.missing_code_list for val in [sub_inj, par_inj])):
+                if float(sub_inj) != float(par_inj):
+                    return ("Subject and parent answered differently to whether"
+                    " or not the subject has ever had a head injury.")
+                
+    @FormCheck.standard_qc_check_filter         
+    def tbi_info_source_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        if row.chrtbi_sourceinfo in self.utils.all_dtype([1,2]):
+            if (row.chrtbi_subject_head_injury in self.utils.all_dtype([1,0])
+            and row.chrtbi_parent_headinjury in self.utils.all_dtype([1,0])):
+                return ("Subject and parent not both selected as source of information,"
+                " but answers appear to be provided by both the subject and parent.")
+
+
     @FormCheck.standard_qc_check_filter 
     def cssrs_unequal_vals_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -193,7 +229,8 @@ class ClinicalChecks(FormCheck):
             if form in ['psychs_p1p8_fu_hc','psychs_p1p8_fu']:
                 curr_psychs_form = form
         missing_spec_var = missing_spec_vars[curr_psychs_form]
-        self.check_if_over_21_days(row,missing_spec_var, scr_int_date,curr_tp_forms)
+        self.check_if_over_21_days(row,missing_spec_var, scr_int_date,
+        curr_tp_forms,curr_psychs_form)
 
     def check_if_over_21_days(self,
         row,missing_spec_var, scr_int_date,

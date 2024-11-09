@@ -30,16 +30,15 @@ include the main report (for melbourne, non team form report)
 7. save all formatted outputs to folder and upload them to dropbox
 """
 
-class RunQC():
-
-    def __init__(self):
-        self.process_vars = ProcessVariables()
-        self.qc_forms = QCFormsMain()
-        self.generate_reports = GenerateReports()
-    
+class RunQC():        
+        
     def run_script(self):
-        self.process_vars.run_script()
-        self.qc_forms.run_script()
+        #self.process_vars = ProcessVariables()
+        #self.process_vars.run_script()
+        #self.qc_forms = QCFormsMain()
+        #self.qc_forms.run_script()
+        self.generate_reports = GenerateReports()
         self.generate_reports.run_script()
+        #TODO: fix figs branching logic, igure our other excluded vars, prescient forms with no compl status
 if __name__ == '__main__':
     RunQC().run_script()

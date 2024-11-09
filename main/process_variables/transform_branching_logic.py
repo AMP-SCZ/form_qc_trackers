@@ -175,7 +175,7 @@ class TransformBranchingLogic():
             # if the dataframe does not have the variable, then it is considered blank
             # otherwise, checks if it is blank or if it can be a float that is not equal
             # to the value of interest
-            (r'(curr_row\.)(\w+)(\s*!=\s*)(float\()',
+            (r'(curr_row\.)(\w+)(\s*!=\s*)(float\((\'?(?!00)-?\d+(\.\d+)?\'?)\))',
             r"((not hasattr(curr_row,'\2') or \1\2=='') or instance.utils.can_be_float(\1\2)==False or float(\1\2)\3\4)")
             ]
         

@@ -111,7 +111,7 @@ class FormCheck():
         
         if self.check_if_missing(curr_row, form) == True:
             return False
-           
+                   
         return True
     
     def check_if_missing(self,curr_row : tuple, form):
@@ -132,7 +132,7 @@ class FormCheck():
             else:
                 return True
         
-        elif missing_var == "":
+        elif missing_var == "":                
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):

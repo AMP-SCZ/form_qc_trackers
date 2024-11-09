@@ -297,6 +297,7 @@ class Utils():
 
         
     def days_since_today(self,date_str, date_format="%Y-%m-%d"):
+        date_str = date_str.replace('/','-')
         input_date = datetime.strptime(date_str, date_format)
         
         today = datetime.today()

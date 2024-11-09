@@ -71,13 +71,11 @@ class QCFormsMain():
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
             for tp in tp_list:
-                if tp not in ['floating','conversion']:
-                    continue
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
                 #combined_df = combined_df.iloc[80:120]
-                #combined_df = combined_df.sample(n=100)
+                #combined_df = combined_df.sample(n=300)
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 print(combined_df)
                 for row in combined_df.itertuples(): 
@@ -97,7 +95,6 @@ class QCFormsMain():
                 combined_flags_path = f'{self.output_path}combined_outputs'
                 if not os.path.exists(combined_flags_path):
                     os.makedirs(combined_flags_path)  # Creates the folder and any necessary parent directories
-
                 combined_output_df.to_csv(
                 f'{combined_flags_path}/new_output/combined_qc_flags.csv',
                 index = False)
