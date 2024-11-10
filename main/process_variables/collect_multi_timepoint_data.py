@@ -48,8 +48,6 @@ class MultiTPDataCollector():
 
         self.check_position_duplicates(merged_blood_df)
 
-        merged_blood_df.to_csv('blood_merged_test.csv',index = False)
-
     def check_id_duplicates(self, merged_blood_df):
         id_vars = self.grouped_vars['blood_vars']['id_variables']
         merged_id_vars = []
@@ -68,7 +66,6 @@ class MultiTPDataCollector():
         id_df = id_df[id_df.duplicated(subset=['id_val'], keep=False) & 
                                    (id_df.duplicated(subset=['id_val', 'subjectid'], keep=False) == False)]
 
-        id_df.to_csv('comb_test.csv',index = False)
 
     def check_position_duplicates(self, merged_blood_df):
         pos_vars = self.grouped_vars['blood_vars']['position_variables']
@@ -112,7 +109,6 @@ class MultiTPDataCollector():
         pos_df = pos_df[pos_df.duplicated(subset=['barc_pos_val'], keep=False) & 
                                    (pos_df.duplicated(subset=['barc_pos_val', 'subjectid'], keep=False) == False)]
         print(excluded_val_list)
-        pos_df.to_csv('comb_test.csv',index = False)
 
                                     
 

@@ -146,6 +146,8 @@ class OrganizeReports():
         'chric_surveys','chrdbb_phone_model','chrdbb_phone_software','chrblood_pl1id_2',
         'chrdemo_parent_fa','chrdemo_parent_mo','chrmri_dmri176_qc','chric_smartphone']
 
+        pronet_excl_strings.extend(self.find_new_added_vars())
+
         excluded_strings =  {'PRONET':pronet_excl_strings,
         
         'PRESCIENT':(pronet_excl_strings + ['chrdemo_racial','chrsaliva_food',
@@ -205,6 +207,18 @@ class OrganizeReports():
         in var and var not in exceptions]
     
         return module_b_vars
+    
+    def find_new_added_vars(self):
+        depen_path = self.config_info['paths']['dependencies_path']
+        old_data_dict_path = depen_path + 'data_dictionary/'
+        data_dict_filename = 'CloneOfYaleRealRecords_DataDictionary_2023-05-19.csv'
+        old_data_dict_df = pd.read_csv(old_data_dict_path + data_dict_filename, keep_default_na=False)
+        old_vars = old_data_dict_df['Variable / Field Name'].tolist()
+        new_vars = self.data_dict_df['Variable / Field Name'].tolist()
+        
+        added_vars = [var for var in new_vars if var not in old_vars]
+
+        return added_vars
     
     def define_team_report_forms(self):
         team_reports = {

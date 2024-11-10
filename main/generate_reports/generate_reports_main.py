@@ -13,7 +13,8 @@ from main.generate_reports.calculate_resolved_errors import CalculateResolvedErr
 class GenerateReports():
 
     def __init__(self):
-                
+        
+        # any new columns added have to 
         self.formatted_column_names = {
             "PRONET" : {
             "subject":"Participant",
@@ -26,7 +27,8 @@ class GenerateReports():
             "date_resolved":"Date Resolved",
             "manually_resolved": "Manually Resolved",
             "comments" : "Network Comments",
-            "site_comments": "Site Comments"},
+            "site_comments": "Site Comments",
+            "priority_item" : "Priority Item"},
 
             "PRESCIENT" :{
             "subject":"Participant",
@@ -39,7 +41,8 @@ class GenerateReports():
             "date_resolved":"Date Resolved",
             "manually_resolved": "Manually Resolved",
             "comments" : "Network Comments",
-            "site_comments": "Site Comments"},
+            "site_comments": "Site Comments",
+            "priority_item" : "Priority Item"},
         }
 
         """self.formatted_column_names['sites'] = {'PRONET' : {}, 'PRESCIENT' : {}}

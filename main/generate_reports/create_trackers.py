@@ -260,6 +260,14 @@ class CreateTrackers():
             return values.iloc[0]
         else:
             return ' | '.join(unique_values)
+        
+    def first_true(self,series):
+        for value in series:
+            if value==True:
+                return value
+        # If no value satisfies the condition, return the first value
+        return series.iloc[0]
+
 
     def convert_to_shared_format(self, raw_df, network):
         columns_names = self.formatted_column_names[network]
@@ -278,6 +286,7 @@ class CreateTrackers():
         for splt_col in ['var_translations','error_message']:
             agg_args[splt_col] = self.merge_rows
         agg_args['time_since_last_detection'] = 'max'
+        agg_args['priority_item'] = self.first_true
         #merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
         merged_df = raw_df.groupby(columns_to_match).agg(agg_args).reset_index()
 

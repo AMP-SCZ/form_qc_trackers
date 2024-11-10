@@ -9,7 +9,6 @@ sys.path.insert(1, parent_dir)
 from main.utils.utils import Utils
 from logging_config import logger  
 
-
 class TestTransition():
 
     def __init__(self):
@@ -21,7 +20,7 @@ class TestTransition():
             self.config_info = json.load(file)
 
     def run_script(self):
-        self.compare_non_blank_changes()
+        self.compare_col_existence_comparison()
 
     def compare_non_blank_changes(self):
         tp_list = self.utils.create_timepoint_list()
@@ -67,7 +66,40 @@ class TestTransition():
                 output_df = pd.DataFrame(self.diff_output)   
                 output_df.to_csv(
                 f"{self.config_info['paths']['output_path']}csv_transition_qc.csv",
-                index = False)                         
+                index = False)               
+
+    def compare_col_existence_comparison(self):
+        forms_per_tp = self.utils.load_dependency_json('forms_per_timepoint.json')
+        grouped_vars = self.utils.load_dependency_json('grouped_variables.json')
+        var_forms = grouped_vars['var_forms']
+        
+        
+        tp_list = self.utils.create_timepoint_list()
+        all_differences = []
+        for network in ['PRONET','PRESCIENT']:
+            for tp in tp_list:
+                print(tp)
+                orig_path = f'{self.orig_combined_csv_path}combined-{network}-{tp}-day1to1.csv'
+                orig_combined_df = pd.read_csv(orig_path, keep_default_na=False, low_memory = False)
+                new_path = f'{self.new_combined_csv_path}combined-{network}-{tp}-day1to1.csv'
+                new_combined_df = pd.read_csv(new_path, keep_default_na=False,low_memory = False)
+                curr_tp_forms = forms_per_tp['CHR'][tp]
+                for form in curr_tp_forms:
+                    var_forms[form + '_complete'] = form
+                only_old = [col for col in orig_combined_df.columns if
+                col not in new_combined_df.columns and col
+                in var_forms.keys() and var_forms[col] in curr_tp_forms]
+                only_new = [col for col in new_combined_df.columns
+                if col not in orig_combined_df.columns 
+                and col in var_forms.keys() and var_forms[col] in curr_tp_forms]
+                for col in only_old:
+                    all_differences.append({'col_name' : col,'timepoint': tp,'network':network, 'only_in':'grace_csv'})
+                for col in only_new:
+                    all_differences.append({'col_name' : col,'timepoint': tp, 'network':network,'only_in':'dheshan_csv'})
+
+                output_df = pd.DataFrame(all_differences)
+                output_df.to_csv(f"{self.config_info['paths']['output_path']}csv_transition_qc_col_existence.csv",
+                index = False)   
 
 
 if __name__ == '__main__':

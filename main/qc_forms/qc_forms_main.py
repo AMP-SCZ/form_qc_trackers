@@ -75,10 +75,12 @@ class QCFormsMain():
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
                 #combined_df = combined_df.iloc[80:120]
-                #combined_df = combined_df.sample(n=300)
+                #combined_df = combined_df.sample(n=20)
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 print(combined_df)
                 for row in combined_df.itertuples(): 
+                    print(tp)
+                    print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
                     if row.subjectid not in self.form_check_info['subject_info']:
                         print(row.subjectid)
@@ -90,6 +92,9 @@ class QCFormsMain():
                     test_output.extend(gen_checks())
                     test_output.extend(fluid_checks())
                     test_output.extend(clinical_checks())
+                    print('--------')
+                    print(len(test_output))
+                    print('----------')
                     #print(test_output[random.randint(0,len(test_output)-1)])
                 combined_output_df = pd.DataFrame(test_output)
                 combined_flags_path = f'{self.output_path}combined_outputs'

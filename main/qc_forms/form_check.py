@@ -34,6 +34,12 @@ class FormCheck():
         self.prescient_forms_no_compl_status = [
         'family_interview_for_genetic_studies_figs']
 
+        self.priority_forms = ['guid_form','bprs','psychs_p1p8','psychs_p9ac32',
+        'psychs_p1p8_fu','psychs_p9ac32_fu','psychs_p1p8_fu_hc','psychs_p9ac32_fu_hc',
+        'sociodemographics','scid5_psychosis_mood_substance_abuse']
+
+        self.priority_timepoints = ['screening']
+
     def call_checks(self):
         pass
     
@@ -210,6 +216,13 @@ class FormCheck():
         if output_changes != {}:
             for key, val in output_changes.items():
                 row_output[key] = val
+
+        # if priority form or tp set priority_item to True 
+        if (any(form in self.priority_forms
+        for form in row_output['affected_forms'])
+        or any(tp in self.priority_timepoints
+        for tp in row_output['affected_timepoints'])):
+            row_output['priority_item'] = True
 
         if (row_output['withdrawn_enabled'] == False
         and removed_status == True):
