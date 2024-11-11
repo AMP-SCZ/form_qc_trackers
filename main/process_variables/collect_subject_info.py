@@ -63,7 +63,7 @@ class CollectSubjectInfo():
         for network in ['PRONET','PRESCIENT']:
             
             combined_df = pd.read_csv(
-                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv')
+                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
             col_list = ['subjectid','visit_status_string',
             'chrcrit_part', 'chrcrit_included']
             col_list = [col for col in col_list if col in combined_df.columns]
@@ -87,7 +87,7 @@ class CollectSubjectInfo():
         tp = 'baseline'
         for network in ['PRONET','PRESCIENT']:
             combined_df = pd.read_csv(
-                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv')
+                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
             col_list = ['subjectid','chrdemo_age_mos_chr',
             'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 'chrdemo_sexassigned']
             col_list = [col for col in col_list if col in combined_df.columns]

@@ -40,16 +40,19 @@ class TestTransformBranchingLogic(unittest.TestCase):
         converted_bl = self.convert_bl()
         exceptions = []
         output_list = []
+        # condensed by removing and counting duplicates
+        dupl_removed_output = {}
+        dupl_removed_output_list = []
         count = 0
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
-            for tp in tp_list[-2:]:
+            for tp in tp_list:
                 print(tp)
+                dupl_removed_output_list = []
                 combined_df_path = f'{self.combined_csv_path}combined-{network}-{tp}-day1to1.csv'
                 combined_df = pd.read_csv(combined_df_path,keep_default_na=False)
                 for curr_row in combined_df.itertuples():
-                    print(curr_row.Index)
                     for col in combined_df.columns:
                         if col not in converted_bl.keys():
                             continue
@@ -67,19 +70,29 @@ class TestTransformBranchingLogic(unittest.TestCase):
                         if col in self.ident_bl_vars and network == "PRONET":
                             continue
                         try:
-                            if getattr(curr_row,col) not in (self.miss_codes + ['','NaN']) and eval(bl) == False:
+                            if getattr(curr_row,col) in (self.miss_codes) and eval(bl) == True:
+                                match_key =  network + tp + col + str(getattr(curr_row,col))
+                                dupl_removed_output.setdefault(match_key, {'subject':curr_row.subjectid,'network':network,'timepoint':tp,
+                                'variable':col,'variable_value':getattr(curr_row,col), 'count': 0,
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic']})
+                                dupl_removed_output[match_key]['count'] +=1
+
                                 output_list.append({'subject':curr_row.subjectid,'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col),
-                                'converted_branching_logic':bl})
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic']})
                         except Exception as e:
                             if 'arm' not in str(e):
+                                print('error')
                                 print(col)
                                 print(bl)
                                 print(e)
                             continue
-                output_df = pd.DataFrame(output_list)
+
+                for key,val in dupl_removed_output.items():
+                    dupl_removed_output_list.append(val)
+                output_df = pd.DataFrame(dupl_removed_output_list)
                 output_df.to_csv(
-                f"{self.config_info['paths']['output_path']}bl_mismatches.csv",
+                f"{self.config_info['paths']['output_path']}bl_miss_code_mismatches.csv",
                 index = False)
                             
 
