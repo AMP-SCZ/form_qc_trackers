@@ -59,18 +59,18 @@ class QCFormsMain():
                 df = pd.read_csv(new_path, keep_default_na=False)
                 df.to_csv(old_path, index = False)
             except pd.errors.EmptyDataError:
-                print('EMPTY')
                 return
 
     def iterate_combined_dfs(self):
         #TODO: split checks by ones that will only be checked 
-        # if a form in compl and not missing and ones 
+        # if a form in compl and no
+        # t missing and ones 
         # that will be checked regardless
         test_output=[]
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
-            for tp in tp_list:
+            for tp in tp_list[:2]:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)

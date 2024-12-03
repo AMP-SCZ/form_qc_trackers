@@ -105,15 +105,7 @@ class GeneralChecks(FormCheck):
         if guid == '':
             return
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
-            
             return f'GUID in incorrect format. GUID was reported to be {guid}.'
-
-
-        
-
-
-
-
 
 
 

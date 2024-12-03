@@ -23,7 +23,8 @@ class HarmonizationQC():
 
         self.network_means = {}
         self.data_dict_df = self.utils.read_data_dictionary()
-        self.field_types = self.data_dict_df.set_index('Variable / Field Name')['Field Type'].to_dict()
+        self.field_types = self.data_dict_df.set_index(
+        'Variable / Field Name')['Field Type'].to_dict()
 
 
     def run_script(self):

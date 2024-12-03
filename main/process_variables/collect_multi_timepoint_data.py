@@ -61,11 +61,11 @@ class MultiTPDataCollector():
         id_df = merged_blood_df[preserved_cols]
         excluded_val_list = (self.utils.missing_code_list + [''])
 
-        id_df = id_df.melt(id_vars='subjectid', value_vars=merged_id_vars, var_name='id_name', value_name='id_val')
+        id_df = id_df.melt(id_vars='subjectid',
+        value_vars=merged_id_vars, var_name='id_name', value_name='id_val')
         id_df = id_df[~id_df['id_val'].isin(excluded_val_list)]
         id_df = id_df[id_df.duplicated(subset=['id_val'], keep=False) & 
-                                   (id_df.duplicated(subset=['id_val', 'subjectid'], keep=False) == False)]
-
+        (id_df.duplicated(subset=['id_val', 'subjectid'], keep=False) == False)]
 
     def check_position_duplicates(self, merged_blood_df):
         pos_vars = self.grouped_vars['blood_vars']['position_variables']
@@ -92,22 +92,21 @@ class MultiTPDataCollector():
                     if suffix in pos_var and suffix not in barcode_var:
                         diff_tp = True
                 if diff_tp:
-                    continue
-                        
+                    continue      
                 pos_df.loc[(~pos_df[
                 barcode_var].isin(excluded_val_list)) & (
                 ~pos_df[pos_var].isin(
                 excluded_val_list)), barcode_var + '_' + pos_var] = pos_df[
-                barcode_var] + '_' + pos_df[pos_var]
+                barcode_var].astype(str) + '_' + pos_df[pos_var].astype(str)
                 merged_barc_pos.append(barcode_var + '_' + pos_var)
 
         pos_df = pos_df[merged_barc_pos + ['subjectid']]
-
-        pos_df = pos_df.melt(id_vars='subjectid', value_vars=merged_barc_pos, var_name='id_name', value_name='barc_pos_val')
+        pos_df = pos_df.melt(id_vars='subjectid', value_vars=merged_barc_pos,
+        var_name='id_name', value_name='barc_pos_val')
         pos_df = pos_df.fillna('')
         pos_df = pos_df[~pos_df['barc_pos_val'].isin(excluded_val_list)]
         pos_df = pos_df[pos_df.duplicated(subset=['barc_pos_val'], keep=False) & 
-                                   (pos_df.duplicated(subset=['barc_pos_val', 'subjectid'], keep=False) == False)]
+        (pos_df.duplicated(subset=['barc_pos_val', 'subjectid'], keep=False) == False)]
         print(excluded_val_list)
 
                                     

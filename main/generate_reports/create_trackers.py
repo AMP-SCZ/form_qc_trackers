@@ -61,7 +61,7 @@ class CreateTrackers():
         self.all_sites = self.utils.all_sites
         self.site_translations = self.utils.site_full_name_translations
         self.old_output_csv_path = f'{self.output_path}combined_outputs/old_output/combined_qc_flags.csv'
-        self.new_output_csv_path = f'{self.output_path}combined_outputs/new_output/combined_qc_flags.csv'
+        self.curr_output_csv_path = f'{self.output_path}combined_outputs/current_output/combined_qc_flags.csv'
         self.formatted_outputs_path = f'{self.output_path}formatted_outputs/'
         if not os.path.exists(self.formatted_outputs_path):
             os.makedirs(self.formatted_outputs_path)
@@ -78,7 +78,7 @@ class CreateTrackers():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
         
     def run_script(self):
-        self.combined_tracker = pd.read_csv(self.new_output_csv_path, keep_default_na= False)
+        self.combined_tracker = pd.read_csv(self.curr_output_csv_path, keep_default_na= False)
         self.collect_new_reports()
         self.generate_reports()
         self.upload_trackers()
@@ -110,7 +110,7 @@ class CreateTrackers():
                     self.format_excl_sheet(report_df,report,
                     combined_path,
                     f'{network}_combined_Output.xlsx')
-                    self.loop_sites(network, report, report_df)
+                    #self.loop_sites(network, report, report_df)
 
     def loop_sites(self, network, report, report_df):
         for site_abr in self.all_sites[network]:
@@ -150,12 +150,13 @@ class CreateTrackers():
                     self.save_to_dropbox(full_path,local_path)
 
     def format_excl_sheet(self, df, report, folder, filename):
+        print('formatting')
         full_path = folder + filename
+        print(folder + filename)
         if not os.path.exists(folder):
             os.makedirs(folder)
 
         if not os.path.exists(folder + filename):
-
             df.to_excel(folder + filename, sheet_name = report, index = False)
 
         with pd.ExcelWriter(full_path, mode='a',\
@@ -268,9 +269,8 @@ class CreateTrackers():
         # If no value satisfies the condition, return the first value
         return series.iloc[0]
 
-
     def convert_to_shared_format(self, raw_df, network):
-        columns_names = self.formatted_column_names[network]
+        columns_names = self.formatted_column_names[network]["combined"]
         columns_to_match = ['subject','displayed_timepoint','displayed_form',
                             'currently_resolved','manually_resolved']
         raw_df.loc[:, 'date_resolved'] = ''

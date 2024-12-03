@@ -39,12 +39,10 @@ class ProcessVariables():
         grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
 
-        # run this after collecting grouped
         self.multi_tp_data = MultiTPDataCollector()
 
         important_form_vars = DefineEssentialFormVars(data_dict_df)
 
-        # needs to run before branching logic conversion
         self.identifier_effects = AnalyzeIdentifiers()
         self.identifier_effects.run_script()
 
@@ -66,8 +64,3 @@ class ProcessVariables():
 
         ra_subs = RaSubjects()
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
-
-        
-
-
-        

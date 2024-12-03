@@ -63,10 +63,13 @@ class FormCheck():
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
             
+            
             if filter_excl_vars:
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
                 if any(var in excl_vars for var in all_vars):
+                    print(len(excl_vars))
                     return
+            
                 
             error_message = func(instance,curr_row,
             filtered_forms,all_vars,changed_output_vals={},
