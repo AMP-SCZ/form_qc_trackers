@@ -43,7 +43,7 @@ class HarmonizationQC():
 
         df = self.dictionary_to_df(self.network_means)
 
-        df.to_csv('network_mean_comparison.csv', index = False)
+        df.to_csv('network_median_comparison.csv', index = False)
 
 
     def find_num_var_means(self, df, network, tp):
@@ -54,7 +54,7 @@ class HarmonizationQC():
 
             curr_col_df = curr_col_df[~curr_col_df[column].isin(self.miss_codes)]
             numeric_column = pd.to_numeric(curr_col_df[column], errors='coerce')
-            column_mean = numeric_column.mean()
+            column_mean = numeric_column.median()
             self.network_means[tp].setdefault(column,{'PRONET':'','PRESCIENT':''})
             self.network_means[tp][column][network] = column_mean
             
@@ -70,8 +70,8 @@ class HarmonizationQC():
                 else:
                     field_type = ''
                 df_list.append({'Timepoint':tp,
-                'Variable':var, 'Pronet_Mean':pron_mean,
-                'Prescient_Mean':presc_mean,
+                'Variable':var, 'Pronet_Median':pron_mean,
+                'Prescient_Median':presc_mean,
                 'percentage_difference':perc_diff,'field_type':field_type})
         df = pd.DataFrame(df_list)
         return df

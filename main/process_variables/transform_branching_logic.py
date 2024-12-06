@@ -84,6 +84,7 @@ class TransformBranchingLogic():
             branching_logic = self.edit_tbi_branch_logic(var, branching_logic)
             branching_logic = self.edit_past_pharm_branch_logic(var, branching_logic)
             branching_logic = self.edit_av_branch_logic(var, branching_logic)
+            branching_logic = self.edit_scid_bl(var, branching_logic)
             converted_bl = ''
             if branching_logic !='':
                 converted_bl = self.branching_logic_redcap_to_python(branching_logic)
@@ -136,7 +137,8 @@ class TransformBranchingLogic():
         branching logic: redcap version of branching logic 
         """
         modified_branching_logic = str(branching_logic).replace('[', '').replace(
-        ']', '').replace('<>', '!=').replace('OR', 'or').replace('AND', 'and').replace("\n", ' ').replace('"',"'")
+        ']', '').replace('<>', '!=').replace('OR', 'or').replace(
+        'AND', 'and').replace("\n", ' ').replace('"',"'")
 
         #NOTE: functions must remain in this order in the list
         for pattern_replacements in [self.format_floats_and_vars(),
@@ -345,5 +347,50 @@ class TransformBranchingLogic():
             new_branching_logic = '[chrpsychs_av_pause_rec] = 1'
             return new_branching_logic
 
-
         return orig_bl
+
+
+    def edit_scid_bl(self, variable, orig_bl):
+        """
+        instructions from nora : chrscid_b45 - chrscid_b64 are blank
+        only if any of the fields chrscid_b1-chrscid_b14
+        or chrscid_b16-chrscid_b21 or chrscid_b24 or chrscid_b26-chrscid_b38
+        are 3 OR if chrscid_b40 is 3 AND chrscid_b41 = 3 OR chrscid_b42 = 3
+        AND chrscid_b43 = 3. if all these fields are not a 3 remove the errors
+        """
+    
+        for var_count in range(45, 65):
+            if variable == f'chrscid_b{var_count}':
+                new_bl = f"({orig_bl}) and ("
+                new_bl = self.loop_scid_conditions(14, 1, new_bl) + " or " 
+                new_bl = self.loop_scid_conditions(21, 16, new_bl) + " or "
+                new_bl = self.loop_scid_conditions(38, 26, new_bl)
+                new_bl += (" or ([chrscid_b40] = 3 and [chrscid_b41] = 3)"
+                         " or ([chrscid_b42] = 3 and [chrscid_b43] = 3))")
+                checkbox_conds = {'chrscid_b48' : 'chrscid_b49',
+                'chrscid_b53' : 'chrscid_b54', 'chrscid_b58' : 'chrscid_b59',
+                'chrscid_b63' : 'chrscid_b64'}
+                for text_var, checkbox_var in checkbox_conds.items():
+                    if variable == text_var:
+                        new_bl += f" and ([{checkbox_var}(1)] <> 1)"
+                return new_bl
+            
+        if variable == "chrscid_c56_c65":
+            new_bl = f"({orig_bl})"
+            new_bl += f" and ([chrscid_b23(1)] <> 1)"
+            return new_bl
+        
+        return orig_bl
+
+    def loop_scid_conditions(self, range_max : int, range_min : int, bl : str):
+        new_bl = bl
+        for cond_var_count in range(range_min, range_max):
+            new_bl+= f"[chrscid_b{cond_var_count}] = 3 or "
+        new_bl += f"[chrscid_b{range_max}] = 3"
+
+        return new_bl
+
+                
+                
+                    
+

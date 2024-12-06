@@ -44,8 +44,7 @@ class CalculateResolvedErrors():
             self.out_paths[path_pref] = f"{self.output_path}combined_outputs/{path_pref}_output/combined_qc_flags.csv"
         self.new_output = []
         
-        
-
+    
         self.old_output_csv_path = f'{self.output_path}combined_outputs/old_output/combined_qc_flags.csv'
         self.new_output_csv_path = f'{self.output_path}combined_outputs/new_output/combined_qc_flags.csv'
         self.dropbox_data_folder = f'{self.output_path}formatted_outputs/dropbox_files/'
@@ -153,10 +152,14 @@ class CalculateResolvedErrors():
     def determine_resolved_rows(self):
         print('-------------------------RESOLVED CALCULATING')
         new_df = pd.read_csv(self.out_paths['new'], keep_default_na = False)
-        new_df = new_df[new_df['currently_resolved'] == False]
+        #new_df = new_df[new_df['currently_resolved'] == False]
         
         #new_df = new_df.drop('NDA Excluder', axis=1)
         #old_df = old_df.drop('NDA Excluder', axis=1)
+        if os.path.exists(self.out_paths['current']):
+            curr_df = pd.read_csv(self.out_paths['current'])
+            curr_df.to_csv(self.out_paths['old'],index = False)
+
 
         if os.path.exists(self.out_paths['old']):
             old_df = pd.read_csv(self.out_paths['old'], keep_default_na = False)
@@ -172,12 +175,8 @@ class CalculateResolvedErrors():
             merged_df = merged.fillna('')
             new_df = self.compare_old_new_outputs(orig_columns,cols_to_merge, merged_df)
 
-        if os.path.exists(self.out_paths['current']):
-            curr_df = pd.read_csv(self.out_paths['current'])
-            curr_df.to_csv(self.out_paths['old'],index = False)
-
-
         new_df.to_csv(self.out_paths['current'], index = False)
+
 
     def compare_old_new_outputs(self, orig_columns,cols_to_merge, merged_df):
         curr_date = str(datetime.today().date())

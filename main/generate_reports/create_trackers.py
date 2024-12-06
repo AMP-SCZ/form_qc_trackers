@@ -78,7 +78,8 @@ class CreateTrackers():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
         
     def run_script(self):
-        self.combined_tracker = pd.read_csv(self.curr_output_csv_path, keep_default_na= False)
+        self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
+        keep_default_na= False)
         self.collect_new_reports()
         self.generate_reports()
         self.upload_trackers()

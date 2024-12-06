@@ -62,14 +62,12 @@ class FormCheck():
             
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
-            
-            
+        
             if filter_excl_vars:
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
                 if any(var in excl_vars for var in all_vars):
                     print(len(excl_vars))
                     return
-            
                 
             error_message = func(instance,curr_row,
             filtered_forms,all_vars,changed_output_vals={},
@@ -83,8 +81,14 @@ class FormCheck():
                     if var in instance.excl_bl.keys():
                         return 
                     bl = instance.conv_bl[var]["converted_branching_logic"]
-                    if bl != "" and eval(bl) == False:
-                        return
+                    try:
+                        if bl != "" and eval(bl) == False:
+                            return
+                    except Exception as e:
+                        print(e)
+                        print(bl)
+                        print(var)
+                        sys.exit(1)  
                     
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)

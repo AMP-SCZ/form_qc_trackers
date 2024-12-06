@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import sys
 import json
+from datetime import datetime 
 
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 sys.path.insert(1, parent_dir)
@@ -19,28 +20,52 @@ class TestTransition():
         with open(f'{self.utils.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
 
-    def run_script(self):
-        self.compare_col_existence_comparison()
+        self.prev_comb_csv_path = f"{self.config_info['paths']['output_path']}old_comb_csvs/"
 
-    def compare_non_blank_changes(self):
+        if not os.path.exists(self.prev_comb_csv_path):
+            os.makedirs(self.prev_comb_csv_path)
+
+    
+
+    def run_script(self):
+        #self.compare_non_blank_changes(self.orig_combined_csv_path,
+        #self.new_combined_csv_path, 'csv_transition_qc.csv')
+        
+        self.compare_non_blank_changes(self.prev_comb_csv_path,
+        self.new_combined_csv_path, f'daily_changes/daily_changes_{str(datetime.today().date())}.csv')
+
+        self.save_prev_csvs()
+
+
+    def save_prev_csvs(self):
         tp_list = self.utils.create_timepoint_list()
         for network in ['PRONET','PRESCIENT']:
             for tp in tp_list: # combined-PRONET-screening-day1to1.csv
                 print(tp)
                 print(network)
-                orig_path = f'{self.orig_combined_csv_path}combined-{network}-{tp}-day1to1.csv'
+                orig_path = f'{self.new_combined_csv_path}combined-{network}-{tp}-day1to1.csv'
+                combined_df = pd.read_csv(orig_path, keep_default_na=False, low_memory = False)
+                combined_df.to_csv(f'{self.prev_comb_csv_path}combined-{network}-{tp}-day1to1.csv')
+
+    def compare_non_blank_changes(self,orig_folder_path, new_folder_path,output_name):
+        tp_list = self.utils.create_timepoint_list()
+        for network in ['PRONET','PRESCIENT']:
+            for tp in tp_list: # combined-PRONET-screening-day1to1.csv
+                print(tp)
+                print(network)
+                orig_path = f'{orig_folder_path}combined-{network}-{tp}-day1to1.csv'
+                if not os.path.exists(orig_path):
+                    continue
                 orig_combined_df = pd.read_csv(orig_path, keep_default_na=False, low_memory = False)
-                new_path = f'{self.new_combined_csv_path}combined-{network}-{tp}-day1to1.csv'
+                
+                new_path = f'{new_folder_path}combined-{network}-{tp}-day1to1.csv'
+                if not os.path.exists(new_path):
+                    continue
                 new_combined_df = pd.read_csv(new_path, keep_default_na=False,low_memory = False)
-
                 common_columns = orig_combined_df.columns.intersection(new_combined_df.columns)
-
                 orig_combined_df = orig_combined_df[common_columns]
                 new_combined_df = new_combined_df[common_columns]
-
                 merged_df = orig_combined_df.merge(new_combined_df, on='subjectid', suffixes=('_df1', '_df2'))
-
-
                 for row in merged_df.itertuples():
                     print(row.Index)
                     for col in orig_combined_df.columns:
@@ -51,21 +76,13 @@ class TestTransition():
                                 if self.utils.can_be_float(new_val) and self.utils.can_be_float(orig_val)\
                                 and float(new_val) == float(orig_val):
                                     continue
-                                if '__' in col:
-                                    continue
-
-                                if len(str(getattr(row, f"{col}_df2"))) > 15:
-                                    continue
-                                if any(char.isalpha() for char in str(getattr(row, f"{col}_df2"))):
-                                    continue
-
                                 self.diff_output.append({'network':network,
                                 'timepoint':tp,'subject':row.subjectid,
                                 'var_changed':col,'orig_val':getattr(row, f"{col}_df1"),
                                 'new_val':getattr(row, f"{col}_df2")})
                 output_df = pd.DataFrame(self.diff_output)   
                 output_df.to_csv(
-                f"{self.config_info['paths']['output_path']}csv_transition_qc.csv",
+                f"{self.config_info['paths']['output_path']}{output_name}",
                 index = False)               
 
     def compare_col_existence_comparison(self):
