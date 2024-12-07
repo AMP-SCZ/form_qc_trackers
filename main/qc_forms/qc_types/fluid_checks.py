@@ -45,7 +45,8 @@ class FluidChecks(FormCheck):
         self.white_bc_check(row,forms,['chrcbc_wbcinrange',
         'chrcbc_wbcsum','chrcbc_wbc'],{"reports":blood_reports})
         self.cbc_compl_check(row,['cbc_with_differential'],
-        ['cbc_with_differential_complete','chrblood_cbc'],{"reports":blood_reports,"affected_forms":
+        ['cbc_with_differential_complete','chrblood_cbc'],
+        {"reports":blood_reports,"affected_forms":
         ['cbc_with_differential','blood_sample_preanalytic_quality_assurance']})
 
         self.cbc_unit_checks(row)

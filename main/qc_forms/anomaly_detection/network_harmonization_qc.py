@@ -9,9 +9,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 
-
 class HarmonizationQC():
-
     def __init__(self):
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
