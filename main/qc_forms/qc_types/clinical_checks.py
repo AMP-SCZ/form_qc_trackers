@@ -29,7 +29,7 @@ class ClinicalChecks(FormCheck):
         'psychs_p1p8_fu','psychs_p1p8_fu_hc'
         'chrpred_interview_date','sociodemographics']
 
-        self.scid_daignosis_dict = self.utils.load_dependency_json(
+        self.scid_diagnosis_dict = self.utils.load_dependency_json(
         'scid_diagnosis_vars.json')
 
         self.call_checks(row)
@@ -72,7 +72,7 @@ class ClinicalChecks(FormCheck):
         
 
     def call_scid_diagnosis_check(self,row):
-        for checked_variable,conditions in self.scid_daignosis_dict.items(): 
+        for checked_variable,conditions in self.scid_diagnosis_dict.items(): 
             self.scid_diagnosis_check(\
             row,checked_variable,conditions['diagnosis_variables'],\
             conditions['disorder'],True,conditions['extra_conditionals'])
