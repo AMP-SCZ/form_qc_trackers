@@ -49,7 +49,8 @@ class FluidChecks(FormCheck):
         {"reports":blood_reports,"affected_forms":
         ['cbc_with_differential','blood_sample_preanalytic_quality_assurance']})
 
-        self.cbc_unit_checks(row)
+        if self.network != 'PRESCIENT':
+            self.cbc_unit_checks(row)
 
     def cbc_unit_checks(self,row):
         forms = ['cbc_with_differential']

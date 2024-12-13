@@ -72,7 +72,7 @@ class TestTransition():
                         if col not in ['subjectid','visit_status','visit_status_string']:
                             orig_val= getattr(row, f"{col}_df1")
                             new_val = getattr(row, f"{col}_df2")
-                            if str(orig_val) not in ['',str(new_val)]:
+                            if str(orig_val) not in [str(new_val)]:
                                 if self.utils.can_be_float(new_val) and self.utils.can_be_float(orig_val)\
                                 and float(new_val) == float(orig_val):
                                     continue

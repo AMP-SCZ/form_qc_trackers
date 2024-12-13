@@ -29,6 +29,9 @@ class ClinicalChecks(FormCheck):
         'psychs_p1p8_fu','psychs_p1p8_fu_hc'
         'chrpred_interview_date','sociodemographics']
 
+        self.scid_daignosis_dict = self.utils.load_dependency_json(
+        'scid_diagnosis_vars.json')
+
         self.call_checks(row)
                
     def __call__(self):
@@ -40,7 +43,186 @@ class ClinicalChecks(FormCheck):
         self.call_cssrs_checks(row)
         self.call_twenty_one_day_check(row)
         self.call_tbi_checks(row)
+        self.call_scid_checks(row)
 
+    def call_scid_checks(self, row):
+        changed_output = {'reports': ['Main Report','Scid Report']}
+        form = 'scid5_psychosis_mood_substance_abuse'
+        self.call_scid_diagnosis_check(row)
+        self.depressed_mood_check(row, [form], 
+        ['chrscid_a27','chrscid_a28','chrscid_a48_1'],
+        changed_output)   
+        self.major_depressive_check(row, [form], 
+        ['chrscid_a26_53','chrscid_a25','chrscid_a51'],
+        changed_output)  
+        self.mood_episode_check(row, [form], 
+        ['chrscid_a25','chrscid_a22','chrscid_a22_1'],
+        changed_output)  
+        self.mood_symptoms_check(row, [form], 
+        ['chrscid_d1','chrscid_a25','chrscid_a51','chrscid_a70',
+        'chrscid_a91','chrscid_a108','chrscid_a129',
+        'chrscid_a138','chrscid_a153','chrscid_a170'],
+        changed_output)   
+        self.curr_major_depressive_threshold_check(row, [form], 
+        ['chrscid_a1','chrscid_a2','chrscid_a25'],
+        changed_output)  
+        self.past_major_depressive_threshold_check(row, [form], 
+        ['chrscid_a27','chrscid_a28','chrscid_a51'],
+        changed_output)          
+        
+
+    def call_scid_diagnosis_check(self,row):
+        for checked_variable,conditions in self.scid_daignosis_dict.items(): 
+            self.scid_diagnosis_check(\
+            row,checked_variable,conditions['diagnosis_variables'],\
+            conditions['disorder'],True,conditions['extra_conditionals'])
+            self.scid_diagnosis_check(row,checked_variable,conditions[\
+            'diagnosis_variables'],conditions['disorder'],\
+            False,conditions['extra_conditionals'])
+
+    def scid_diagnosis_check(
+        self,curr_row,variable,conditional_variables,
+        disorder,fulfilled,extra_conditionals
+    ):
+        form = 'scid5_psychosis_mood_substance_abuse'
+        affected_vars = conditional_variables
+        changed_output = {'reports': ['Main Report','Scid Report']}
+        affected_vars.append(variable)
+        if fulfilled == True:
+            for condition in conditional_variables:
+                if hasattr(curr_row,condition) and \
+                getattr(curr_row,condition) not in [3,3.0,'3','3.0']:
+                    return 
+            if extra_conditionals != '':
+                for conditional in extra_conditionals:
+                    if not eval(conditional):
+                        return 
+            self.scid_diagnostic_criteria_check(curr_row, [form],
+            affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=True, 
+            diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)                    
+        else:
+            for condition in conditional_variables:
+                if hasattr(curr_row,condition) and \
+                getattr(curr_row,condition) not in [3,3.0,'3','3.0']:
+                    self.scid_diagnostic_criteria_check(curr_row, [form],
+                    affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=True, 
+                    diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)      
+            if extra_conditionals != '':
+                for conditional in extra_conditionals:
+                    if not eval(conditional):
+                        self.scid_diagnostic_criteria_check(curr_row, [form],
+                        affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=True, 
+                        diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled) 
+
+    @FormCheck.standard_qc_check_filter 
+    def scid_diagnostic_criteria_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False, diagnostic_variable = '',
+        disorder = '', fulfilled = True
+    ):
+        if fulfilled and getattr(row,diagnostic_variable) not in self.utils.all_dtype([3]):
+            return f'{disorder} criteria are fulfilled, but it is not indicated.'
+        elif not fulfilled and getattr(row,diagnostic_variable) in self.utils.all_dtype([3]):
+            return f'{disorder} criteria are NOT fulfilled, but it is indicated.'
+
+
+    @FormCheck.standard_qc_check_filter 
+    def mania_not_fulfilled_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=['chrscid_d28'],
+        filter_excl_vars=False
+    ):  
+        for var in ['chrscid_a70','chrscid_a91','chrscid_a108',
+        'chrscid_a129','chrscid_a138']:
+            if var in self.utils.all_dtype([3]):
+                return
+            
+        return 'chrscid_d28 has to be 3 since no manic or hypomanic episode was fulfilled.'
+    
+    @FormCheck.standard_qc_check_filter 
+    def depressed_mood_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        if row.chrscid_a27 in [3,3.0,'3','3.0'] and row.chrscid_a28 in [3,3.0,'3','3.0'] and\
+        (row.chrscid_a48_1 not in [2,2.0,'2','2.0']): 
+            return 'Fulfills both main criteria but was counted incorrectly, a27, a28, a48_1'
+        elif ((row.chrscid_a27 in [3,3.0,'3','3.0'] and (row.chrscid_a28 in\
+        [2,2.0,'2','2.0'] or row.chrscid_a28 in [1,1.0,'1','1.0'])) or\
+        (row.chrscid_a28 in [3,3.0,'3','3.0'] and (row.chrscid_a27\
+        in [2,2.0,'2','2.0'] or row.chrscid_a27 in [1,1.0,'1','1.0']))) and\
+        (row.chrscid_a48_1 not in [1,1.0,'1','1.0']):
+            return 'Fulfills main criteria but further value was wrong, a27, a28, a48_1'
+        
+    @FormCheck.standard_qc_check_filter 
+    def major_depressive_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        if (self.utils.can_be_float(row.chrscid_a26_53) and row.chrscid_a26_53
+        not in self.utils.missing_code_list and 
+        float(row.chrscid_a26_53) < 1 and (row.chrscid_a25\
+        in [3,3.0,'3','3.0'] or row.chrscid_a51 in [3,3.0,'3','3.0'])):
+            return ('has no indication of total mde episodes'
+            ' fulfilled in life even though fulfills current major depression. a26_53, a51')
+        elif (self.utils.can_be_float(row.chrscid_a26_53) and row.chrscid_a26_53
+        not in self.utils.missing_code_list and float(row.chrscid_a26_53) > 0
+        and (row.chrscid_a25 not in [3,3.0,'3','3.0']\
+        and row.chrscid_a51 not in [3,3.0,'3','3.0'])):
+            return ('fulfills more manic episodes than 0 but there'
+            ' is no indication of past or current depressive episode. a26_53, a25')
+        
+    @FormCheck.standard_qc_check_filter 
+    def curr_major_depressive_threshold_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        
+        if (row.chrscid_a1 not in self.utils.all_dtype([3]) 
+        and row.chrscid_a2 not in self.utils.all_dtype([3])):
+            if row.chrscid_a25 in self.utils.all_dtype([3]):
+                return ('main criteria for major depressive episode'
+                ' both below threshold but major depressive episode fulfilled.')
+            
+    @FormCheck.standard_qc_check_filter 
+    def past_major_depressive_threshold_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        
+        if (row.chrscid_a27 not in self.utils.all_dtype([3]) 
+        and row.chrscid_a28 not in self.utils.all_dtype([3])):
+            if row.chrscid_a51 in self.utils.all_dtype([3]):
+                return ('main criteria for past major depressive episode'
+                ' both below threshold but past major depressive episode fulfilled.')
+
+        
+    @FormCheck.standard_qc_check_filter
+    def mood_symptoms_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):  
+        if ((any(getattr(row,var) in self.utils.all_dtype([3]) for var in ['chrscid_a25',
+        'chrscid_a51','chrscid_a70','chrscid_a91','chrscid_a108','chrscid_a129',
+        'chrscid_a138','chrscid_a153','chrscid_a170'])) 
+        and row.chrscid_c26 not in self.utils.all_dtype([3])):
+            if row.chrscid_d1 not in self.utils.all_dtype([1]):
+                return ('chrscid_d1 needs to be checked'
+                ' if there are any clinically significant mood symptoms.')
+        
+        
+    @FormCheck.standard_qc_check_filter  
+    def mood_episode_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        if (row.chrscid_a22 not in (self.utils.missing_code_list+['']) and
+        row.chrscid_a22_1 not in (self.utils.missing_code_list+[''])):
+            if (self.utils.can_be_float(row.chrscid_a22) and float(row.chrscid_a22) > 4 and
+            self.utils.can_be_float(row.chrscid_a22_1) and float(row.chrscid_a22_1) > 0  and 
+            row.chrscid_a25 in (self.utils.missing_code_list+[''])):
+                return ('A. MOOD EPISODES: subject fulfills more than 4'
+                ' criteria of depression but further questions are not asked: start checking a22, a22_1, a25')
+           
     def call_global_function_checks(self,row):
         """
         Checks for contradictions in the

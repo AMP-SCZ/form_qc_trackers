@@ -15,6 +15,7 @@ class GeneralChecks(FormCheck):
         super().__init__(timepoint, network,form_check_info)
         self.test_val = 0
         self.call_checks(row)
+        
                
     def __call__(self):
 
@@ -27,7 +28,8 @@ class GeneralChecks(FormCheck):
         self.check_form_completion(row)
         for guid_var in ['chrguid_guid','chrguid_pseudoguid']:
             self.guid_format_check(row, ['guid_form'],
-            [guid_var],{'reports':['Main Report','Non Team Forms'],"withdrawn_enabled" : True},
+            [guid_var],{'reports':['Main Report','Non Team Forms'],
+            "withdrawn_enabled" : True},
             bl_filtered_vars=[guid_var],filter_excl_vars=True,
             checked_guid_var=guid_var)
 
@@ -42,7 +44,20 @@ class GeneralChecks(FormCheck):
                         report_list.append(team)
                 if self.standard_form_filter(row, form):
                     for var in blank_check_forms[form]:
+                        if self.prescient_scid_filter(var, row) == True:
+                            continue
                         self.check_if_blank(row, [form], [var],{"reports": report_list},[var])
+
+    def prescient_scid_filter(self, var, row):
+        if var in self.module_b_vars or var in self.module_c_vars:
+            if self.network == 'PRESCIENT':
+                if (row.chrscid_b1 in (
+                self.utils.missing_code_list + [''])
+                or row.chrscid_b16 in (
+                self.utils.missing_code_list + [''])):
+                    return True
+        return False
+
 
     @FormCheck.standard_qc_check_filter
     def check_if_blank(self, row, filtered_forms,
@@ -50,7 +65,12 @@ class GeneralChecks(FormCheck):
         filter_excl_vars=True
     ):  
         if getattr(row, all_vars[0]) == '':
-            return "Variable is Blank"
+            return "Variable is blank."
+        
+        if (self.network == 'PRESCIENT' and 'chrscid' in
+        all_vars[0] and getattr(row, all_vars[0]) 
+        in self.utils.missing_code_list):
+            return "Variable is a missing code."
         return 
     
     def call_spec_val_check(self,row):
@@ -106,6 +126,18 @@ class GeneralChecks(FormCheck):
             return
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
             return f'GUID in incorrect format. GUID was reported to be {guid}.'
+
+
+    def age_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        age = self.subject_info[row.subjectid]["age"]
+        if age == "unknown":
+            return "Age is Unknown."
+        elif self.utils.can_be_float(age) and age < 12 or age > 30:
+            return f"Age ({age}) is out of range."
+
 
 
 

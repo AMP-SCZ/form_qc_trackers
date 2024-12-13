@@ -98,7 +98,17 @@ class DefineEssentialFormVars():
         variable_list = filtered_df['Variable / Field Name'].tolist()
 
         return variable_list
-                  
+    
+    def collect_user_variables(self):
+        filterered_df = self.data_dictionary_df[
+        (self.data_dictionary_df[
+        'Variable / Field Name'].str.endswith('redcap_user')) | self.data_dictionary_df[
+        'Variable / Field Name'].isin(['chrcssrsfu_redacp_user','chrpps_redcao_user'])]
+        
+        user_vars = filterered_df['Variable / Field Name'].tolist()
+
+        return user_vars
+   
     def collect_important_vars(self) -> dict:
         """
         Creates lists of all entry date,
@@ -147,6 +157,8 @@ class DefineEssentialFormVars():
         all_import_vars['entry_date_var'].extend([
         'chrblood_entry_date','chrsaliva_entry_date',
         'chrpred_entry_date'])
+
+        all_import_vars['redcap_user_var'] = self.collect_user_variables()
         
         # filters out irrelevant date variables
         for var_type in ['entry_date_var','interview_date_var']:
@@ -213,6 +225,8 @@ class CollectMiscVariables():
 
     def __call__(self):
         var_info = {"blood_vars":self.collect_blood_var_types(),
+                    "scid_vars": {"module_b_vars":self.collect_scid_module_b_vars(),
+                                  "module_c_vars":self.collect_scid_module_c_vars()},
                     "var_forms" : self.collect_form_per_var(),
                     'var_translations' : self.create_variable_translations()}
 
@@ -256,7 +270,34 @@ class CollectMiscVariables():
         form_per_var = filterered_df.set_index('variable')['form'].to_dict()
 
         return form_per_var
+
+    def collect_scid_module_b_vars(self):
+        scid_df = self.data_dictionary_df[
+        self.data_dictionary_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
+        all_scid_vars = scid_df['Variable / Field Name'].tolist()
+        exceptions = ['chrscid_bipolar_sub_desc',
+        'chrscid_bp_current_severity',
+        'chrscid_bp_recent_ep']
+        
+        module_b_vars = [var
+        for var in all_scid_vars if 'chrscid_b'
+        in var and var not in exceptions]
     
+        return module_b_vars
+    
+    def collect_scid_module_c_vars(self):
+        scid_df = self.data_dictionary_df[
+        self.data_dictionary_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
+        all_scid_vars = scid_df['Variable / Field Name'].tolist()
+        
+        module_c_vars = []
+        for var in all_scid_vars:
+            for num in range(1,80):
+                if f'c{num}' in var:
+                    module_c_vars.append(var)
+    
+        return module_c_vars
+
 
     def create_variable_translations(self):
         """Removes some unwanted characters from
@@ -276,7 +317,6 @@ class CollectMiscVariables():
         filtered_data_dict = self.data_dictionary_df[list(col_renames.keys())]
         filtered_data_dict.rename(columns=col_renames, inplace=True)
         
-
         for row in filtered_data_dict.itertuples():
             if str(row.field_label) != '':
                 pattern = r'<.*?>'

@@ -39,6 +39,8 @@ class FormCheck():
         'sociodemographics','scid5_psychosis_mood_substance_abuse']
 
         self.priority_timepoints = ['screening']
+        self.module_b_vars = self.grouped_vars['scid_vars']['module_b_vars']
+        self.module_c_vars = self.grouped_vars['scid_vars']['module_c_vars']
 
     def call_checks(self):
         pass
@@ -130,9 +132,31 @@ class FormCheck():
         
         if self.check_if_missing(curr_row, form) == True:
             return False
+        
+        if self.extra_form_conditions(curr_row, form) == False:
+            return False
                    
         return True
-    
+
+    def extra_form_conditions(self,curr_row : tuple, form : str):
+        if form == 'pubertal_developmental_scale':
+            age = self.subject_info[curr_row.subjectid]["age"]
+            if not self.utils.can_be_float(age) or float(age) > 18:
+                return False
+            return True
+        elif 'axivity' in form:
+            opt_in = self.subject_info[curr_row.subjectid]["axivity_opt"]
+            if opt_in in self.utils.all_dtype([1]):
+                return True      
+            return False
+        elif 'mindlamp' in form:
+            opt_in = self.subject_info[curr_row.subjectid]["mindlamp_opt"]
+            if opt_in in self.utils.all_dtype([1,2]):
+                return True      
+            return False
+        else: 
+            return True
+
     def check_if_missing(self,curr_row : tuple, form):
         compl_var = self.important_form_vars[form]["completion_var"]
         missing_var = self.important_form_vars[form]["missing_var"]

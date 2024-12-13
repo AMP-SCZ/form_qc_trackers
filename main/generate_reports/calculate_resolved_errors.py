@@ -85,6 +85,7 @@ class CalculateResolvedErrors():
                     site_output = network_dir + f'/{site}/{network.name}_{site_abr}_Output.xlsx'
                     site_cols = self.formatted_column_names[network.name]["sites"]
                     if site_abr == 'ME':
+                        # melbourne not working
                         reports_to_read = ['Non Team Forms']
                         for ra in self.melbourne_ras:
                             ra_output = network_dir + f'/{site}/{ra}/{network.name}_Melbourne_RA_Output.xlsx'
@@ -150,7 +151,6 @@ class CalculateResolvedErrors():
 
 
     def determine_resolved_rows(self):
-        print('-------------------------RESOLVED CALCULATING')
         new_df = pd.read_csv(self.out_paths['new'], keep_default_na = False)
         #new_df = new_df[new_df['currently_resolved'] == False]
         
@@ -159,7 +159,6 @@ class CalculateResolvedErrors():
         if os.path.exists(self.out_paths['current']):
             curr_df = pd.read_csv(self.out_paths['current'])
             curr_df.to_csv(self.out_paths['old'],index = False)
-
 
         if os.path.exists(self.out_paths['old']):
             old_df = pd.read_csv(self.out_paths['old'], keep_default_na = False)

@@ -61,14 +61,14 @@ class CollectSubjectInfo():
     def collect_screening_info(self):
         tp = 'screening'
         for network in ['PRONET','PRESCIENT']:
-            
             combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
             col_list = ['subjectid','visit_status_string',
             'chrcrit_part', 'chrcrit_included']
             col_list = [col for col in col_list if col in combined_df.columns]
             combined_df = combined_df[['subjectid','visit_status_string',
-            'chrcrit_part', 'chrcrit_included','chrpsychs_scr_interview_date']]
+            'chrcrit_part', 'chrcrit_included','chrpsychs_scr_interview_date',
+            'chric_actigraphy','chric_passive']]
             for row in combined_df.itertuples():
                 sub = row.subjectid
                 self.subject_info.setdefault(sub, {})
@@ -82,6 +82,10 @@ class CollectSubjectInfo():
                 'visit_status'] = row.visit_status_string
                 self.subject_info[sub][
                 'psychs_screen_date'] = row.chrpsychs_scr_interview_date
+                self.subject_info[sub][
+                'axivity_opt'] = row.chric_actigraphy 
+                self.subject_info[sub][
+                'mindlamp_opt'] = row.chric_passive
 
     def collect_baseline_info(self):
         tp = 'baseline'

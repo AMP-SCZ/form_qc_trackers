@@ -145,7 +145,19 @@ class OrganizeReports():
         'chrpas_pmod_adult3v1','chrmri_t2_ge','chrcssrsfu_skip_aa',
         'chric_surveys','chrdbb_phone_model','chrdbb_phone_software','chrblood_pl1id_2',
         'chrdemo_parent_fa','chrdemo_parent_mo','chrmri_dmri176_qc',
-        'chric_smartphone','chrscid_cur_diagnosis','chrscid_diagnosis_ruled_out']
+        'chric_smartphone','chrscid_cur_diagnosis','chrscid_diagnosis_ruled_out','chrscid_as',
+        'chrscid_e48_50','chrscid_c56_c65','chrscid_b50','chrscid_b15','chrscid_a173',
+        'chrscid_a26_53','chrscid_b61','chrscid_b62','chrscid_b63','chrscid_b56',
+        'chrscid_b60','chrscid_b57','chrscid_b58','chrscid_b55','chrscid_b51',
+        'chrscid_e153','chrscid_b53','chrscid_b52','chrscid_d61_d65','chrscid_b50',
+        'chrscid_e16','chrscid_e168_306','chrscid_d2','chrscid_d59','chrscid_e48_50',
+        'chrscid_b46','chrscid_remote','chrscid_e167','chrscid_e21','chrscid_e19_37',
+        'chrscid_b48','chrscid_b47','chrscid_e333','chrscid_b45','chrscid_e46','chrscid_e207',
+        'chrscid_e203_205','chrscid_a41','chrscid_e304','chrscid_a37','chrscid_d5',
+        'chrscid_a106','chrscid_a112','chrscid_d29','chrscid_a40','chrscid_a94',
+        'chrscid_a111','chrscid_a46','chrscid_a47','chrscid_a5','chrscid_e334','chrscid_a120',
+        'chrscid_as43','chrscid_a8','chrscid_d45_d49_d54_d56','chrscid_a7','chrscid_a11',
+        'chrscid_entry_date','chrscid_opioids_yn']
 
         pronet_excl_strings.extend(self.find_new_added_vars())
 
@@ -154,15 +166,20 @@ class OrganizeReports():
         'PRESCIENT':(pronet_excl_strings + ['chrdemo_racial','chrsaliva_food',
         'chrscid_overview_version','chrblood_freezerid',
         'chrdbb_phone_model','chrdbb_phone_software',
-        'wb3id','se3id','se2id','wb2id','chrblood_rack_barcode'])}
+        'wb3id','se3id','se2id','wb2id','chrblood_rack_barcode','chrscid_inhalant_yn',
+        'chrscid_opioids_yn','chrscid_phencyclidine_yn',
+        'chrscid_othersub_yn','chrscid_sedhypanx_yn',
+        'chrscid_stimulant_yn','chrscid_hallucinogen_yn','chrscid_cannabis_yn'
+        ])}
+
+        for x in range(1,16):
+            excluded_strings['PRESCIENT'].append(f'chrscid_s{x}_yn')
 
         for network in ['PRONET','PRESCIENT']:
             filtered_df = self.utils.apply_df_str_filter(
             self.data_dict_df, excluded_strings[network], 'Variable / Field Name')
             excluded_vars[network] = filtered_df['Variable / Field Name'].tolist()
-        
-        excluded_vars['PRESCIENT'].extend(self.collect_scid_module_b_vars())
-        
+                
         return excluded_vars
 
     def collect_psychs_variables(self):
@@ -194,20 +211,6 @@ class OrganizeReports():
         print(essential_psychs_vars)
 
         return essential_psychs_vars
-    
-    def collect_scid_module_b_vars(self):
-        scid_df = self.data_dict_df[
-        self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
-        all_scid_vars = scid_df['Variable / Field Name'].tolist()
-        exceptions = ['chrscid_bipolar_sub_desc',
-        'chrscid_bp_current_severity',
-        'chrscid_bp_recent_ep']
-        
-        module_b_vars = [var
-        for var in all_scid_vars if 'chrscid_b'
-        in var and var not in exceptions]
-    
-        return module_b_vars
     
     def find_new_added_vars(self):
         depen_path = self.config_info['paths']['dependencies_path']

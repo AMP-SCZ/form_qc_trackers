@@ -22,6 +22,7 @@ class TransformBranchingLogic():
 
         self.data_dictionary_df = data_dictionary_df
 
+
         self.all_vars = self.data_dictionary_df['Variable / Field Name'].tolist()
         self.all_converted_branching_logic = {}
         self.manual_conversions = {"chr_ae1date_dr":
@@ -289,7 +290,24 @@ class TransformBranchingLogic():
         variable: variable from current
         data dictionary row
         """
+  
+        branch_logic_edits =  {
+            "chrtbi_parent_headinjury": 
+            "[chrtbi_sourceinfo] = '3' or [chrtbi_sourceinfo] ='2'",
+            "chrtbi_subject_head_injury":
+            "[chrtbi_sourceinfo] ='3' or [chrtbi_sourceinfo] ='1'",
+            "chrtbi_age_first_inj": 
+            "[chrtbi_parent_headinjury] ='1' or [chrtbi_subject_head_injury] ='1'",
+            "chrtbi_age_recent_inj":
+            "[chrtbi_parent_headinjury] ='1' or [chrtbi_subject_head_injury] ='1'",
+            "chrtbi_number_injs":
+            "[chrtbi_parent_headinjury] ='1' or [chrtbi_subject_head_injury] ='1'",
+        }
 
+        for var, new_bl in branch_logic_edits.items():
+            if variable == var:
+                branching_logic = new_bl
+                return branching_logic
         if 'chrtbi' in variable:
             for injury_count in [4,5]:
                 if f'{injury_count}' in variable:
@@ -338,7 +356,7 @@ class TransformBranchingLogic():
             new_branching_logic = '[chrpsychs_av_audio_yn] = 0'
             return new_branching_logic
         if variable == 'chrpsychs_av_qual_desc':
-            new_branching_logic = '[chrpsychs_av_quality] = 1'
+            new_branching_logic = '[chrpsychs_av_quality] = 0'
             return new_branching_logic
         elif variable == 'chrpsychs_av_dev_desc':
             new_branching_logic = '[chrpsychs_av_deviation] = 0'
@@ -354,7 +372,7 @@ class TransformBranchingLogic():
         """
         instructions from nora : chrscid_b45 - chrscid_b64 are blank
         only if any of the fields chrscid_b1-chrscid_b14
-        or chrscid_b16-chrscid_b21 or chrscid_b24 or chrscid_b26-chrscid_b38
+        or chrscid_b16-chrscid_bf21 or chrscid_b24 or chrscid_b26-chrscid_b38
         are 3 OR if chrscid_b40 is 3 AND chrscid_b41 = 3 OR chrscid_b42 = 3
         AND chrscid_b43 = 3. if all these fields are not a 3 remove the errors
         """
