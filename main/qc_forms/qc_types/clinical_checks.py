@@ -68,8 +68,12 @@ class ClinicalChecks(FormCheck):
         changed_output)  
         self.past_major_depressive_threshold_check(row, [form], 
         ['chrscid_a27','chrscid_a28','chrscid_a51'],
-        changed_output)          
-        
+        changed_output)       
+        self.mania_not_fulfilled_check(row, [form], 
+        ['chrscid_d28','chrscid_a70','chrscid_a91','chrscid_a108',
+        'chrscid_a129','chrscid_a138'],
+        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)        
+
 
     def call_scid_diagnosis_check(self,row):
         for checked_variable,conditions in self.scid_diagnosis_dict.items(): 
