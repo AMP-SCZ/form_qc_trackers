@@ -72,8 +72,20 @@ class ClinicalChecks(FormCheck):
         self.mania_not_fulfilled_check(row, [form], 
         ['chrscid_d28','chrscid_a70','chrscid_a91','chrscid_a108',
         'chrscid_a129','chrscid_a138'],
-        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)        
+        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
 
+        self.major_depressive_episode_check(row, [form], 
+        ['chrscid_d26','chrscid_a51','chrscid_a25'],
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
+
+        self.manic_episode_check(row, [form], 
+        ['chrscid_a108','chrscid_a70','chrscid_d2'],
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)
+
+        self.hypomanic_episode_check(row, [form], 
+        ['chrscid_d5','chrscid_a91','chrscid_a129'],
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
+  
 
     def call_scid_diagnosis_check(self,row):
         for checked_variable,conditions in self.scid_diagnosis_dict.items(): 
@@ -102,20 +114,20 @@ class ClinicalChecks(FormCheck):
                     if not eval(conditional):
                         return 
             self.scid_diagnostic_criteria_check(curr_row, [form],
-            affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=True, 
+            affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
             diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)                    
         else:
             for condition in conditional_variables:
                 if hasattr(curr_row,condition) and \
                 getattr(curr_row,condition) not in [3,3.0,'3','3.0']:
                     self.scid_diagnostic_criteria_check(curr_row, [form],
-                    affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=True, 
+                    affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
                     diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)      
             if extra_conditionals != '':
                 for conditional in extra_conditionals:
                     if not eval(conditional):
                         self.scid_diagnostic_criteria_check(curr_row, [form],
-                        affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=True, 
+                        affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
                         diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled) 
 
     @FormCheck.standard_qc_check_filter 
@@ -128,19 +140,82 @@ class ClinicalChecks(FormCheck):
             return f'{disorder} criteria are fulfilled, but it is not indicated.'
         elif not fulfilled and getattr(row,diagnostic_variable) in self.utils.all_dtype([3]):
             return f'{disorder} criteria are NOT fulfilled, but it is indicated.'
+        
+    @FormCheck.standard_qc_check_filter 
+    def major_depressive_episode_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        error_message = (f"Contradiction between variables"
+                        " related to major depressive episode"
+                        f" (chrscid_a25 = {row.chrscid_a25},"
+                        f" chrscid_a51 = {row.chrscid_a51}, chrscid_d26 = {row.chrscid_d26})")
+        
+        if (row.chrscid_a25 not in self.utils.all_dtype([3])
+        and row.chrscid_a51 not in self.utils.all_dtype([3])):
+            if row.chrscid_d26 in self.utils.all_dtype([3]):
+                return error_message
+        elif (row.chrscid_a25 in self.utils.all_dtype([3])
+        or row.chrscid_a51 in self.utils.all_dtype([3])):
+            if row.chrscid_d26 not in self.utils.all_dtype([3]):
+                return error_message
+            
+            
+    @FormCheck.standard_qc_check_filter 
+    def manic_episode_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        
+        error_message = (f"Contradiction between variables"
+                        " related to manic episode"
+                        f" (chrscid_a108 = {row.chrscid_a108},"
+                        f" chrscid_a70 = {row.chrscid_a70}, chrscid_d2 = {row.chrscid_d2})")
+        
+        if (row.chrscid_a70 not in self.utils.all_dtype([3])
+        and row.chrscid_a108 not in self.utils.all_dtype([3])):
+            if row.chrscid_d2 in self.utils.all_dtype([3]):
+                return error_message
+        elif (row.chrscid_a70 in self.utils.all_dtype([3])
+        or row.chrscid_a108 in self.utils.all_dtype([3])):
+            if row.chrscid_d2 not in self.utils.all_dtype([3]):
+                return error_message
+            
 
+    @FormCheck.standard_qc_check_filter 
+    def hypomanic_episode_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        
+
+        error_message = (f"Contradiction between variables"
+                        " related to hypomanic episode"
+                        f" (chrscid_a108 = {row.chrscid_a108},"
+                        f" chrscid_a70 = {row.chrscid_a70}, chrscid_d2 = {row.chrscid_d2})")
+        
+        if (row.chrscid_a91 not in self.utils.all_dtype([3])
+        and row.chrscid_a129 not in self.utils.all_dtype([3])):
+            if row.chrscid_d5 in self.utils.all_dtype([3]):
+                return error_message
+        elif (row.chrscid_a91 in self.utils.all_dtype([3])
+        or row.chrscid_a129 in self.utils.all_dtype([3])):
+            if row.chrscid_d5 not in self.utils.all_dtype([3]):
+                return error_message
+            
 
     @FormCheck.standard_qc_check_filter 
     def mania_not_fulfilled_check(self, row, filtered_forms,
-        all_vars, changed_output_vals, bl_filtered_vars=['chrscid_d28'],
+        all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=False
     ):  
         for var in ['chrscid_a70','chrscid_a91','chrscid_a108',
         'chrscid_a129','chrscid_a138']:
-            if var in self.utils.all_dtype([3]):
+            if getattr(row,var) in self.utils.all_dtype([3]):
                 return
             
-        return 'chrscid_d28 has to be 3 since no manic or hypomanic episode was fulfilled.'
+        if row.chrscid_d28 not in self.utils.all_dtype([3]):
+            return 'chrscid_d28 has to be 3 since no manic or hypomanic episode was fulfilled.'
     
     @FormCheck.standard_qc_check_filter 
     def depressed_mood_check(self, row, filtered_forms,
@@ -180,7 +255,6 @@ class ClinicalChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=False
     ):
-        
         if (row.chrscid_a1 not in self.utils.all_dtype([3]) 
         and row.chrscid_a2 not in self.utils.all_dtype([3])):
             if row.chrscid_a25 in self.utils.all_dtype([3]):
@@ -191,15 +265,13 @@ class ClinicalChecks(FormCheck):
     def past_major_depressive_threshold_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=False
-    ):
-        
+    ):  
         if (row.chrscid_a27 not in self.utils.all_dtype([3]) 
         and row.chrscid_a28 not in self.utils.all_dtype([3])):
             if row.chrscid_a51 in self.utils.all_dtype([3]):
                 return ('main criteria for past major depressive episode'
                 ' both below threshold but past major depressive episode fulfilled.')
 
-        
     @FormCheck.standard_qc_check_filter
     def mood_symptoms_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -212,7 +284,6 @@ class ClinicalChecks(FormCheck):
             if row.chrscid_d1 not in self.utils.all_dtype([1]):
                 return ('chrscid_d1 needs to be checked'
                 ' if there are any clinically significant mood symptoms.')
-        
         
     @FormCheck.standard_qc_check_filter  
     def mood_episode_check(self, row, filtered_forms,

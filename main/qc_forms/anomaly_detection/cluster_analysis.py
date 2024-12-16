@@ -33,7 +33,8 @@ class ClusterAnalysis():
         self.all_distances = []
         data_dict = self.utils.read_data_dictionary()
 
-        filtered_data_dict = data_dict[data_dict['Field Type'].isin(['text'])]
+        filtered_data_dict = data_dict[data_dict['Field Type'].isin(['radio','calc'])]
+        filtered_data_dict = data_dict[data_dict['Variable / Field Name'].str.contains('chrscid')]
 
         self.vars_to_check = filtered_data_dict['Variable / Field Name'].tolist()
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
@@ -171,6 +172,8 @@ class ClusterAnalysis():
         self.numerical_vars = {}
         for network in ['PRONET','PRESCIENT']:
             for tp in tp_list:
+                if 'base' not in tp:
+                    continue
                 output_df = pd.DataFrame()
                 self.completed_pairs.setdefault(network,{})
                 self.completed_pairs[network].setdefault(tp,[])
@@ -188,7 +191,7 @@ class ClusterAnalysis():
                             self.vars_to_check and var in self.numerical_vars[network][tp]
                             and var not in self.excluded_vars]
                 self.generate_numerical_outliers(combined_df,all_columns, tp, network)
-                """for var_ind in range(0,len(all_columns)):
+                for var_ind in range(0,len(all_columns)):
                     if all_columns[var_ind] not in self.numerical_vars[network][tp]:
                         continue
                     print(tp)
@@ -218,7 +221,7 @@ class ClusterAnalysis():
                                 ((output_df['normalized_deviation_local_score'] > 1) | 
                                 (output_df['normalized_deviation_global_score'] > 1))]
 
-                                output_df.to_csv(f'{self.output_path}{network}_{tp}_var_relation_data.csv', index = False)"""
+                                output_df.to_csv(f'{self.output_path}{network}_{tp}_var_relation_data.csv', index = False)
 
 
     def collect_numerical_vars(self, df, var_list, tp, network):
@@ -366,12 +369,15 @@ class ClusterAnalysis():
                 outlier_df = pd.read_csv('outlier_score_test.csv',keep_default_na=False)
                 
                 output_df = pd.DataFrame(self.qc_output_list)
-                #merged = pd.merge(outlier_df, output_df,how = 'inner', on =['subject','timepoint','variable'])
-                #print(merged.columns)
-                #merged['global_score_outlier_ratio'] =merged['total_global'] /merged['stds_from_median']
-                #merged.to_csv('merged_qc_Scores.csv',index = False)
+                print(output_df.columns)
+                print(outlier_df.columns)
+                if 'subject' in output_df.columns:
+                    merged = pd.merge(outlier_df, output_df,how = 'inner', on =['subject','timepoint','variable'])
+                    #print(merged.columns)
+                    merged['global_score_outlier_ratio'] =merged['total_global'] /merged['stds_from_median']
+                    merged.to_csv('merged_qc_Scores.csv',index = False)
                 output_df.to_csv('qc_output_test.csv',index = False)
 
 if __name__ == '__main__':
-    ClusterAnalysis().analyze_rater_outliers()
+    ClusterAnalysis().run_script()
     #ClusterAnalysis().create_final_scores()

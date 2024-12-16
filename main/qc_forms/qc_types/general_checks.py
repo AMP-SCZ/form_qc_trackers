@@ -16,7 +16,6 @@ class GeneralChecks(FormCheck):
         self.test_val = 0
         self.call_checks(row)
         
-               
     def __call__(self):
 
         return self.final_output_list
@@ -57,7 +56,6 @@ class GeneralChecks(FormCheck):
                 self.utils.missing_code_list + [''])):
                     return True
         return False
-
 
     @FormCheck.standard_qc_check_filter
     def check_if_blank(self, row, filtered_forms,
@@ -127,7 +125,6 @@ class GeneralChecks(FormCheck):
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
             return f'GUID in incorrect format. GUID was reported to be {guid}.'
 
-
     def age_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
@@ -138,8 +135,3 @@ class GeneralChecks(FormCheck):
         elif self.utils.can_be_float(age) and age < 12 or age > 30:
             return f"Age ({age}) is out of range."
 
-
-
-
-
-        

@@ -175,7 +175,9 @@ class FormCheck():
             else:
                 return True
         
-        elif missing_var == "":                
+        elif missing_var == "":     
+            return False     # removing filter to test scid
+            
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
