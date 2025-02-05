@@ -28,21 +28,6 @@ from utils.utils import Utils
 import time
 from functools import wraps
 
-def timeit(func):
-    """
-    A decorator that measures and prints the time a function takes to run.
-    """
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()  # Record the start time
-        result = func(*args, **kwargs)  # Call the original function
-        end_time = time.time()  # Record the end time
-        elapsed_time = end_time - start_time  # Calculate elapsed time
-        print(f"Function '{func.__name__}' took {elapsed_time:.4f} seconds to run.")
-        return result  # Return the result of the original function
-    return wrapper
-
-
 class CreateTrackers():
 
     def __init__(self, formatted_col_names):

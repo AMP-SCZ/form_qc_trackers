@@ -1,11 +1,9 @@
 import pandas as pd
-
 import os
 import sys
 import json
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 sys.path.insert(1, parent_dir)
-
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 from datetime import datetime
@@ -73,9 +71,9 @@ class ClinicalChecks(FormCheck):
         ['chrscid_d28','chrscid_a70','chrscid_a91','chrscid_a108',
         'chrscid_a129','chrscid_a138'],
         changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
-
         self.major_depressive_episode_check(row, [form], 
-        ['chrscid_d26','chrscid_a51','chrscid_a25'],
+        ['chrscid_d26','chrscid_a51','chrscid_a25',
+        'chrscid_d3','chrscid_d9','chrscid_d11','chrscid_d23'],
         changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
 
         self.manic_episode_check(row, [form], 
@@ -85,20 +83,24 @@ class ClinicalChecks(FormCheck):
         self.hypomanic_episode_check(row, [form], 
         ['chrscid_d5','chrscid_a91','chrscid_a129'],
         changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
-  
+
+        self.depressive_manic_check(row, [form], 
+        ['chrscid_d28','chrscid_a54','chrscid_a92','chrscid_a132'],
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
+
 
     def call_scid_diagnosis_check(self,row):
         for checked_variable,conditions in self.scid_diagnosis_dict.items(): 
-            self.scid_diagnosis_check(\
-            row,checked_variable,conditions['diagnosis_variables'],\
-            conditions['disorder'],True,conditions['extra_conditionals'])
-            self.scid_diagnosis_check(row,checked_variable,conditions[\
-            'diagnosis_variables'],conditions['disorder'],\
+            self.scid_diagnosis_check(
+            row,checked_variable, conditions['diagnosis_variables'],
+            conditions['disorder'], True, conditions['extra_conditionals'])
+            self.scid_diagnosis_check(row,checked_variable,conditions[
+            'diagnosis_variables'], conditions['disorder'],
             False,conditions['extra_conditionals'])
 
     def scid_diagnosis_check(
-        self,curr_row,variable,conditional_variables,
-        disorder,fulfilled,extra_conditionals
+        self, curr_row, variable, conditional_variables,
+        disorder, fulfilled, extra_conditionals
     ):
         form = 'scid5_psychosis_mood_substance_abuse'
         affected_vars = conditional_variables
@@ -106,22 +108,22 @@ class ClinicalChecks(FormCheck):
         affected_vars.append(variable)
         if fulfilled == True:
             for condition in conditional_variables:
-                if hasattr(curr_row,condition) and \
-                getattr(curr_row,condition) not in [3,3.0,'3','3.0']:
+                if (hasattr(curr_row,condition) and 
+                getattr(curr_row,condition) not in [3,3.0,'3','3.0']):
                     return 
             if extra_conditionals != '':
                 for conditional in extra_conditionals:
                     if not eval(conditional):
                         return 
             self.scid_diagnostic_criteria_check(curr_row, [form],
-            affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
+            affected_vars,changed_output, bl_filtered_vars=[],filter_excl_vars=False, 
             diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)                    
         else:
             for condition in conditional_variables:
-                if hasattr(curr_row,condition) and \
-                getattr(curr_row,condition) not in [3,3.0,'3','3.0']:
+                if (hasattr(curr_row, condition) and 
+                getattr(curr_row, condition) not in [3,3.0,'3','3.0']):
                     self.scid_diagnostic_criteria_check(curr_row, [form],
-                    affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
+                    affected_vars, changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
                     diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)      
             if extra_conditionals != '':
                 for conditional in extra_conditionals:
@@ -136,10 +138,21 @@ class ClinicalChecks(FormCheck):
         filter_excl_vars=False, diagnostic_variable = '',
         disorder = '', fulfilled = True
     ):
-        if fulfilled and getattr(row,diagnostic_variable) not in self.utils.all_dtype([3]):
+        if fulfilled and getattr(row, diagnostic_variable) not in self.utils.all_dtype([3]):
             return f'{disorder} criteria are fulfilled, but it is not indicated.'
-        elif not fulfilled and getattr(row,diagnostic_variable) in self.utils.all_dtype([3]):
+        elif not fulfilled and getattr(row, diagnostic_variable) in self.utils.all_dtype([3]):
             return f'{disorder} criteria are NOT fulfilled, but it is indicated.'
+    
+    @FormCheck.standard_qc_check_filter 
+    def depressive_manic_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        var_list = ['chrscid_a54','chrscid_a92','chrscid_a132']
+        if all(getattr(row,var) in self.utils.all_dtype([1]) for var in var_list):
+            if getattr(row,'chrscid_d28') not in self.utils.all_dtype([3]):
+                return ('subject does not fulfill any'
+                ' manic or hypomanic episode but depression is excluded due to this symptom.')
         
     @FormCheck.standard_qc_check_filter 
     def major_depressive_episode_check(self, row, filtered_forms,
@@ -157,16 +170,16 @@ class ClinicalChecks(FormCheck):
                 return error_message
         elif (row.chrscid_a25 in self.utils.all_dtype([3])
         or row.chrscid_a51 in self.utils.all_dtype([3])):
-            if row.chrscid_d26 not in self.utils.all_dtype([3]):
-                return error_message
-            
+            if (not any(getattr(row,var) in self.utils.all_dtype([3])
+            for var in ['chrscid_d3','chrscid_d9','chrscid_d11','chrscid_d23'])):
+                if row.chrscid_d26 not in self.utils.all_dtype([3]):
+                    return error_message
             
     @FormCheck.standard_qc_check_filter 
     def manic_episode_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=False
     ):
-        
         error_message = (f"Contradiction between variables"
                         " related to manic episode"
                         f" (chrscid_a108 = {row.chrscid_a108},"
@@ -180,19 +193,16 @@ class ClinicalChecks(FormCheck):
         or row.chrscid_a108 in self.utils.all_dtype([3])):
             if row.chrscid_d2 not in self.utils.all_dtype([3]):
                 return error_message
-            
 
     @FormCheck.standard_qc_check_filter 
     def hypomanic_episode_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=False
     ):
-        
-
         error_message = (f"Contradiction between variables"
                         " related to hypomanic episode"
-                        f" (chrscid_a108 = {row.chrscid_a108},"
-                        f" chrscid_a70 = {row.chrscid_a70}, chrscid_d2 = {row.chrscid_d2})")
+                        f" (chrscid_a91 = {row.chrscid_a91},"
+                        f" chrscid_a129 = {row.chrscid_a129}, chrscid_d5 = {row.chrscid_d5})")
         
         if (row.chrscid_a91 not in self.utils.all_dtype([3])
         and row.chrscid_a129 not in self.utils.all_dtype([3])):
@@ -203,7 +213,6 @@ class ClinicalChecks(FormCheck):
             if row.chrscid_d5 not in self.utils.all_dtype([3]):
                 return error_message
             
-
     @FormCheck.standard_qc_check_filter 
     def mania_not_fulfilled_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -225,11 +234,11 @@ class ClinicalChecks(FormCheck):
         if row.chrscid_a27 in [3,3.0,'3','3.0'] and row.chrscid_a28 in [3,3.0,'3','3.0'] and\
         (row.chrscid_a48_1 not in [2,2.0,'2','2.0']): 
             return 'Fulfills both main criteria but was counted incorrectly, a27, a28, a48_1'
-        elif ((row.chrscid_a27 in [3,3.0,'3','3.0'] and (row.chrscid_a28 in\
-        [2,2.0,'2','2.0'] or row.chrscid_a28 in [1,1.0,'1','1.0'])) or\
-        (row.chrscid_a28 in [3,3.0,'3','3.0'] and (row.chrscid_a27\
-        in [2,2.0,'2','2.0'] or row.chrscid_a27 in [1,1.0,'1','1.0']))) and\
-        (row.chrscid_a48_1 not in [1,1.0,'1','1.0']):
+        elif ((row.chrscid_a27 in [3,3.0,'3','3.0'] and (row.chrscid_a28 in
+        [2,2.0,'2','2.0'] or row.chrscid_a28 in [1,1.0,'1','1.0'])) or
+        ((row.chrscid_a28 in [3,3.0,'3','3.0'] and (row.chrscid_a27
+        in [2,2.0,'2','2.0'] or row.chrscid_a27 in [1,1.0,'1','1.0']))) and
+        (row.chrscid_a48_1 not in [1,1.0,'1','1.0'])):
             return 'Fulfills main criteria but further value was wrong, a27, a28, a48_1'
         
     @FormCheck.standard_qc_check_filter 
@@ -239,13 +248,13 @@ class ClinicalChecks(FormCheck):
     ):
         if (self.utils.can_be_float(row.chrscid_a26_53) and row.chrscid_a26_53
         not in self.utils.missing_code_list and 
-        float(row.chrscid_a26_53) < 1 and (row.chrscid_a25\
+        float(row.chrscid_a26_53) < 1 and (row.chrscid_a25
         in [3,3.0,'3','3.0'] or row.chrscid_a51 in [3,3.0,'3','3.0'])):
             return ('has no indication of total mde episodes'
             ' fulfilled in life even though fulfills current major depression. a26_53, a51')
         elif (self.utils.can_be_float(row.chrscid_a26_53) and row.chrscid_a26_53
         not in self.utils.missing_code_list and float(row.chrscid_a26_53) > 0
-        and (row.chrscid_a25 not in [3,3.0,'3','3.0']\
+        and (row.chrscid_a25 not in [3,3.0,'3','3.0']
         and row.chrscid_a51 not in [3,3.0,'3','3.0'])):
             return ('fulfills more manic episodes than 0 but there'
             ' is no indication of past or current depressive episode. a26_53, a25')
@@ -313,18 +322,18 @@ class ClinicalChecks(FormCheck):
                 for low_score, other_scores in vars.items():
                     var_list = other_scores + [low_score]
                     self.functioning_score_check(row, [form],
-                    var_list, {'reports':report_list},
-                    bl_filtered_vars=[],filter_excl_vars=True,
+                    var_list, {'reports' : report_list},
+                    bl_filtered_vars=[], filter_excl_vars=True,
                     compared_score_var = low_score, 
                     other_score_vars = other_scores, gt = gt_bool)
 
     def call_oasis_checks(self, row):
         forms = ['oasis']
-        report_list = ['Main Report','Non Team Forms']
-        for x in range(2,6):
+        report_list = ['Main Report', 'Non Team Forms']
+        for x in range(2, 6):
             oasis_anx_var = f'chroasis_oasis_{x}'
             self.oasis_anxiety_check(row, forms, ['chroasis_oasis_1',oasis_anx_var],
-            {'reports': report_list},bl_filtered_vars=[],
+            {'reports': report_list}, bl_filtered_vars=[],
                 filter_excl_vars=True, anx_var = oasis_anx_var)
         oasis_lifestyle_vars = {'chroasis_oasis_4': 1 , 'chroasis_oasis_5' : 0}
         for oasis_lifestyle_var, cutoff_val in oasis_lifestyle_vars.items():
@@ -339,10 +348,10 @@ class ClinicalChecks(FormCheck):
         'chrcssrsb_cssrs_nssi':'chrcssrsb_sbnssibl','chrcssrsb_cssrs_yrs_ia':'chrcssrsb_sb3l',
         'chrcssrsb_cssrs_yrs_aa':'chrcssrsb_sb4l',
         'chrcssrsb_cssrs_yrs_pab':'chrcssrsb_sb5l','chrcssrsb_cssrs_yrs_sb':'chrcssrsb_sb6l'}
-        cssr_greater_vals_dict = {'chrcssrsb_idintsvl':'chrcssrsb_css_sipmms',\
-        'chrcssrsb_snmacatl':'chrcssrsb_cssrs_num_attempt',\
+        cssr_greater_vals_dict = {'chrcssrsb_idintsvl':'chrcssrsb_css_sipmms',
+        'chrcssrsb_snmacatl':'chrcssrsb_cssrs_num_attempt',
         'chrcssrsb_nminatl':'chrcssrsb_cssrs_yrs_nia','chrcssrsb_nmabatl':'chrcssrsb_cssrs_yrs_naa'}
-        for x in range(1,6):
+        for x in range(1, 6):
             cssrs_unequal_vals_dict[f'chrcssrsb_si{x}l'] =  f'chrcssrsb_css_sim{x}'
 
         for cssrs_dict, method in [
@@ -357,10 +366,12 @@ class ClinicalChecks(FormCheck):
         forms = ['traumatic_brain_injury_screen']
         reports = ['Main Report','Non Team Forms']
         self.tbi_inj_mismatch_check(row, forms, ['chrtbi_parent_headinjury',
-        'chrtbi_subject_head_injury','chrtbi_sourceinfo'],{'reports': ['Main Report','Non Team Forms']})
+        'chrtbi_subject_head_injury','chrtbi_sourceinfo'],
+        {'reports': ['Main Report','Non Team Forms']})
 
         self.tbi_info_source_check(row, forms, ['chrtbi_parent_headinjury',
-        'chrtbi_subject_head_injury','chrtbi_sourceinfo'],{'reports': ['Secondary Report']})
+        'chrtbi_subject_head_injury','chrtbi_sourceinfo'],
+        {'reports': ['Secondary Report']})
 
     @FormCheck.standard_qc_check_filter 
     def tbi_inj_mismatch_check(self, row, filtered_forms,
@@ -408,8 +419,8 @@ class ClinicalChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True, lifetime_var = '', recent_var = ''
     ):
-        lifetime_var_val = getattr(row,lifetime_var)
-        recent_var_val = getattr(row,recent_var)
+        lifetime_var_val = getattr(row, lifetime_var)
+        recent_var_val = getattr(row, recent_var)
         for var_val in [lifetime_var_val, recent_var_val]:
             if (var_val in self.utils.missing_code_list 
             or not self.utils.can_be_float(var_val)):
@@ -456,7 +467,7 @@ class ClinicalChecks(FormCheck):
         compared_score_val = getattr(row, compared_score_var)
         if not self.utils.can_be_float(compared_score_val):
             return
-        
+
         for score_var in other_score_vars:
             other_score_val = getattr(row,score_var)
             if self.utils.can_be_float(other_score_val):
@@ -490,7 +501,7 @@ class ClinicalChecks(FormCheck):
 
     def check_if_over_21_days(self,
         row,missing_spec_var, scr_int_date,
-        curr_tp_forms,curr_psychs_form
+        curr_tp_forms, curr_psychs_form
     ):
         reports = ['Main Report', 'Non Team Forms']
         if (hasattr(row, missing_spec_var)
@@ -506,14 +517,14 @@ class ClinicalChecks(FormCheck):
                     if (not self.utils.check_if_val_date_format(int_date)
                     or int_date in self.utils.missing_code_list):
                         continue
-                    days_between = self.utils.find_days_between(int_date,scr_int_date)
+                    days_between = self.utils.find_days_between(int_date, scr_int_date)
                     if days_between > 21:
                         error_message = ("M6 clicked on baseline psychs,"
                         " but there are more than 21 days between"
                         f" {form} (date = {int_date}) and Screening Psychs (date = {scr_int_date})")
-                        output_changes = {'reports':reports}
+                        output_changes = {'reports' : reports}
                         error_output = self.create_row_output(
-                        row,[curr_psychs_form],[missing_spec_var],
+                        row, [curr_psychs_form], [missing_spec_var],
                         error_message, output_changes)
                         self.final_output_list.append(error_output)
 

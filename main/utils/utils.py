@@ -268,12 +268,13 @@ class Utils():
         ------------
         string: string containing digit
         """
-
+        number_str = ''
         for char in string:
             if char.isdigit():
-                return char
-        return ''
-
+                number_str += char
+            elif number_str != '':
+                return number_str
+        return number_str
 
     def collect_dropbox_credentials(self):
         """reads dropbox credentials from

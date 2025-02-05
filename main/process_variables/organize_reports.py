@@ -21,8 +21,8 @@ class OrganizeReports():
         self.all_psychs_forms = ['psychs_p1p8_fu_hc','psychs_p9ac32_fu_hc',
         'psychs_p1p8','psychs_p9ac32','psychs_p1p8_fu','psychs_p9ac32_fu']
 
-        self.self_report_forms = ['pubertal_developmental_scale',\
-        'psychosis_polyrisk_score','oasis','item_promis_for_sleep','pgis',\
+        self.self_report_forms = ['pubertal_developmental_scale',
+        'psychosis_polyrisk_score','oasis','item_promis_for_sleep','pgis',
         'perceived_stress_scale','perceived_discrimination_scale']
 
         self.rel_psychs_vars = self.collect_psychs_variables()
@@ -33,6 +33,7 @@ class OrganizeReports():
     def organize_variable_checks(self):
         qc_var_info = {
             "blank_check_vars" : self.organize_blank_check_vars(),
+            "missing_code_vars" : self.organize_missing_code_check_vars(),
             "specific_val_check_vars" : self.organize_spec_val_check_vars(),
             "checkbox_vars" : self.organize_checkbox_vars(),
             "excluded_vars" : self.define_excluded_variables()
@@ -62,17 +63,39 @@ class OrganizeReports():
         filtered_df['Field Type'].isin(
         ['notes','descriptive'])) | (filtered_df['Form Name'].isin(
         self.self_report_forms))]
+        
+        blank_check_vars = {"PRONET" : {}, "PRESCIENT" : {}}
+        for network in blank_check_vars.keys():
+            blank_check_vars[network] = {
+            'Main Report':main_report_df.groupby(
+            'Form Name')['Variable / Field Name'].apply(list).to_dict(),
 
-        blank_check_vars = {
-        'Main Report':main_report_df.groupby(
-        'Form Name')['Variable / Field Name'].apply(list).to_dict(),
-
-        'Secondary Report':secondary_report_df.groupby(
-        'Form Name')['Variable / Field Name'].apply(list).to_dict()
-        }
+            'Secondary Report':secondary_report_df.groupby(
+            'Form Name')['Variable / Field Name'].apply(list).to_dict()
+            }
 
         return blank_check_vars
     
+    def organize_missing_code_check_vars(self):
+
+        filtered_df = self.data_dict_df
+        missing_code_check_vars = {"PRONET" : {}, "PRESCIENT" : {}}
+        for network in missing_code_check_vars.keys():
+            if network == 'PRESCIENT':
+                main_report_df = filtered_df[
+                filtered_df['Form Name'].isin(['scid5_psychosis_mood_substance_abuse',
+                'lifetime_ap_exposure_screen'])]
+            else:
+                main_report_df = filtered_df[
+                filtered_df['Form Name'].isin(['lifetime_ap_exposure_screen'])]
+            
+            missing_code_check_vars[network] = {
+            'Main Report':main_report_df.groupby(
+            'Form Name')['Variable / Field Name'].apply(list).to_dict(),
+            }
+
+        return missing_code_check_vars
+
     def filter_blank_check_df(self):
 
         filtered_df = self.data_dict_df[self.data_dict_df['Identifier?']!='y']
@@ -97,6 +120,14 @@ class OrganizeReports():
         (self.data_dict_df['Variable / Field Name'].str.contains('chrpharm_med')
         & self.data_dict_df['Variable / Field Name'].str.contains('name_past'))]
 
+        ap_vars_df = self.data_dict_df[
+                self.data_dict_df['Form Name'].isin(['lifetime_ap_exposure_screen'])]
+        
+        ap_vars_df = ap_vars_df[
+                ~ap_vars_df['Variable / Field Name'].isin(['chrap_missing'])]
+        
+        ap_vars = ap_vars_df['Variable / Field Name'].tolist()
+
         pharm_vars = pharm_vars_df['Variable / Field Name'].tolist()
         scid_df = self.data_dict_df[
         self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
@@ -105,6 +136,7 @@ class OrganizeReports():
 
         additional_blank_check_vars.extend(self.collect_psychs_variables())
         additional_blank_check_vars.extend(all_scid_vars)
+        additional_blank_check_vars.extend(ap_vars)
 
         return additional_blank_check_vars
     

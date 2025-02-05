@@ -33,8 +33,8 @@ class ClusterAnalysis():
         self.all_distances = []
         data_dict = self.utils.read_data_dictionary()
 
-        filtered_data_dict = data_dict[data_dict['Field Type'].isin(['radio','calc'])]
-        filtered_data_dict = data_dict[data_dict['Variable / Field Name'].str.contains('chrscid')]
+        filtered_data_dict = data_dict[data_dict['Field Type'].isin(['text'])]
+        #filtered_data_dict = data_dict[data_dict['Variable / Field Name'].str.contains('chrscid')]
 
         self.vars_to_check = filtered_data_dict['Variable / Field Name'].tolist()
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
@@ -104,12 +104,13 @@ class ClusterAnalysis():
                     std = std_info['std']
                     if std == 0:
                         continue
+                    form = self.grouped_vars["var_forms"][col]
                     curr_var_std = abs((median - val) / std)
                     self.numerical_outlier_scores.append({
                     'subject':row.subjectid,'variable':col,
                     'network':network,'timepoint':timepoint,'variable_val':val,
                     'stds_from_median':curr_var_std,'redcap_user':redcap_user,
-                    'form_date':form_date})
+                    'form_date':form_date,"form":form})
             
         outlier_df = pd.DataFrame(self.numerical_outlier_scores)
         outlier_df.to_csv('outlier_score_test.csv',index = False)
@@ -130,7 +131,6 @@ class ClusterAnalysis():
             rater_sub_var_combos.setdefault(row.redcap_user, [])
             rater_outliers.setdefault(row.redcap_user, {'user':row.redcap_user,
                                                     'total':0,'sum':0,'score':0})
-            
             form = self.grouped_vars['var_forms'][row.variable]
             sub_form = row.subject + '_' + form
             sub_var = row.subject + '_' + row.variable
@@ -191,7 +191,7 @@ class ClusterAnalysis():
                             self.vars_to_check and var in self.numerical_vars[network][tp]
                             and var not in self.excluded_vars]
                 self.generate_numerical_outliers(combined_df,all_columns, tp, network)
-                for var_ind in range(0,len(all_columns)):
+                """for var_ind in range(0,len(all_columns)):
                     if all_columns[var_ind] not in self.numerical_vars[network][tp]:
                         continue
                     print(tp)
@@ -221,7 +221,7 @@ class ClusterAnalysis():
                                 ((output_df['normalized_deviation_local_score'] > 1) | 
                                 (output_df['normalized_deviation_global_score'] > 1))]
 
-                                output_df.to_csv(f'{self.output_path}{network}_{tp}_var_relation_data.csv', index = False)
+                                output_df.to_csv(f'{self.output_path}{network}_{tp}_var_relation_data.csv', index = False)"""
 
 
     def collect_numerical_vars(self, df, var_list, tp, network):
@@ -336,7 +336,6 @@ class ClusterAnalysis():
                         other_var = other_var[0]
                         self.qc_scores[network][tp][sub][var][
                         'variable_pairs'].append({var_list[0]:row.x_val,var_list[1]: row.y_val})
-                        
                         
                     self.qc_scores[network][tp][sub][var_list[0]]['var_val'] = row.x_val
                     self.qc_scores[network][tp][sub][var_list[1]]['var_val'] = row.y_val

@@ -333,11 +333,11 @@ class FormChecks():
         """checks if any of the possible 
         checkboxes for current question were checked"""
 
-        for main_variable, options in\
+        for main_variable, options in
         self.process_variables.checkbox_variable_dictionary.items():
             if main_variable == self.variable:
                 for item in options:
-                    if getattr(self.row,item)\
+                    if getattr(self.row,item)
                     not in [0,0.0,'0.0','0']: 
                         return True
                 return False

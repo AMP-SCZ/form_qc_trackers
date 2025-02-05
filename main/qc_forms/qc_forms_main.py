@@ -1,18 +1,14 @@
 import pandas as pd
-
 import os
 import sys
 import json
 import random
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
-
 from utils.utils import Utils
-
 from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
 from qc_forms.qc_types.clinical_checks import ClinicalChecks
-
 
 class QCFormsMain():
     def __init__(self):
@@ -20,7 +16,6 @@ class QCFormsMain():
         self.absolute_path = self.utils.absolute_path
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
-
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         depen_path = self.config_info['paths']['dependencies_path']
         with open(f'{depen_path}converted_branching_logic.json','r') as file:
@@ -70,32 +65,28 @@ class QCFormsMain():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
-            for tp in tp_list[0:3]:
+            for tp in tp_list:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
                 #combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=20)
                 #combined_df = combined_df.sample(n=100, random_state=42)
-                print(combined_df)
+                #print(combined_df)
                 for row in combined_df.itertuples(): 
-                    print(tp)
-                    print(row.Index)
+                    #print(tp)
+                    #print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
                     if row.subjectid not in self.form_check_info['subject_info']:
                         print(row.subjectid)
                         continue
                     #print(row.Index)
-                    gen_checks = GeneralChecks(row,tp,network,self.form_check_info)
-                    fluid_checks = FluidChecks(row,tp,network,self.form_check_info)
-                    clinical_checks = ClinicalChecks(row,tp,network,self.form_check_info)
+                    gen_checks = GeneralChecks(row, tp, network, self.form_check_info)
+                    fluid_checks = FluidChecks(row, tp, network, self.form_check_info)
+                    clinical_checks = ClinicalChecks(row, tp, network, self.form_check_info)
                     test_output.extend(gen_checks())
                     test_output.extend(fluid_checks())
                     test_output.extend(clinical_checks())
-                    print('--------')
-                    print(len(test_output))
-                    print('----------')
-                    #print(test_output[random.randint(0,len(test_output)-1)])
                 combined_output_df = pd.DataFrame(test_output)
                 combined_flags_path = f'{self.output_path}combined_outputs'
                 if not os.path.exists(combined_flags_path):

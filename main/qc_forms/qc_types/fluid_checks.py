@@ -112,7 +112,6 @@ class FluidChecks(FormCheck):
                 elif float(vol) > 1.1:
                     return  f'Volume ({vol_var} = {vol}) is greater than 1.1'
             
-    
     @FormCheck.standard_qc_check_filter 
     def check_blood_freeze(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -129,7 +128,7 @@ class FluidChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ): 
-        if not any(x in (self.missing_code_list+[''])\
+        if not any(x in (self.missing_code_list+[''])
         for x in [row.chrcbc_wbcsum,row.chrcbc_wbc]):
             if (self.utils.can_be_float(row.chrcbc_wbcsum)
             and self.utils.can_be_float(row.chrcbc_wbc)):
@@ -161,8 +160,10 @@ class FluidChecks(FormCheck):
                     f', but CBC form has been completed and not marked as missing.')
                 
     def barcode_format_check(self, row):
-        """Makes sure blood barcodes are in
-        proper format"""
+        """
+        Makes sure blood barcodes are in
+        proper format
+        """
 
         forms = ['blood_sample_preanalytic_quality_assurance']
         reports = ['Main Report', 'Blood Report', 'Fluids Report']

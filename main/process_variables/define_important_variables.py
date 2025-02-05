@@ -125,7 +125,7 @@ class DefineEssentialFormVars():
         """
 
         # define dictionary to store each type of variable
-        all_import_vars = {'missing_var':[],\
+        all_import_vars = {'missing_var':[], 'missing_spec_var':[],\
         'interview_date_var':[],'entry_date_var':[]}
 
         # collects missing variables based on their descriptions
@@ -133,6 +133,12 @@ class DefineEssentialFormVars():
         'Choices, Calculations, OR Slider Labels',
         ['click if this form is missing all of its data'])
 
+        all_import_vars['missing_spec_var'] = self.create_list_from_df(
+        'Choices, Calculations, OR Slider Labels',
+        [('M1, M1 - Measure refusal (no reason provided)'
+        ' | M2, M2 - No show | M3, M3 - Research assistant forgot |'
+        ' M4, M4 - Uncontrollable circumstance | M5, M5 - Participant dropped out')])
+        
         # collects interview dates
         all_import_vars['interview_date_var'] = self.create_list_from_df(
         'Field Label',
@@ -165,7 +171,7 @@ class DefineEssentialFormVars():
             all_import_vars[var_type] = [var for var in 
             all_import_vars[var_type] if 'err' not
             in var and 'invalid' not in var]
-
+            
         return all_import_vars
 
     def assign_variables_to_forms(

@@ -9,9 +9,9 @@ class CognitionChecks():
         """
 
         try:
-            demographics_date = datetime.datetime.strptime(\
+            demographics_date = datetime.datetime.strptime(
             self.row.chrdemo_interview_date, "%Y-%m-%d") 
-            iq_date = datetime.datetime.strptime(\
+            iq_date = datetime.datetime.strptime(
             self.row.chriq_interview_date, "%Y-%m-%d")  
             days_between = (iq_date - demographics_date).days
             months_between = int(days_between/30)
@@ -31,9 +31,9 @@ class CognitionChecks():
         """
 
         date_format = "%Y-%m-%d"
-        date1 = datetime.datetime.strptime(\
+        date1 = datetime.datetime.strptime(
         d1.split(' ')[0], date_format)
-        date2 = datetime.datetime.strptime(\
+        date2 = datetime.datetime.strptime(
         d2.split(' ')[0], date_format)
         date_difference = date2 - date1
         days_between = date_difference.days
@@ -46,11 +46,11 @@ class CognitionChecks():
         age variable"""
 
         age = ''
-        for age_var in ['chrdemo_age_mos_chr',\
+        for age_var in ['chrdemo_age_mos_chr',
         'chrdemo_age_mos_hc','chrdemo_age_mos2']:
-            if hasattr(self.row,age_var)\
-            and getattr(self.row,age_var)\
-            not in (self.missing_code_list+['']):
+            if (hasattr(self.row,age_var)
+            and getattr(self.row,age_var)
+            not in (self.missing_code_list+[''])):
                 age = int(getattr(self.row,age_var))
                 age = age - self.find_iq_age()
                 break
@@ -71,18 +71,18 @@ class CognitionChecks():
         current_age_ranges = []
         iq_age_ranges = self.process_variables.all_iq_age_ranges
         for age_range in iq_age_ranges:
-            if (age == age_range[-1] or\
+            if (age == age_range[-1] or
             age == age_range[-2]) and age < 360:
                 possibly_next_range = True
                 current_age_ranges.append(age_range)
-                current_age_ranges.append(iq_age_ranges[\
+                current_age_ranges.append(iq_age_ranges[
                 iq_age_ranges.index(age_range) + 1])
                 flag_error = False
-            elif (age == age_range[0]\
+            elif (age == age_range[0]
             or age == age_range[1]) and age > 195:
                 possibly_previous_range = True
                 current_age_ranges.append(age_range)
-                current_age_ranges.append(iq_age_ranges[\
+                current_age_ranges.append(iq_age_ranges[
                 iq_age_ranges.index(age_range) - 1])
                 flag_error = False
             elif age in age_range:
@@ -98,13 +98,13 @@ class CognitionChecks():
 
         if self.variable == 'chriq_fsiq':
             for fsiq_row in self.process_variables.fsiq_conversions_per_test[iq_type].itertuples():
-                if str(fsiq_row.t_score).replace(' ','')\
+                if str(fsiq_row.t_score).replace(' ','')
                 == str(self.row.chriq_tscore_sum).replace(' ',''):
-                    if str(fsiq_row.fsiq).replace(' ','')\
+                    if str(fsiq_row.fsiq).replace(' ','')
                     != str(self.row.chriq_fsiq).replace(' ',''):
-                        self.compile_errors.append_error(self.row,\
+                        self.compile_errors.append_error(self.row,
                         (f'FSIQ-2 Conversion not done properly.'
-                        f'Entered value was {self.row.chriq_fsiq}, but should be {fsiq_row.fsiq}'),\
+                        f'Entered value was {self.row.chriq_fsiq}, but should be {fsiq_row.fsiq}'),
                         self.variable,self.form,['Main Report','Cognition Report'])
 
     def loop_iq_table(self,age, conversion_col, t_score_col, iq_variable, iq_type = 'wasi'):
@@ -126,23 +126,23 @@ class CognitionChecks():
         incorrect_range_count = 0
         for range_index in range(0,len(current_age_ranges)):
             any_match = False
-            columns_to_keep = conversion_df.columns[\
-            conversion_df.iloc[0].apply(\
+            columns_to_keep = conversion_df.columns[
+            conversion_df.iloc[0].apply(
             lambda x: current_age_ranges[range_index] == x)]
             iq_df = conversion_df[columns_to_keep].copy()
             iq_df_filtered = iq_df.iloc[1:].copy().reset_index(drop=True)
             iq_df_filtered.columns = iq_df_filtered.iloc[0]
             for iq_row in iq_df_filtered.itertuples():
-                if str(getattr(self.row,iq_variable)).replace(' ','') in\
+                if str(getattr(self.row,iq_variable)).replace(' ','') in
                 self.convert_range_to_list(str(getattr(iq_row,conversion_col)),True):
-                    if str(iq_row.t_score).replace(' ','')\
-                    != str(getattr(self.row, t_score_col)).replace(' ','') and \
+                    if str(iq_row.t_score).replace(' ','')
+                    != str(getattr(self.row, t_score_col)).replace(' ','') and 
                     str(getattr(self.row,iq_variable)).replace(' ','') not in (self.missing_code_list + ['']):
                         print(getattr(self.row, t_score_col))
-                        if len(current_age_ranges) == 2 and\
+                        if len(current_age_ranges) == 2 and
                         range_index == 1 and not any_match:
                             flag_error = True
-                        if current_age_ranges[range_index]\
+                        if current_age_ranges[range_index]
                         == current_age_ranges[-1] and flag_error == True:
                             if len(current_age_ranges) == 1:
                                 error_message = (f'T-Score Conversion not done properly.'
@@ -162,8 +162,8 @@ class CognitionChecks():
                                     f'(cannot calculate proper value that it should be due to insufficient age rounding).')
 
                             if error_message != '':
-                                self.compile_errors.append_error(\
-                                self.row,error_message,self.variable,\
+                                self.compile_errors.append_error(
+                                self.row,error_message,self.variable,
                                 self.form,['Main Report','Cognition Report'])
                     else:
                         any_match = True
@@ -175,10 +175,10 @@ class CognitionChecks():
         calls functions to check them
         """
 
-        conversion_col_names = {'wasi':{'vocab_raw':'vc','matrix_raw':'mr',\
-        'vocab_conversion':'chriq_tscore_vocab','matrix_conversion':'chriq_tscore_matrix'},\
-        'wais':{'vocab_raw':'vc','matrix_raw':'mr',\
-        'vocab_conversion':'chriq_tscore_vocab','matrix_conversion':\
+        conversion_col_names = {'wasi':{'vocab_raw':'vc','matrix_raw':'mr',
+        'vocab_conversion':'chriq_tscore_vocab','matrix_conversion':'chriq_tscore_matrix'},
+        'wais':{'vocab_raw':'vc','matrix_raw':'mr',
+        'vocab_conversion':'chriq_tscore_vocab','matrix_conversion':
         'chriq_tscore_matrix'}, 'wisc': {}}
 
         iq_type_translations = {1:'wasi'}
@@ -198,7 +198,7 @@ class CognitionChecks():
         for iq_variable in ['chriq_vocab_raw','chriq_matrix_raw']:
             possibly_next_range = False
             possibly_previous_range = False
-            if self.variable == iq_variable and \
+            if self.variable == iq_variable and 
             self.row.chriq_assessment in [1,1.0,'1','1.0']:
                 if iq_variable == 'chriq_vocab_raw':
                     conversion_col = conversion_col_names[iq_type]['vocab_raw']
@@ -207,7 +207,7 @@ class CognitionChecks():
                     conversion_col = conversion_col_names[iq_type]['matrix_raw']
                     t_score_col = conversion_col_names[iq_type]['matrix_conversion']
                 age = self.collect_age()
-                if age !='' and age>191 and self.row.chriq_tscore_vocab != ''\
+                if age !='' and age>191 and self.row.chriq_tscore_vocab != ''
                 and self.row.chriq_vocab_raw not in self.missing_code_list:
                     self.loop_iq_table(age,conversion_col, t_score_col, iq_variable, iq_type)
         self.fsiq_check()

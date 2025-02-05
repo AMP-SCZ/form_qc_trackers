@@ -83,14 +83,8 @@ class FormCheck():
                     if var in instance.excl_bl.keys():
                         return 
                     bl = instance.conv_bl[var]["converted_branching_logic"]
-                    try:
-                        if bl != "" and eval(bl) == False:
-                            return
-                    except Exception as e:
-                        print(e)
-                        print(bl)
-                        print(var)
-                        sys.exit(1)  
+                    if bl != "" and eval(bl) == False:
+                        return
                     
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)
@@ -110,6 +104,8 @@ class FormCheck():
 
     def standard_form_filter(self, curr_row : tuple, form):
         compl_var = self.important_form_vars[form]["completion_var"]
+        if self.network == 'PRESCIENT':
+            compl_var += '_rpms'
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         
@@ -129,10 +125,8 @@ class FormCheck():
             completion_filter = False
         if completion_filter == False:
             return False
-        
         if self.check_if_missing(curr_row, form) == True:
             return False
-        
         if self.extra_form_conditions(curr_row, form) == False:
             return False
                    
@@ -177,7 +171,6 @@ class FormCheck():
         
         elif missing_var == "":     
             return False     # removing filter to test scid
-            
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
@@ -283,7 +276,6 @@ class FormCheck():
 
     def list_to_string(self, inp_list):
         inp_list = [str(item) for item in inp_list]
-
         inp_list = '|'.join(inp_list)
 
         return inp_list

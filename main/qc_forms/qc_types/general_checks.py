@@ -23,6 +23,7 @@ class GeneralChecks(FormCheck):
     def call_checks(self, row):
         self.row = row
         self.check_blank_values(row)
+        self.check_missing_code_values(row)
         self.call_spec_val_check(row)
         self.check_form_completion(row)
         for guid_var in ['chrguid_guid','chrguid_pseudoguid']:
@@ -32,10 +33,13 @@ class GeneralChecks(FormCheck):
             bl_filtered_vars=[guid_var],filter_excl_vars=True,
             checked_guid_var=guid_var)
 
+        self.missing_code_check(row)
+
     def check_blank_values(self, row):
         #TODO:optimize performance of this part
         for report in ['Main Report', 'Secondary Report']:
-            blank_check_forms = self.general_check_vars["blank_check_vars"][report]
+            blank_check_forms = self.general_check_vars["blank_check_vars"][
+            self.network][report]
             for form in blank_check_forms:
                 report_list = [report]
                 for team, forms in self.forms_per_report.items():
@@ -45,7 +49,25 @@ class GeneralChecks(FormCheck):
                     for var in blank_check_forms[form]:
                         if self.prescient_scid_filter(var, row) == True:
                             continue
-                        self.check_if_blank(row, [form], [var],{"reports": report_list},[var])
+                        self.check_if_blank(row, [form], [var],
+                        {"reports" : report_list},[var])
+
+    def check_missing_code_values(self, row):
+        #TODO:optimize performance of this part
+        for report in ['Main Report']:
+            missing_code_forms = self.general_check_vars["missing_code_vars"][
+            self.network][report]
+            for form in missing_code_forms:
+                report_list = [report]
+                for team, forms in self.forms_per_report.items():
+                    if form in forms:
+                        report_list.append(team)
+                if self.standard_form_filter(row, form):
+                    for var in missing_code_forms[form]:
+                        if self.prescient_scid_filter(var, row) == True:
+                            continue
+                        self.check_if_missing_code(row, [form], [var],
+                        {"reports" : report_list},[var])
 
     def prescient_scid_filter(self, var, row):
         if var in self.module_b_vars or var in self.module_c_vars:
@@ -65,9 +87,17 @@ class GeneralChecks(FormCheck):
         if getattr(row, all_vars[0]) == '':
             return "Variable is blank."
         
-        if (self.network == 'PRESCIENT' and 'chrscid' in
-        all_vars[0] and getattr(row, all_vars[0]) 
-        in self.utils.missing_code_list):
+        return 
+
+    @FormCheck.standard_qc_check_filter
+    def check_if_missing_code(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):  
+        
+        if  (getattr(row, all_vars[0]) 
+        in self.utils.missing_code_list or
+        str(getattr(row, all_vars[0])).replace(' ','') == 'NaN'):
             return "Variable is a missing code."
         return 
     
@@ -134,4 +164,16 @@ class GeneralChecks(FormCheck):
             return "Age is Unknown."
         elif self.utils.can_be_float(age) and age < 12 or age > 30:
             return f"Age ({age}) is out of range."
+
+    def missing_code_check(self, row):
+        for form, vars in self.important_form_vars.items():
+            if 'missing_spec_var' in list(vars.keys()) and vars['missing_spec_var'] != '':                
+                if (hasattr(row, vars['missing_spec_var'])
+                and getattr(row, vars['missing_var']) in self.utils.all_dtype([1])
+                and getattr(row, vars['missing_spec_var']) == ''):
+                    print(row.subjectid)
+                    print(vars['missing_spec_var']) 
+                    print(getattr(row, vars['missing_spec_var']))
+
+
 

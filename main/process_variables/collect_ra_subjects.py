@@ -16,7 +16,6 @@ class RaSubjects():
         ra_assignments = self.loop_csv_files()
         return ra_assignments
 
-
     def loop_csv_files(self):
         ra_assignments = {} 
         for site_folder in os.listdir(self.prescient_raw_csv_path):
@@ -28,7 +27,6 @@ class RaSubjects():
                     for file in os.listdir(surveys_path):
                         client_file =  f'{subject}_ClientListWithDpaccID.csv'
                         if file == client_file:
-                            print(file)
                             df = pd.read_csv(surveys_path + '/' + client_file,\
                                             keep_default_na=False)
                             for row in df.itertuples():
@@ -37,7 +35,6 @@ class RaSubjects():
                                     if row.subjectkey != '' and row.subjectkey \
                                     not in ra_assignments[row.RAname]:
                                         ra_assignments[row.RAname].append(row.subjectkey)
-                            print(df)
         return ra_assignments
 
 
