@@ -42,7 +42,6 @@ class QCFormsMain():
         self.iterate_combined_dfs()
 
     def move_previous_output(self):
-        print('moving')
         for path in [f"{self.combined_flags_path}new_output",
         f"{self.combined_flags_path}old_output",self.combined_flags_path]:
             if not os.path.exists(path):

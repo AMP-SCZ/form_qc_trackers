@@ -75,7 +75,8 @@ class ClusterAnalysis():
             numeric_df = df[[col]].apply(pd.to_numeric, errors='coerce')
 
             self.numerical_stds[network][timepoint][col] = {'median':numeric_df[col].median(),
-                                                            'std':numeric_df[col].std()}
+                                                            'std':numeric_df[col].std(),
+                                                            'mean':numeric_df[col].mean()}
         print(self.numerical_stds)
         for row in df.itertuples():
             for col in cols:
@@ -100,16 +101,16 @@ class ClusterAnalysis():
                     if network == 'PRESCIENT':
                         if row.subjectid in self.melbourne_sub_ra.keys():
                             redcap_user = self.melbourne_sub_ra[row.subjectid]
-                    median = std_info['median']
+                    mean = std_info['mean']
                     std = std_info['std']
                     if std == 0:
                         continue
                     form = self.grouped_vars["var_forms"][col]
-                    curr_var_std = abs((median - val) / std)
+                    curr_var_std = abs((mean - val) / std)
                     self.numerical_outlier_scores.append({
                     'subject':row.subjectid,'variable':col,
                     'network':network,'timepoint':timepoint,'variable_val':val,
-                    'stds_from_median':curr_var_std,'redcap_user':redcap_user,
+                    'stds_from_mean':curr_var_std,'redcap_user':redcap_user,
                     'form_date':form_date,"form":form})
             
         outlier_df = pd.DataFrame(self.numerical_outlier_scores)

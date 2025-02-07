@@ -86,7 +86,7 @@ class ClinicalChecks(FormCheck):
 
         self.depressive_manic_check(row, [form], 
         ['chrscid_d28','chrscid_a54','chrscid_a92','chrscid_a132'],
-        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)
 
 
     def call_scid_diagnosis_check(self,row):
@@ -149,7 +149,9 @@ class ClinicalChecks(FormCheck):
         filter_excl_vars=False
     ):
         var_list = ['chrscid_a54','chrscid_a92','chrscid_a132']
-        if all(getattr(row,var) in self.utils.all_dtype([1]) for var in var_list):
+        if (all(getattr(row,var) in self.utils.all_dtype([1]) for var in var_list)
+        and all(getattr(row,var) in self.utils.all_dtype([3])
+        for var in ['chrscid_d26','chrscid_d27'])):
             if getattr(row,'chrscid_d28') not in self.utils.all_dtype([3]):
                 return ('subject does not fulfill any'
                 ' manic or hypomanic episode but depression is excluded due to this symptom.')

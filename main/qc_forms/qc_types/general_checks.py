@@ -133,11 +133,19 @@ class GeneralChecks(FormCheck):
             for form in curr_tp_forms:
                 if form in self.prescient_forms_no_compl_status:
                     continue
-                compl_var = self.important_form_vars[form]['completion_var']                
+                compl_var = self.important_form_vars[form]['completion_var']   
+                if self.network == 'PRESCIENT':
+                    compl_var += '_rpms'
+                    # rpms compl variables same for both cohorts
+                    compl_var = compl_var.replace('_hc','') 
+                    
                 if (hasattr(row, compl_var) and 
                 getattr(row, compl_var) not in self.utils.all_dtype([2,3,4])):
                     error_message = f"{form} not marked as complete, but subject has started the next timepoint"
-                    output_changes = {'reports' : ['Incomplete Forms']}
+                    if self.network == 'PRONET':
+                        output_changes = {'reports' : ['Incomplete Forms']}
+                    else:
+                        output_changes = {'reports' : ['Main Report','Incomplete Forms']}
                     error_output = self.create_row_output(
                     row,[form],[compl_var], error_message, output_changes)
 

@@ -51,33 +51,34 @@ class FormCheck():
         all_vars,changed_output_vals={}, bl_filtered_vars=[],
         filter_excl_vars=True, *args, **kwargs):
             cohort = instance.subject_info[curr_row.subjectid]['cohort']
+            # excludes subjects with no cohort
             if cohort.lower() not in ["hc", "chr"]:
                 return
-            
+            # excludes forms not in timepoint
             curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
             if not (all(form in curr_tp_forms for form in filtered_forms)):
                 return
-            
+            # filters out forms with standard_form_filter function
             if not (all(instance.standard_form_filter(
             curr_row, form) for form in filtered_forms)):
                 return
-            
+            # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
-        
+            # filters out form if variables in excluded variables 
             if filter_excl_vars:
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
                 if any(var in excl_vars for var in all_vars):
-                    print(len(excl_vars))
                     return
-                
+            
+            # error message set to what the QC function returns
             error_message = func(instance,curr_row,
             filtered_forms,all_vars,changed_output_vals={},
             bl_filtered_vars=[],filter_excl_vars=True, *args, **kwargs)
 
             if error_message == None:
                 return
-        
+            # filtered out variables if branching logic is false
             if bl_filtered_vars != []:
                 for var in bl_filtered_vars:
                     if var in instance.excl_bl.keys():
@@ -85,7 +86,7 @@ class FormCheck():
                     bl = instance.conv_bl[var]["converted_branching_logic"]
                     if bl != "" and eval(bl) == False:
                         return
-                    
+            
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)
 
@@ -94,6 +95,7 @@ class FormCheck():
         return qc_check
 
     def check_if_next_tp(self, curr_row):
+        # checks if subject has moved to next timepoint
         if self.timepoint in ['floating','conversion']:
             return False
         formatted_visit_status = (curr_row.visit_status).replace('_','')
@@ -106,16 +108,18 @@ class FormCheck():
         compl_var = self.important_form_vars[form]["completion_var"]
         if self.network == 'PRESCIENT':
             compl_var += '_rpms'
+            # rpms compl variables same for both cohorts
+            compl_var = compl_var.replace('_hc','') 
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         
         formatted_visit_status = (curr_row.visit_status).replace('_','')
         completion_filter = False
-        # will not check the form if it is not marked as complete
-        # or the subject has not moved onto the next timepoint (prescient only)
         if (compl_var == "" or not hasattr(curr_row, compl_var)):
             return False
         
+        # will not check the form if it is not marked as complete
+        # or the subject has not moved onto the next timepoint (prescient only)
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
         or getattr(curr_row, compl_var) in self.utils.all_dtype([2])):
             completion_filter = True
@@ -151,8 +155,22 @@ class FormCheck():
         else: 
             return True
 
-    def check_if_missing(self,curr_row : tuple, form):
+    def check_if_missing(self,curr_row : tuple, form : str):
+        """
+        Checks if a form is marked as missing 
+
+        Parameters 
+        ------------
+        curr_row : tuple
+            current row of dataframe
+        form : str
+            current form
+        """
         compl_var = self.important_form_vars[form]["completion_var"]
+        if self.network == 'PRESCIENT':
+            compl_var += '_rpms'
+            # rpms compl variables same for both cohorts
+            compl_var = compl_var.replace('_hc','') 
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         non_bl_vars_filled_out = 0
