@@ -1,127 +1,44 @@
-from classes.process_form_variables import ProcessVariables
-from classes.form_checks import FormChecks
-from classes.data_checks import DataChecks
-from classes.iterate_forms import IterateForms
-from classes.generate_trackers import GenerateTrackers
 
 import os
 import pandas as pd
 
-def define_paths(location = 'pnl_server'):
-    """Defines paths depending on
-    where the program is being run
-    
-    Parameters
-    ------------
-    location: where the program
-    is executing
+import pandas as pd
 
-    Returns
-    ------------
-    combined_df_folder: path to combined CSVs
-    absolute_path: absolute path of current program
-    running
-    """
+import os
+import sys
+import json
+import random
+#parent_dir = os.path.realpath(__file__)
+#sys.path.insert(1, parent_dir)
+#print(parent_dir)
+from main.process_variables.process_variables_main import ProcessVariables
+from main.qc_forms.qc_forms_main import QCFormsMain
+from main.generate_reports.generate_reports_main import GenerateReports
 
-    if location =='pnl_server':
-        combined_df_folder = '/data/predict1/data_from_nda/formqc/'
-        absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
-    else:
-        combined_df_folder = 'C:/formqc/AMPSCZ_QC_and_Visualization/QC/combined_csvs/'
-        absolute_path = ''
+"""
+QC ORDER
+1. move combined output from new to old output folder
+2. rerun qc to generate new combined output
+3. determine resolved errors in new output by comparing to old, 
+then merge them with the appropriate errors marked resolved.
+4. save merged df as current output. 
+5. pull data (manually resolved and comments columns) from combined formatted 
+dropbox outputs and add it to file in old output folder
+6. loop through each network, report, site, and RA (for melbourne) to create
+formatted outputs for each. for the sites only
+include the main report (for melbourne, non team form report)
+7. save all formatted outputs to folder and upload them to dropbox
+"""
 
-    return combined_df_folder,absolute_path
-
-def initalize_output_per_timepoint():
-    """Organizes every timepoint as a key
-    in a dictionary
-
-    Returns
-    ------------
-    output_per_timepoint: dictionary
-    with every timepoint as a key
-    """
-
-    output_per_timepoint = {'screen':[],'baseln':[]}
-    for x in range(1,24):
-      output_per_timepoint['month'+f'{x}'] = []
-    output_per_timepoint['month18'] = []
-    output_per_timepoint['month24'] = []
-
-    return output_per_timepoint
-
-def reformat_columns(output_per_timepoint,timepoint,report):
-    """Reformats columns that consist of lists
-    into strings separated by a pipe
-
-    Parameters
-    ---------
-    output_per_timepoint: dictionary of QC output 
-    timepoint: current timepoint in loop
-    report: current report being reformatted
-
-    Returns
-    ---------
-    output_per_timepoint: modified output
-    """
-
-    for row_ind in range(0,len(\
-        output_per_timepoint[timepoint][report])):
-        for col in ['Specific Flags','Variable Translations']:
-            output_per_timepoint[timepoint][report][row_ind][col]\
-            = "| ".join(output_per_timepoint[\
-            timepoint][report][row_ind][col])
-
-    return output_per_timepoint
-
-def loop_timepoints():
-    """Calls QC check on every timepoint
-    for each network and organizes it into a final 
-    output for the trackers"""
-
-    combined_df_folder,absolute_path = define_paths('')
-    for network in ['PRONET']:
-        final_output = {}
-        output_per_timepoint =initalize_output_per_timepoint()
-        for timepoint in output_per_timepoint.keys():
-            timepoint_str =\
-            timepoint.replace('baseln','baseline').replace('screen','screening')
-            filepath = (f'{combined_df_folder}'
-            f'combined-{network}-{timepoint_str}-day1to1.csv')   
-            if os.path.exists(filepath):
-                formqc_check = IterateForms(filepath,f'{timepoint}','Main Report')
-                output_per_timepoint[timepoint] = formqc_check.run_script()
-                for report in output_per_timepoint[timepoint].keys():
-                    output_per_timepoint =\
-                    reformat_columns(output_per_timepoint,timepoint,report)
-                    final_output.setdefault(report,[])
-        for timepoint in output_per_timepoint.keys():
-            if output_per_timepoint[timepoint] !=[]:
-                for report in output_per_timepoint[timepoint].keys():
-                    final_output[report].extend(\
-                    output_per_timepoint[timepoint][report])
-
-        create_trackers(final_output,network)
-
-def create_trackers(final_output,network):
-    """Calls GenerateTrackers class
-    to format the final excel spreadsheets
-
-    Parameters
-    ------------
-    final_output: list of dictionaries to be 
-    converted into pandas dataframe
-    """
-
-    report_list = ['Main Report','Secondary Report',\
-    'Twenty One Day Tracker','Blood Report',\
-    'Cognition Report','Scid Report']
-
-    for report in report_list:
-        if report in final_output.keys():
-            data = pd.DataFrame(final_output[report])
-            GenerateTrackers(data,network, report).run_script()
-
-
+# started at 7:44
+class RunQC():        
+        
+    def run_script(self):
+        self.process_vars = ProcessVariables()
+        self.process_vars.run_script()
+        self.qc_forms = QCFormsMain()
+        self.qc_forms.run_script()
+        self.generate_reports = GenerateReports()
+        self.generate_reports.run_script()
 if __name__ == '__main__':
-    loop_timepoints()
+    RunQC().run_script()
