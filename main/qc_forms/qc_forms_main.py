@@ -94,8 +94,6 @@ class QCFormsMain():
                     test_output.extend(fluid_checks())
                     test_output.extend(clinical_checks())
                     test_output.extend(sop_checks())
-                    print(len(test_output))
-                    print('-----------')
                 combined_output_df = pd.DataFrame(test_output)
                 combined_flags_path = f'{self.output_path}combined_outputs'
                 if not os.path.exists(combined_flags_path):
