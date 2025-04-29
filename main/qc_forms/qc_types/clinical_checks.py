@@ -10,7 +10,7 @@ from datetime import datetime
 
 class ClinicalChecks(FormCheck):    
     def __init__(self, row, timepoint, network, form_check_info):
-        super().__init__(timepoint, network,form_check_info)
+        super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
         self.gf_score_check_vars = {'high':{'global_functioning_social_scale':{
         'chrgfs_gf_social_high':['chrgfs_gf_social_scale','chrgfs_gf_social_low']},
@@ -37,11 +37,91 @@ class ClinicalChecks(FormCheck):
 
     def call_checks(self, row):
         self.call_global_function_checks(row)
-        #self.call_oasis_checks(row)
+        self.call_oasis_checks(row)
         self.call_cssrs_checks(row)
         self.call_twenty_one_day_check(row)
         self.call_tbi_checks(row)
         self.call_scid_checks(row)
+        self.call_bprs_checks(row)
+        self.call_chrchs_checks(row)
+        self.call_conversion_check(row)
+
+    def call_conversion_check(self,row):
+        gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
+        'chrbprs_bprs_guil':5,'chrbprs_bprs_gran':5,
+        'chrbprs_bprs_susp':5,'chrbprs_bprs_hall':5,
+        'chrbprs_bprs_unus':5,'chrbprs_bprs_bizb':5,
+        'chrbprs_bprs_conc':5}
+        
+        eq_var_val_pairs = {'chrpsychs_fu_1c0':6,
+        'chrpsychs_fu_1d0':6,'chrpsychs_fu_2c0':6,
+        'chrpsychs_fu_2d0':6,'chrpsychs_fu_3c0':6,
+        'chrpsychs_fu_3d0':6,'chrpsychs_fu_4c0':6,
+        'chrpsychs_fu_4d0':6,'chrpsychs_fu_5c0':6,
+        'chrpsychs_fu_5d0':6,'chrpsychs_fu_6c0':6,
+        'chrpsychs_fu_6d0':6,'chrpsychs_fu_7c0':6,
+        'chrpsychs_fu_7d0':6,'chrpsychs_fu_8c0':6,
+        'chrpsychs_fu_8d0':6,'chrpsychs_fu_9c0':6,
+        'chrpsychs_fu_9d0':6,'chrpsychs_fu_10c0':6,
+        'chrpsychs_fu_10d0':6,'chrpsychs_fu_11c0':6,
+        'chrpsychs_fu_11d0':6,'chrpsychs_fu_12c0':6,
+        'chrpsychs_fu_12d0':6,'chrpsychs_fu_13c0':6,
+        'chrpsychs_fu_13d0':6,'chrpsychs_fu_14c0':6,
+        'chrpsychs_fu_14d0':6,'chrpsychs_fu_15c0':6,
+        'chrpsychs_fu_15d0':6,'chrscid_c10':3,
+        'chrscid_c26':3,'chrscid_c14':3,'chrscid_c37':3,
+        'chrscid_c44':3,'chrscid_d47_d52':1,'chrscid_d63':1,
+        'chrscid_c71':3,'chrscid_c78':3,'chrscid_c11':1,
+        'chrscid_c21':1,'chrscid_c47':1,'chrscid_c28':1,
+        'chrscid_c50':3,'chrscid_c51':8}
+
+        for var, threshold in gt_var_val_pairs.items():
+            form = self.grouped_vars['var_forms'][var]
+            if not hasattr(row,var):
+                continue
+            var_val = getattr(row, var) 
+            if self.utils.can_be_float(var_val) and float(var_val) > threshold:
+                self.conversion_criteria_check(row, [form],
+                [var],{'reports': ['Main Report']})
+
+        for var, threshold in eq_var_val_pairs.items():
+            form = self.grouped_vars['var_forms'][var]
+            if not hasattr(row,var):
+                continue
+            var_val = getattr(row, var) 
+            if self.utils.can_be_float(var_val) and float(var_val) == threshold:
+                self.conversion_criteria_check(row, [form],
+                [var],{'reports': ['Main Report']})
+
+
+    def call_chrchs_checks(self, row):
+        changed_output = {'reports': ['Main Report']}
+        form = 'bprs'
+        vars = ['chrchs_weightkg']
+        self.chrchs_weight_check(row, [form],
+        vars, changed_output)
+        
+    def call_bprs_checks(self,row):
+        changed_output = {'reports': ['Main Report']}
+        form = 'bprs'
+        initial_vars = ['chrbprs_bprs_somc',
+        'chrbprs_bprs_guil','chrbprs_bprs_gran']
+        var_val_pairs = []
+        for var in initial_vars:
+            val_checks = {}
+            val_checks[var] = [6,7]
+            val_checks['chrbprs_bprs_unus'] = [1,2,3]
+            var_val_pairs.append(val_checks)
+
+        var_val_pairs.append({'chrbprs_bprs_susp':[4,5,6,7],
+                              'chrbprs_bprs_unus':[1]})
+        
+        for pair in var_val_pairs:
+            vars = list(pair.keys())
+            self.bprs_val_comparisons(row, [form],
+            all_vars =vars,changed_output_vals = changed_output,
+            bl_filtered_vars = [], filter_excl_vars = False,
+            var_comps = pair)
 
     def call_scid_checks(self, row):
         changed_output = {'reports': ['Main Report','Scid Report']}
@@ -75,7 +155,6 @@ class ClinicalChecks(FormCheck):
         ['chrscid_d26','chrscid_a51','chrscid_a25',
         'chrscid_d3','chrscid_d9','chrscid_d11','chrscid_d23'],
         changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
-
         self.manic_episode_check(row, [form], 
         ['chrscid_a108','chrscid_a70','chrscid_d2'],
         changed_output, bl_filtered_vars=[],filter_excl_vars=False)
@@ -96,7 +175,7 @@ class ClinicalChecks(FormCheck):
             conditions['disorder'], True, conditions['extra_conditionals'])
             self.scid_diagnosis_check(row,checked_variable,conditions[
             'diagnosis_variables'], conditions['disorder'],
-            False,conditions['extra_conditionals'])
+            False, conditions['extra_conditionals'])
 
     def scid_diagnosis_check(
         self, curr_row, variable, conditional_variables,
@@ -109,7 +188,7 @@ class ClinicalChecks(FormCheck):
         if fulfilled == True:
             for condition in conditional_variables:
                 if (hasattr(curr_row,condition) and 
-                getattr(curr_row,condition) not in [3,3.0,'3','3.0']):
+                getattr(curr_row, condition) not in [3,3.0,'3','3.0']):
                     return 
             if extra_conditionals != '':
                 for conditional in extra_conditionals:
@@ -131,6 +210,27 @@ class ClinicalChecks(FormCheck):
                         self.scid_diagnostic_criteria_check(curr_row, [form],
                         affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
                         diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled) 
+
+    @FormCheck.standard_qc_check_filter 
+    def bprs_val_comparisons(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False, var_comps = {}
+    ):
+        all_vars = list(var_comps.keys())
+        if (all(self.utils.can_be_float(getattr(row,var)) for var in all_vars)):
+            if all(float(getattr(row,var)) in var_comps[var] for var in all_vars):
+                return (f'{all_vars[0]} is'
+                f' {getattr(row, all_vars[0])}, but'
+                f' {all_vars[1]} is {getattr(row,all_vars[1])}')
+            
+    @FormCheck.standard_qc_check_filter 
+    def chrchs_weight_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        weight = getattr(row, 'chrchs_weightkg')
+        if self.utils.can_be_float(weight) and float(weight) <0:
+            return f'chrchs_weightkg is {weight}'
 
     @FormCheck.standard_qc_check_filter 
     def scid_diagnostic_criteria_check(self, row, filtered_forms,
@@ -352,7 +452,9 @@ class ClinicalChecks(FormCheck):
         'chrcssrsb_cssrs_yrs_pab':'chrcssrsb_sb5l','chrcssrsb_cssrs_yrs_sb':'chrcssrsb_sb6l'}
         cssr_greater_vals_dict = {'chrcssrsb_idintsvl':'chrcssrsb_css_sipmms',
         'chrcssrsb_snmacatl':'chrcssrsb_cssrs_num_attempt',
-        'chrcssrsb_nminatl':'chrcssrsb_cssrs_yrs_nia','chrcssrsb_nmabatl':'chrcssrsb_cssrs_yrs_naa'}
+        'chrcssrsb_nminatl':'chrcssrsb_cssrs_yrs_nia',
+        'chrcssrsb_nmabatl':'chrcssrsb_cssrs_yrs_naa'}
+
         for x in range(1, 6):
             cssrs_unequal_vals_dict[f'chrcssrsb_si{x}l'] =  f'chrcssrsb_css_sim{x}'
 
@@ -361,7 +463,8 @@ class ClinicalChecks(FormCheck):
             (cssr_greater_vals_dict, self.cssrs_greater_vals_check)
         ]:
             for lifetime_cssrs_var, recent_cssrs_var in cssrs_dict.items():
-                method(row, forms, [lifetime_cssrs_var, recent_cssrs_var],{'reports':report_list}, [], True, 
+                method(row, forms, [lifetime_cssrs_var, recent_cssrs_var],
+                {'reports':report_list}, [], True, 
                     lifetime_var=lifetime_cssrs_var, recent_var=recent_cssrs_var)
     
     def call_tbi_checks(self, row):
@@ -405,8 +508,8 @@ class ClinicalChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True, lifetime_var = '', recent_var = ''
     ):
-        lifetime_var_val = getattr(row,lifetime_var)
-        recent_var_val = getattr(row,recent_var)
+        lifetime_var_val = getattr(row, lifetime_var)
+        recent_var_val = getattr(row, recent_var)
         for var_val in [lifetime_var_val, recent_var_val]:
             if (var_val in self.utils.missing_code_list 
             or not self.utils.can_be_float(var_val)):
@@ -452,14 +555,14 @@ class ClinicalChecks(FormCheck):
     ):
         compared_oasis_val = getattr(row,'chroasis_oasis_3')
         lifestyle_var_val = getattr(row,lifestyle_var)
-        for var_val in [compared_oasis_val,lifestyle_var_val]:
+        for var_val in [compared_oasis_val, lifestyle_var_val]:
             if (var_val in self.missing_code_list 
             or not self.utils.can_be_float(var_val)):
                 return
         if float(compared_oasis_val) < 2 and float(lifestyle_var_val) > cutoff:
             return (f"chroasis_oasis_3 states that lifestyle"
             f" was not affected, but {lifestyle_var} is greater than {cutoff}")
-
+        
     @FormCheck.standard_qc_check_filter
     def functioning_score_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -502,7 +605,7 @@ class ClinicalChecks(FormCheck):
         curr_tp_forms,curr_psychs_form)
 
     def check_if_over_21_days(self,
-        row,missing_spec_var, scr_int_date,
+        row, missing_spec_var, scr_int_date,
         curr_tp_forms, curr_psychs_form
     ):
         reports = ['Main Report', 'Non Team Forms']
@@ -530,7 +633,14 @@ class ClinicalChecks(FormCheck):
                         error_message, output_changes)
                         self.final_output_list.append(error_output)
 
-
-                    
+    @FormCheck.standard_qc_check_filter   
+    def conversion_criteria_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        if row.visit_status_string != 'converted':
+            return f'{all_vars[0]} is {getattr(row,all_vars[0])}, but participant is not marked as converted.'
 
                 
+                
+

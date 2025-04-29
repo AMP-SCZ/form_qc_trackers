@@ -234,7 +234,8 @@ class CollectMiscVariables():
                     "scid_vars": {"module_b_vars":self.collect_scid_module_b_vars(),
                                   "module_c_vars":self.collect_scid_module_c_vars()},
                     "var_forms" : self.collect_form_per_var(),
-                    'var_translations' : self.create_variable_translations()}
+                    'var_translations' : self.create_variable_translations(),
+                    'pharm_vars':self.collect_pharm_vars()}
 
         return var_info
 
@@ -307,7 +308,7 @@ class CollectMiscVariables():
 
     def create_variable_translations(self):
         """Removes some unwanted characters from
-        branching loggic and adds them to translation
+        branching logic and adds them to translation
         dictionary
 
         Parameters
@@ -338,6 +339,36 @@ class CollectMiscVariables():
             else:
                 var_translations[row.var] = row.var + ' = ' +  row.choices
 
-
         return var_translations
-    
+
+    def collect_pharm_vars(self):
+        """
+        Collects pharmaceutical variables
+        used in later checks
+        """
+        
+        pharm_df = self.data_dictionary_df[
+        self.data_dictionary_df[
+        'Form Name'].str.contains('pharmaceutical')]
+        
+        col_renames = {'Variable / Field Name':'var',
+        'Form Name':'form'}
+
+        pharm_df = pharm_df[list(col_renames.keys())]
+        print(pharm_df)
+
+        pharm_df = pharm_df.rename(columns=col_renames)
+        print(pharm_df)
+
+        pharm_vars_categorized = {
+        'name_vars':[],
+        'firstdose_vars':[]
+        }
+        
+        pattern = r"chrpharm_med\d*_mo\d*"
+        for row in pharm_df.itertuples():
+            if re.match(pattern, row.var):
+                print(row.var)
+            
+        return pharm_vars_categorized
+

@@ -38,7 +38,5 @@ class RaSubjects():
         return ra_assignments
 
 
-
-
 if __name__ == '__main__':
     RaSubjects().loop_csv_files()

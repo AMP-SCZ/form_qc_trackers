@@ -11,7 +11,7 @@ from utils.utils import Utils
 
 class FormCheck():
 
-    def __init__(self, timepoint, network,form_check_info): 
+    def __init__(self, timepoint, network, form_check_info): 
         self.utils = Utils()
         self.timepoint = timepoint
         self.network = network   
@@ -29,6 +29,9 @@ class FormCheck():
         self.excl_bl = form_check_info['excluded_branching_logic_vars']
         self.forms_per_report = form_check_info['team_report_forms']
         self.grouped_vars = form_check_info['grouped_variables']
+        self.vars_added_later = form_check_info['variables_added_later']
+        self.raw_csv_converters = form_check_info['raw_csv_conversions']
+        self.variable_ranges = form_check_info['variable_ranges']
         self.missing_code_list = self.utils.missing_code_list
 
         self.prescient_forms_no_compl_status = [
@@ -70,12 +73,10 @@ class FormCheck():
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
                 if any(var in excl_vars for var in all_vars):
                     return
-            
             # error message set to what the QC function returns
             error_message = func(instance,curr_row,
             filtered_forms,all_vars,changed_output_vals={},
             bl_filtered_vars=[],filter_excl_vars=True, *args, **kwargs)
-
             if error_message == None:
                 return
             # filtered out variables if branching logic is false
@@ -86,10 +87,8 @@ class FormCheck():
                     bl = instance.conv_bl[var]["converted_branching_logic"]
                     if bl != "" and eval(bl) == False:
                         return
-            
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)
-
             instance.final_output_list.append(error_output)
 
         return qc_check
@@ -108,11 +107,9 @@ class FormCheck():
         compl_var = self.important_form_vars[form]["completion_var"]
         if self.network == 'PRESCIENT':
             compl_var += '_rpms'
-            # rpms compl variables same for both cohorts
-            compl_var = compl_var.replace('_hc','') 
+            compl_var = compl_var.replace('_hc','').replace('onboarding','checkin') 
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
-        
         formatted_visit_status = (curr_row.visit_status).replace('_','')
         completion_filter = False
         if (compl_var == "" or not hasattr(curr_row, compl_var)):
@@ -136,7 +133,9 @@ class FormCheck():
                    
         return True
 
-    def extra_form_conditions(self,curr_row : tuple, form : str):
+    def extra_form_conditions(
+        self,curr_row : tuple, form : str
+    ) -> bool:
         if form == 'pubertal_developmental_scale':
             age = self.subject_info[curr_row.subjectid]["age"]
             if not self.utils.can_be_float(age) or float(age) > 18:
@@ -154,8 +153,10 @@ class FormCheck():
             return False
         else: 
             return True
-
-    def check_if_missing(self,curr_row : tuple, form : str):
+    
+    def check_if_missing(self,
+        curr_row : tuple, form : str
+    ):
         """
         Checks if a form is marked as missing 
 
@@ -167,15 +168,19 @@ class FormCheck():
             current form
         """
         compl_var = self.important_form_vars[form]["completion_var"]
+        date_var = self.important_form_vars[form]["interview_date_var"]
         if self.network == 'PRESCIENT':
             compl_var += '_rpms'
             # rpms compl variables same for both cohorts
-            compl_var = compl_var.replace('_hc','') 
+            compl_var = compl_var.replace('_hc','').replace('onboarding','checkin') 
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         non_bl_vars_filled_out = 0
 
-        if missing_var != "":
+        if missing_var != "" and not (form in self.vars_added_later.keys()
+        and missing_var in self.vars_added_later[form].keys() and
+        self.check_if_after_date(curr_row, form, date_var) == False):
+                
             if not hasattr(curr_row, missing_var):
                 return False
             # prescient missingness can also be indicated by the completion var
@@ -187,8 +192,9 @@ class FormCheck():
             else:
                 return True
         
-        elif missing_var == "":     
-            return False     # removing filter to test scid
+        elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
+        in self.vars_added_later[form].keys() and
+        self.check_if_after_date(curr_row, form, date_var) == False):     
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
@@ -197,6 +203,20 @@ class FormCheck():
                 return True
             else:
                 return False
+
+    def check_if_after_date(self, curr_row, form, date_var):
+        date_added = self.vars_added_later[form]
+        if hasattr(curr_row, date_var):
+            date_val = getattr(curr_row, date_var)
+            date_val = str(date_val)
+            try:
+                date_val = datetime.strptime(date_val, '%Y-%m-%d')
+            except Exception as e:
+                return False
+            if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
+                return True
+        
+        return False
     
     def create_row_output(
         self, curr_row : tuple, forms: list,
@@ -223,7 +243,6 @@ class FormCheck():
             "displayed_variable" : variables[0],
             "var_translations" : [],
             "error_message" : error_message,
-            "error_rewordings" : [],
             "error_removed" : False,
             "reports" : ["Main Report"],
             "withdrawn_status" : removed_status,

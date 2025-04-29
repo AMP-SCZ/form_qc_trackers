@@ -351,7 +351,6 @@ class ClusterAnalysis():
                             try:
                                 #paired = sorted(zip(scores['global_scores'], scores['variable_pairs']))
                                 #sorted_list1, sorted_list2 = zip(*paired)
-
                                 #scores['variable_pairs'] = list(sorted_list2)[:5]
 
                                 self.qc_output_list.append({'subject':sub,

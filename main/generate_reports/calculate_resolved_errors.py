@@ -94,6 +94,7 @@ class CalculateResolvedErrors():
                         reports_to_read = ['Main Report']
                         self.read_dropbox_data(site_cols,['site_comments'], site_output, dbx, network.name, reports_to_read)"""
         return 
+        
     def check_dbx_file_exists(self,dbx, dropbox_path):
         try:
             _, res = dbx.files_download(dropbox_path)

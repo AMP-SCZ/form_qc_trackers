@@ -24,7 +24,6 @@ class HarmonizationQC():
         self.field_types = self.data_dict_df.set_index(
         'Variable / Field Name')['Field Type'].to_dict()
 
-
     def run_script(self):
         self.collect_all_var_means()
 
@@ -40,9 +39,7 @@ class HarmonizationQC():
                 self.find_num_var_means(combined_df, network, tp)
 
         df = self.dictionary_to_df(self.network_means)
-
         df.to_csv('network_median_comparison.csv', index = False)
-
 
     def find_num_var_means(self, df, network, tp):
         print(self.miss_codes)

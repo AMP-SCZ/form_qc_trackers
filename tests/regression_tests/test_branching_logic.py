@@ -72,7 +72,8 @@ class TestTransformBranchingLogic(unittest.TestCase):
                         try:
                             if getattr(curr_row,col) in (self.miss_codes) and eval(bl) == True:
                                 match_key =  network + tp + col + str(getattr(curr_row,col))
-                                dupl_removed_output.setdefault(match_key, {'subject':curr_row.subjectid,'network':network,'timepoint':tp,
+                                dupl_removed_output.setdefault(match_key, {
+                                'subject':curr_row.subjectid,'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col), 'count': 0,
                                 'pronet_branching_logic':converted_bl[col]['original_branching_logic']})
                                 dupl_removed_output[match_key]['count'] +=1

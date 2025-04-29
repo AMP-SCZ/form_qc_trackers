@@ -12,7 +12,7 @@ from datetime import datetime
 
 class FluidChecks(FormCheck):
     def __init__(self, row, timepoint, network, form_check_info):
-        super().__init__(timepoint, network,form_check_info)
+        super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
         self.call_checks(row)
                
@@ -31,9 +31,10 @@ class FluidChecks(FormCheck):
         proc_time_vars = ['chrblood_wholeblood_freeze','chrblood_serum_freeze',
         'chrblood_plasma_freeze','chrblood_buffy_freeze']
         for proc_time_var in proc_time_vars:
-            self.check_blood_freeze(row,[form],[proc_time_var],{"reports":blood_reports})
+            self.check_blood_freeze(row, [form], [proc_time_var],{"reports":blood_reports})
         self.cbc_differential_check(row)
-        self.check_blood_date(row,[form],['chrblood_drawdate','chrblood_labdate'],{"reports":blood_reports})
+        self.check_blood_date(row,[form],
+        ['chrblood_drawdate','chrblood_labdate'], {"reports":blood_reports})
         self.barcode_format_check(row)
 
     def cbc_differential_check(self,row):
@@ -52,17 +53,17 @@ class FluidChecks(FormCheck):
         if self.network != 'PRESCIENT':
             self.cbc_unit_checks(row)
 
-    def cbc_unit_checks(self,row):
+    def cbc_unit_checks(self, row):
         forms = ['cbc_with_differential']
         reports =  ['Main Report','Blood Report','Fluids Report']
         gt_unit_ranges = {'chrcbc_wbc':30,'chrcbc_neut':20,'chrcbc_rbc':12,\
         'chrcbc_lymph':20,'chrcbc_eos':5,'chrcbc_monos':5,'chrcbc_baso':5}
         lt_unit_ranges = {'chrcbc_monos':0.1,'chrcbc_hct':1}
 
-        for var,value_range in gt_unit_ranges.items():
+        for var, value_range in gt_unit_ranges.items():
             self.cbc_range_check(row,forms, [var],
             {'reports':reports},[],True,gt = True, threshold=value_range)
-        for var,value_range in lt_unit_ranges.items():
+        for var, value_range in lt_unit_ranges.items():
             self.cbc_range_check(row,forms, [var],
              {'reports':reports},[],True, gt = False, threshold=value_range)
     
@@ -71,9 +72,11 @@ class FluidChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):
-        """Function to check if the blood
+        """
+        Function to check if the blood
         draw date is later than the date
-        sent to lab."""
+        sent to lab.
+        """
 
         drawdate = row.chrblood_drawdate
         labdate = row.chrblood_labdate

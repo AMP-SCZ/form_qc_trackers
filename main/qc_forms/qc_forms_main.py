@@ -9,6 +9,7 @@ from utils.utils import Utils
 from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
 from qc_forms.qc_types.clinical_checks import ClinicalChecks
+from qc_forms.qc_types.SOP_checks import SOPChecks
 
 class QCFormsMain():
     def __init__(self):
@@ -34,7 +35,8 @@ class QCFormsMain():
         for filename in ['subject_info','general_check_vars',
         'important_form_vars','forms_per_timepoint',
         'converted_branching_logic','excluded_branching_logic_vars',
-        'team_report_forms','grouped_variables']:
+        'team_report_forms','grouped_variables','variables_added_later',
+        'raw_csv_conversions', 'variable_ranges']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
     def run_script(self):
@@ -63,7 +65,7 @@ class QCFormsMain():
         test_output=[]
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRONET','PRESCIENT']:
+        for network in ['PRESCIENT','PRONET']:
             for tp in tp_list:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
@@ -76,16 +78,24 @@ class QCFormsMain():
                     #print(tp)
                     #print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
-                    if row.subjectid not in self.form_check_info['subject_info']:
-                        print(row.subjectid)
+                    if (row.subjectid not
+                    in self.form_check_info['subject_info']):
                         continue
                     #print(row.Index)
-                    gen_checks = GeneralChecks(row, tp, network, self.form_check_info)
-                    fluid_checks = FluidChecks(row, tp, network, self.form_check_info)
-                    clinical_checks = ClinicalChecks(row, tp, network, self.form_check_info)
+                    gen_checks = GeneralChecks(row, tp,
+                    network, self.form_check_info)
+                    fluid_checks = FluidChecks(row, tp,
+                    network, self.form_check_info)
+                    clinical_checks = ClinicalChecks(row,
+                    tp, network, self.form_check_info)
+                    sop_checks = SOPChecks(row,
+                    tp, network, self.form_check_info)
                     test_output.extend(gen_checks())
                     test_output.extend(fluid_checks())
                     test_output.extend(clinical_checks())
+                    test_output.extend(sop_checks())
+                    print(len(test_output))
+                    print('-----------')
                 combined_output_df = pd.DataFrame(test_output)
                 combined_flags_path = f'{self.output_path}combined_outputs'
                 if not os.path.exists(combined_flags_path):
@@ -93,4 +103,3 @@ class QCFormsMain():
                 combined_output_df.to_csv(
                 f'{combined_flags_path}/new_output/combined_qc_flags.csv',
                 index = False)
-

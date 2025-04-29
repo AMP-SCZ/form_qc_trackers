@@ -41,6 +41,8 @@ class Utils():
                 'JE': 'Jena, DE (JE)', 'LS': 'Lausanne, CH (LS)', 'ME': 'Melbourne (ME)',\
                 'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
                 'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
+        
+        self.withdrawn_status_list = []
 
     def create_timepoint_list(self):
         """
@@ -296,7 +298,6 @@ class Utils():
 
         return dbx
 
-        
     def days_since_today(self,date_str, date_format="%Y-%m-%d"):
         date_str = date_str.replace('/','-')
         input_date = datetime.strptime(date_str, date_format)
@@ -314,7 +315,6 @@ class Utils():
 
         return reversed_dict
 
-    
     def find_days_between(self,d1,d2):
         """
         finds the days between two dates
@@ -341,6 +341,76 @@ class Utils():
             return True
         except ValueError:
             return False
+        
+    def convert_prescient_compl_var(
+        self, inp_compl_var : str
+    ) -> str:
+        output_compl_var = inp_compl_var.replace('_hc','').replace('onboarding','checkin') 
+
+    def recent_date_from_dict(self,
+        dates : dict
+    ) -> str:
+        """
+        returns which date variables has 
+        the most recent date, excluding missing
+        codes
+
+        Parameters
+        --------------
+        dates : dict
+            dictionary with 
+            the variable names as the
+            keys and dates as the values
+
+        Returns
+        ------------
+        recent_date_var : str
+            name of the variable that 
+            corresponds to the most recent
+            date in the dictionary
+        """
+        recent_date_var = ''
+        for date_var, date in dates.items():
+            if date in self.missing_code_list:
+                continue
+            curr_date = datetime.strptime(date, "%Y-%m-%d")
+            if curr_date > datetime.today():
+                continue
+            if recent_date_var == '':
+                recent_date_var = date_var
+            elif self.check_if_val_date_format(date):
+                if curr_date > datetime.strptime(dates[recent_date_var], "%Y-%m-%d"):
+                    recent_date_var = date_var
+
+        return recent_date_var
+    
+    def time_to_next_visit(
+        self, curr_tp : str
+    ) -> int:
+        """
+        Calculates the number of days that there
+        should be until the next timepoint
+        """
+        timepoints = self.create_timepoint_list()
+
+        if curr_tp in ['month24','conversion']:
+            return
+
+        if curr_tp in ['screening','baseline']:
+            days_btwn = 30
+        else:
+            curr_tp_ind = timepoints.index(curr_tp)
+            next_tp = timepoints[curr_tp_ind + 1]
+            months_btwn = int(next_tp.replace('month',''))-int(curr_tp.replace('month',''))
+            days_btwn = months_btwn * 30
+        
+        return days_btwn
+
+        
+
+            
+
+
 
 
 

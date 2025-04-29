@@ -26,6 +26,7 @@ class GeneralChecks(FormCheck):
         self.check_missing_code_values(row)
         self.call_spec_val_check(row)
         self.check_form_completion(row)
+        self.call_range_checks(row)
         for guid_var in ['chrguid_guid','chrguid_pseudoguid']:
             self.guid_format_check(row, ['guid_form'],
             [guid_var],{'reports':['Main Report','Non Team Forms'],
@@ -33,7 +34,16 @@ class GeneralChecks(FormCheck):
             bl_filtered_vars=[guid_var],filter_excl_vars=True,
             checked_guid_var=guid_var)
 
-        self.missing_code_check(row)
+        #self.missing_code_check(row)
+
+    def call_range_checks(self, row):
+        for var, range_dict in self.variable_ranges.items():
+            min = range_dict['min']
+            max = range_dict['max']
+            self.range_check(row, [range_dict['form']],[var],
+            {"reports" : ['Main Report']},bl_filtered_vars=[],
+            filter_excl_vars=True,range_var = var,
+            lower = min,upper = max)
 
     def check_blank_values(self, row):
         #TODO:optimize performance of this part
@@ -138,7 +148,8 @@ class GeneralChecks(FormCheck):
                     compl_var += '_rpms'
                     # rpms compl variables same for both cohorts
                     compl_var = compl_var.replace('_hc','') 
-                    
+                    if 'informed_consent' in compl_var:
+                        return
                 if (hasattr(row, compl_var) and 
                 getattr(row, compl_var) not in self.utils.all_dtype([2,3,4])):
                     error_message = f"{form} not marked as complete, but subject has started the next timepoint"
@@ -163,6 +174,18 @@ class GeneralChecks(FormCheck):
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
             return f'GUID in incorrect format. GUID was reported to be {guid}.'
 
+    @FormCheck.standard_qc_check_filter
+    def range_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, range_var = '', lower = 0, upper = 100
+    ):
+        var_val = getattr(row, range_var)
+        if (self.utils.can_be_float(var_val) and
+        var_val not in self.utils.missing_code_list):
+            if float(var_val) < lower or float(var_val) > upper:
+                return f'{range_var} value ({var_val}) is out of range'
+
+
     def age_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
@@ -179,9 +202,7 @@ class GeneralChecks(FormCheck):
                 if (hasattr(row, vars['missing_spec_var'])
                 and getattr(row, vars['missing_var']) in self.utils.all_dtype([1])
                 and getattr(row, vars['missing_spec_var']) == ''):
-                    print(row.subjectid)
-                    print(vars['missing_spec_var']) 
-                    print(getattr(row, vars['missing_spec_var']))
+                    continue
 
 
 

@@ -17,6 +17,11 @@ from main.process_variables.collect_ra_subjects import RaSubjects
 
 from main.process_variables.collect_multi_timepoint_data import MultiTPDataCollector
 
+from main.process_variables.collect_raw_csv_info import RawCSVCollector
+
+from main.process_variables.define_ranges import RangeDefiner
+
+
 class ProcessVariables():
     """
     Class to process and organize
@@ -35,11 +40,9 @@ class ProcessVariables():
             self.config_info = json.load(file)
 
     def run_script(self):
-        data_dict_df = self.utils.read_data_dictionary()
+        """data_dict_df = self.utils.read_data_dictionary()
         grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
-
-        self.multi_tp_data = MultiTPDataCollector()
 
         important_form_vars = DefineEssentialFormVars(data_dict_df)
 
@@ -64,3 +67,15 @@ class ProcessVariables():
 
         ra_subs = RaSubjects()
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
+
+        raw_csv_conversions = RawCSVCollector()
+        self.utils.save_dependency_json(raw_csv_conversions(),'raw_csv_conversions.json')
+
+        var_ranges = RangeDefiner()
+        self.utils.save_dependency_json(var_ranges(),'variable_ranges.json')"""
+
+        self.multi_tp_data = MultiTPDataCollector()
+        
+
+
+        
