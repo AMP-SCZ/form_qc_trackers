@@ -2,7 +2,6 @@ import pandas as pd
 import os
 import sys
 import json
-import unittest
 import re
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 sys.path.insert(1, parent_dir)
@@ -10,8 +9,7 @@ from main.process_variables.transform_branching_logic import TransformBranchingL
 from main.utils.utils import Utils
 from logging_config import logger  
 
-class TestTransformBranchingLogic(unittest.TestCase):
-
+class TestTransformBranchingLogic():
     def __init__(self):
         self.utils = Utils()
         self.data_dictionary_df = self.utils.read_data_dictionary()
@@ -19,17 +17,13 @@ class TestTransformBranchingLogic(unittest.TestCase):
         self.convert_bl = self.transform_branching_logic.convert_all_branching_logic
         with open(f'{self.utils.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
-
         self.combined_csv_path = self.config_info['paths']['combined_csv_path']
         output_path = self.config_info['paths']['output_path']
         identifier_df = pd.read_csv(f"{output_path}identifier_effects.csv")
         self.ident_bl_vars = identifier_df[
         identifier_df['affected_col'] == 'branching_logic']['var'].tolist()
-
         self.excl_bl = self.utils.load_dependency_json('excluded_branching_logic_vars.json')
-
         print(self.ident_bl_vars)
-        
         self.miss_codes = self.utils.missing_code_list
 
     def run_script(self):
@@ -70,33 +64,47 @@ class TestTransformBranchingLogic(unittest.TestCase):
                         if col in self.ident_bl_vars and network == "PRONET":
                             continue
                         try:
-                            if getattr(curr_row,col) in (self.miss_codes) and eval(bl) == True:
+                            if getattr(curr_row, col) == '' and eval(bl) == True:
                                 match_key =  network + tp + col + str(getattr(curr_row,col))
                                 dupl_removed_output.setdefault(match_key, {
                                 'subject':curr_row.subjectid,'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col), 'count': 0,
-                                'pronet_branching_logic':converted_bl[col]['original_branching_logic']})
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],'BL_cond':True})
                                 dupl_removed_output[match_key]['count'] +=1
 
                                 output_list.append({'subject':curr_row.subjectid,'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col),
-                                'pronet_branching_logic':converted_bl[col]['original_branching_logic']})
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],
+                                'BL_Cond':True})
+
+                            elif (getattr(curr_row, col) not in
+                            (self.missing_code_list +['']) and eval(bl) == False):
+                                match_key =  network + tp + col + str(getattr(curr_row,col))
+                                dupl_removed_output.setdefault(match_key, {
+                                'subject':curr_row.subjectid,'network':network,'timepoint':tp,
+                                'variable':col,'variable_value':getattr(curr_row,col), 'count': 0,
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],'BL_cond':False})
+                                dupl_removed_output[match_key]['count'] +=1
+
+                                output_list.append({'subject':curr_row.subjectid,'network':network,'timepoint':tp,
+                                'variable':col,'variable_value':getattr(curr_row,col),
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],
+                                'BL_Cond':False})
+
                         except Exception as e:
-                            if 'arm' not in str(e):
+                            """if 'arm' not in str(e):
                                 print('error')
                                 print(col)
                                 print(bl)
-                                print(e)
+                                print(e)"""
                             continue
 
                 for key,val in dupl_removed_output.items():
                     dupl_removed_output_list.append(val)
                 output_df = pd.DataFrame(dupl_removed_output_list)
                 output_df.to_csv(
-                f"{self.config_info['paths']['output_path']}bl_miss_code_mismatches.csv",
+                f"{self.config_info['paths']['output_path']}bl_mismatches_{network}.csv",
                 index = False)
-                            
-
 
 if __name__ =='__main__':
     TestTransformBranchingLogic().run_script()

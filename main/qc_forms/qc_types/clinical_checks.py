@@ -639,8 +639,4 @@ class ClinicalChecks(FormCheck):
         filter_excl_vars=True
     ):
         if row.visit_status_string != 'converted':
-            return f'{all_vars[0]} is {getattr(row,all_vars[0])}, but participant is not marked as converted.'
-
-                
-                
-
+            return f'{all_vars[0]} is {getattr(row, all_vars[0])}, but participant is not marked as converted.'
