@@ -246,7 +246,6 @@ class OrganizeReports():
             'chrpsychs_scr_e27','chrpsychs_scr_e11_app',
             'chrpsychs_scr_e27_app','chrpsychs_fu_e27',
             'chrpsychs_fu_e27_app','hcpsychs_fu_e27','hcpsychs_fu_e27_app'])
-        
 
         return essential_psychs_vars
     

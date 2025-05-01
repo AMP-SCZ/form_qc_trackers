@@ -53,7 +53,6 @@ class MultiTPDataCollector():
                             interview_date_val = getattr(row, interview_date_var)
                             if (interview_date_val not in (self.utils.missing_code_list + ['']) and
                             self.utils.check_if_val_date_format(str(interview_date_val))):
-                                print(interview_date_val)
                                 datetime_format_val = datetime.strptime(str(interview_date_val), "%Y-%m-%d")
                                 if datetime_format_val < datetime.strptime("2022-01-01", "%Y-%m-%d"):
                                     continue
@@ -66,14 +65,13 @@ class MultiTPDataCollector():
             sorted(self.earliest_date_per_var.items(),
             key=lambda item: datetime.strptime(item[1], "%Y-%m-%d"), reverse=True)
         )
-
+ 
         self.utils.save_dependency_json(sorted_date_dict,
         'earliest_dates_per_var.json')
 
     def search_timepoint_dates(self, row, forms):
         date_list = []
         
-
     def loop_networks(self):
         for network in ['PRONET']:
             self.collect_blood_duplicates(network)

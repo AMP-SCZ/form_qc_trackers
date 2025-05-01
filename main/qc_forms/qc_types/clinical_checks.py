@@ -45,6 +45,9 @@ class ClinicalChecks(FormCheck):
         self.call_bprs_checks(row)
         self.call_chrchs_checks(row)
         self.call_conversion_check(row)
+        self.check_onset_date(row, 
+        ['current_pharmaceutical_treatment_floating_med_125'],
+        ['chrpharm_date_mod'], {'reports': ['Main Report']})
 
     def call_conversion_check(self,row):
         gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
@@ -583,6 +586,7 @@ class ClinicalChecks(FormCheck):
                     return (f'{compared_score_var} ({compared_score_val}) is'
                     f' not the highest score ({score_var} = {other_score_val})')
         return 
+
     
     def call_twenty_one_day_check(self, row):   
         if self.timepoint != 'baseline':
@@ -604,6 +608,30 @@ class ClinicalChecks(FormCheck):
         self.check_if_over_21_days(row,missing_spec_var, scr_int_date,
         curr_tp_forms,curr_psychs_form)
 
+    @FormCheck.standard_qc_check_filter
+    def check_onset_date(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True):
+        chrpharm_med2_onset
+        date_list = []
+        for x in range(0,10):
+            date_list.append(f'chrpharm_med{x}_onset')
+
+        for date_var in date_list:
+            if hasattr(row, date_var):
+                date_val = str(getattr(row,date_var))
+                data_entry_val = str(getattr(row,chrpharm_date_mod))
+
+                if (self.utils.check_if_val_date_format(
+                self, date_val, date_format="%Y-%m-%d")
+                and self.utils.check_if_val_date_format(
+                self, data_entry_val, date_format="%Y-%m-%d")):
+                    days_btwn = self.utils.find_days_between(
+                    date_val,data_entry_val)
+                    
+        if days_btwn > 10:
+            return f'There are {days_btwn} days between the most recent medication date and medication mod date'
+
     def check_if_over_21_days(self,
         row, missing_spec_var, scr_int_date,
         curr_tp_forms, curr_psychs_form
@@ -612,9 +640,9 @@ class ClinicalChecks(FormCheck):
         if (hasattr(row, missing_spec_var)
         and str(getattr(row, missing_spec_var)) == 'M6'):
             for form in curr_tp_forms:
-                if form in self.excluded_21_day_forms:
+                if form in self.excluded_21_day_forms:  
                     continue
-                if self.check_if_missing(row,form) == True:
+                if self.check_if_missing(row,form) == True: 
                     continue
                 int_date_var = self.important_form_vars[form]['interview_date_var']
                 if hasattr(row, int_date_var):

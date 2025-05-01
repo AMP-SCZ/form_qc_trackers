@@ -26,6 +26,13 @@ class TestTransformBranchingLogic():
         print(self.ident_bl_vars)
         self.miss_codes = self.utils.missing_code_list
 
+        self.var_forms = self.utils.load_dependency_json(
+        f"grouped_variables.json")
+        self.forms_per_var = self.var_forms['var_forms']
+        self.important_form_vars = self.utils.load_dependency_json(
+        'important_form_vars.json')
+        
+
     def run_script(self):
         self.compare_bl_to_database()
 
@@ -41,6 +48,7 @@ class TestTransformBranchingLogic():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
+            dupl_removed_output = {}
             for tp in tp_list:
                 print(tp)
                 dupl_removed_output_list = []
@@ -48,6 +56,21 @@ class TestTransformBranchingLogic():
                 combined_df = pd.read_csv(combined_df_path,keep_default_na=False)
                 for curr_row in combined_df.itertuples():
                     for col in combined_df.columns:
+                        if col not in self.forms_per_var.keys():
+                            continue
+                        form = self.forms_per_var[col]
+                        if form in self.important_form_vars.keys():
+                            interview_date_var = self.important_form_vars[form]['interview_date_var']
+                            missing_var = self.important_form_vars[form]['missing_var']
+                            complete_var = self.important_form_vars[form]['completion_var']
+                        if (hasattr(curr_row, missing_var)
+                        and getattr(curr_row, missing_var)
+                        in self.utils.all_dtype([1])):
+                            continue
+                        if (hasattr(curr_row, complete_var)
+                        and getattr(curr_row, complete_var)
+                        not in self.utils.all_dtype([2])):
+                            continue
                         if col not in converted_bl.keys():
                             continue
                         if col in self.excl_bl.keys():
@@ -64,14 +87,18 @@ class TestTransformBranchingLogic():
                         if col in self.ident_bl_vars and network == "PRONET":
                             continue
                         try:
-                            if getattr(curr_row, col) == '' and eval(bl) == True:
-                                match_key =  network + tp + col + str(getattr(curr_row,col))
+                            if ((getattr(curr_row, col) == '' or (
+                            network =='PRESCIENT' and getattr(curr_row, col)
+                            in self.missing_code_list)) and eval(bl) == True):
+                                match_key =  network + tp + col + str(getattr(curr_row,col)) + 'True'
                                 dupl_removed_output.setdefault(match_key, {
-                                'subject':curr_row.subjectid,'network':network,'timepoint':tp,
+                                'subjects':[],'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col), 'count': 0,
-                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],'BL_cond':True})
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],
+                                'converted_branching_logic': bl,'BL_cond':True})
                                 dupl_removed_output[match_key]['count'] +=1
-
+                                if len(dupl_removed_output[match_key]['subjects']) < 50:
+                                    dupl_removed_output[match_key]['subjects'].append(curr_row.subjectid)
                                 output_list.append({'subject':curr_row.subjectid,'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col),
                                 'pronet_branching_logic':converted_bl[col]['original_branching_logic'],
@@ -79,13 +106,15 @@ class TestTransformBranchingLogic():
 
                             elif (getattr(curr_row, col) not in
                             (self.missing_code_list +['']) and eval(bl) == False):
-                                match_key =  network + tp + col + str(getattr(curr_row,col))
+                                match_key =  network + tp + col + str(getattr(curr_row,col)) + 'False'
                                 dupl_removed_output.setdefault(match_key, {
-                                'subject':curr_row.subjectid,'network':network,'timepoint':tp,
+                                'subjects':[],'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col), 'count': 0,
-                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],'BL_cond':False})
+                                'pronet_branching_logic':converted_bl[col]['original_branching_logic'],
+                                'converted_branching_logic': bl,'BL_cond':False})
                                 dupl_removed_output[match_key]['count'] +=1
-
+                                if len(dupl_removed_output[match_key]['subjects']) < 50:
+                                    dupl_removed_output[match_key]['subjects'].append(curr_row.subjectid)
                                 output_list.append({'subject':curr_row.subjectid,'network':network,'timepoint':tp,
                                 'variable':col,'variable_value':getattr(curr_row,col),
                                 'pronet_branching_logic':converted_bl[col]['original_branching_logic'],
