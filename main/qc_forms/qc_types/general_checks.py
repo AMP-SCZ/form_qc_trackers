@@ -80,6 +80,10 @@ class GeneralChecks(FormCheck):
                         {"reports" : report_list},[var])
 
     def prescient_scid_filter(self, var, row):
+        """
+        Filters out modules
+        not used for Prescient 
+        """
         if var in self.module_b_vars or var in self.module_c_vars:
             if self.network == 'PRESCIENT':
                 if (row.chrscid_b1 in (
@@ -94,6 +98,10 @@ class GeneralChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):  
+        """
+        Standard check applied across all
+        forms to see if form is blank
+        """
         if getattr(row, all_vars[0]) == '':
             return "Variable is blank."
         
@@ -190,6 +198,10 @@ class GeneralChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):
+        """
+        Checks all ages to make sure
+         they are in the correct range.
+        """
         age = self.subject_info[row.subjectid]["age"]
         if age == "unknown":
             return "Age is Unknown."

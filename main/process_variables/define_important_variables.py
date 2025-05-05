@@ -362,13 +362,14 @@ class CollectMiscVariables():
 
         pharm_vars_categorized = {
         'name_vars':[],
-        'firstdose_vars':[]
+        'firstdose_vars':[],
+        'med_status_vars':[]
         }
         
         pattern = r"chrpharm_med\d*_mo\d*"
         for row in pharm_df.itertuples():
             if re.match(pattern, row.var):
-                print(row.var)
+                pharm_vars_categorized.append(row.var)
             
         return pharm_vars_categorized
 

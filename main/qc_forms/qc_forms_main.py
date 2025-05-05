@@ -101,3 +101,4 @@ class QCFormsMain():
                 combined_output_df.to_csv(
                 f'{combined_flags_path}/new_output/combined_qc_flags.csv',
                 index = False)
+                

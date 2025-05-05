@@ -35,6 +35,10 @@ class SOPChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=False, var_comps = {}
     ):
+        """
+        Finds subjects that are converted
+        but did not fill out the conversion form.
+        """
         if (row.subjectid in self.conversion_subs
         and getattr(row, 'chrconv_interview_date')
         in (self.utils.missing_code_list + [''])):

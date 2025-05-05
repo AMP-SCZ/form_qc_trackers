@@ -23,8 +23,14 @@ class MultiTPDataCollector():
         self.forms_per_var = self.var_forms['var_forms']
         self.important_form_vars = self.utils.load_dependency_json(
         'important_form_vars.json')
+        self.forms_per_tp = self.utils.load_dependency_json(
+        'forms_per_timepoint.json')
+        self.subject_info = self.utils.load_dependency_json(
+        'subject_info.json')
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         self.loop_csvs()
+
+        self.earliest_latest_dates_per_tp = {}
 
     def __call__(self):
         self.loop_csvs()
@@ -34,10 +40,52 @@ class MultiTPDataCollector():
         tp_list.extend(['floating','conversion'])
         for network in ['PRESCIENT','PRONET']:
             for tp in tp_list:
+                print(tp)
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
                 self.collect_earliest_date(combined_df)
+                self.collect_earliest_latest_dates(combined_df, tp)
+        self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
+        'earliest_latest_dates_per_tp.json')
+ 
+    def collect_earliest_latest_dates(self,
+        combined_df : pd.DataFrame, tp: str
+    ):
+        """
+        Collects the earliest and
+        latest dates of each visit
+        for each subject 
+
+        Parameters
+        --------
+        combined_df : 
+            current timepoint's dataframe
+        """
+        forms_per_tp = self.forms_per_tp
+        tp = tp.replace('screening','screen').replace('baseline','baseln')
+        for row in combined_df.itertuples():
+            subject = row.subjectid
+            if (subject in self.subject_info.keys()
+            and self.subject_info[subject]['cohort'] != 'unknown'):
+                cohort = self.subject_info[subject]['cohort']
+                all_forms = forms_per_tp[cohort]
+                for form in all_forms:
+                    interview_date_var = self.important_form_vars[form]['interview_date_var']
+                    if interview_date_var!= '':
+                        int_date = getattr(row, interview_date_var)
+                        if (int_date not in (self.utils.missing_code_list + [''])
+                        and self.utils.check_if_val_date_format(int_date)):
+                            self.earliest_latest_dates_per_tp.setdefault(subject, {})
+                            self.earliest_latest_dates_per_tp[subject].setdefault(tp, {})
+                            self.earliest_latest_dates_per_tp[
+                            subject][tp].setdefault(form, {'earliest':int_date,'latest':int_date})
+                            if datetime.strptime(str(int_date), "%Y-%m-%d") < 'earliest':
+                                self.earliest_latest_dates_per_tp[
+                                subject][tp]['earliest'] = int_date
+                            if datetime.strptime(str(int_date), "%Y-%m-%d") > 'latest':
+                                self.earliest_latest_dates_per_tp[subject][tp] = int_date
+
 
     def collect_earliest_date(self, combined_df : pd.DataFrame):
         all_cols = combined_df.columns

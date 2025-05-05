@@ -161,11 +161,9 @@ class ClinicalChecks(FormCheck):
         self.manic_episode_check(row, [form], 
         ['chrscid_a108','chrscid_a70','chrscid_d2'],
         changed_output, bl_filtered_vars=[],filter_excl_vars=False)
-
         self.hypomanic_episode_check(row, [form], 
         ['chrscid_d5','chrscid_a91','chrscid_a129'],
         changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
-
         self.depressive_manic_check(row, [form], 
         ['chrscid_d28','chrscid_a54','chrscid_a92','chrscid_a132'],
         changed_output, bl_filtered_vars=[],filter_excl_vars=False)
@@ -586,7 +584,6 @@ class ClinicalChecks(FormCheck):
                     return (f'{compared_score_var} ({compared_score_val}) is'
                     f' not the highest score ({score_var} = {other_score_val})')
         return 
-
     
     def call_twenty_one_day_check(self, row):   
         if self.timepoint != 'baseline':
@@ -616,19 +613,18 @@ class ClinicalChecks(FormCheck):
         date_list = []
         for x in range(0,10):
             date_list.append(f'chrpharm_med{x}_onset')
-
         for date_var in date_list:
             if hasattr(row, date_var):
                 date_val = str(getattr(row,date_var))
                 data_entry_val = str(getattr(row,chrpharm_date_mod))
-
                 if (self.utils.check_if_val_date_format(
                 self, date_val, date_format="%Y-%m-%d")
                 and self.utils.check_if_val_date_format(
                 self, data_entry_val, date_format="%Y-%m-%d")):
                     days_btwn = self.utils.find_days_between(
-                    date_val,data_entry_val)
-                    
+                    date_val,data_entry_val)      
+        print(days_btwn)
+        print(row.subjectid)   
         if days_btwn > 10:
             return f'There are {days_btwn} days between the most recent medication date and medication mod date'
 
