@@ -39,28 +39,26 @@ class DefineEssentialFormVars():
         # returns dictionary of each form and its variables collected in this class
         return important_form_vars
     
-    def collect_no_miss_cutoffs(self, form_vars):
+    def collect_no_miss_cutoffs(self, 
+        form_vars : str
+    ):
         for form,var_info in form_vars.items():
             form_df = self.data_dictionary_df[
             self.data_dictionary_df['Form Name'] == form]
-
             form_df = form_df[
             form_df['Branching Logic (Show field only if...)'] == '']
-
             form_df = form_df[
             form_df['Identifier?'] == '']
-
             form_df = form_df[
             ~form_df['Field Type'].isin(['checkbox','notes','descriptive'])]
-
             non_branch_logic_vars = form_df['Variable / Field Name'].tolist()
-
             form_vars[form]['non_branch_logic_vars'] = non_branch_logic_vars
 
         return form_vars
 
     def create_list_from_df(
-        self, col_to_check : str, strings_to_check : list
+        self, col_to_check : str,
+        strings_to_check : list
     ) -> list:
         """
         Creates a list from a dataframe
@@ -83,7 +81,6 @@ class DefineEssentialFormVars():
             from each row where the 
             col_to_check column contained
             the str_to_check
-
         """
 
         # filters dataframe to only include rows where
@@ -100,10 +97,15 @@ class DefineEssentialFormVars():
         return variable_list
     
     def collect_user_variables(self):
+        """
+        Collects REDCap user variables
+        """
         filterered_df = self.data_dictionary_df[
         (self.data_dictionary_df[
-        'Variable / Field Name'].str.endswith('redcap_user')) | self.data_dictionary_df[
-        'Variable / Field Name'].isin(['chrcssrsfu_redacp_user','chrpps_redcao_user'])]
+        'Variable / Field Name'].str.endswith(
+        'redcap_user')) | self.data_dictionary_df[
+        'Variable / Field Name'].isin([
+        'chrcssrsfu_redacp_user','chrpps_redcao_user'])]
         
         user_vars = filterered_df['Variable / Field Name'].tolist()
 
@@ -217,7 +219,6 @@ class DefineEssentialFormVars():
 
         return important_form_vars
 
-
 class CollectMiscVariables():
     """
     class to organize any other
@@ -225,7 +226,9 @@ class CollectMiscVariables():
     be needed by the QC
     """
 
-    def __init__(self, data_dictionary_df):
+    def __init__(self, 
+        data_dictionary_df : pd.DataFrame
+    ):
         self.data_dictionary_df = data_dictionary_df   
         self.all_forms = list(set(self.data_dictionary_df['Form Name'].tolist()))     
 
@@ -240,6 +243,10 @@ class CollectMiscVariables():
         return var_info
 
     def collect_blood_var_types(self):
+        """
+        Collects different
+        variables for blood checks
+        """
         blood_df = self.data_dictionary_df[
         self.data_dictionary_df[
         'Form Name'] == 'blood_sample_preanalytic_quality_assurance']
@@ -251,12 +258,14 @@ class CollectMiscVariables():
         var for var in all_blood_vars if 'id' in var and var != 'chrblood_pl1id_2']
         blood_var_categs['volume_variables'] =  [
         var for var in all_blood_vars if 'vol' in var and 'error' not in var]
-
         blood_var_categs['barcode_variables'] = self.collect_blood_barcode_vars()
 
         return blood_var_categs
     
     def collect_blood_barcode_vars(self):
+        """
+        Collects all barcode variables
+        """
         filterered_df = self.data_dictionary_df[
         self.data_dictionary_df[
         'Form Name'] == 'blood_sample_preanalytic_quality_assurance']
@@ -269,7 +278,12 @@ class CollectMiscVariables():
         return barcode_vars
     
     def collect_form_per_var(self):
-        filterered_df = self.data_dictionary_df[['Variable / Field Name','Form Name']]
+        """
+        Collects each form per variable
+        """
+
+        filterered_df = self.data_dictionary_df[[
+        'Variable / Field Name','Form Name']]
         filterered_df = filterered_df.rename(
         columns={'Variable / Field Name': 'variable',
         'Form Name': 'form'})
@@ -279,13 +293,17 @@ class CollectMiscVariables():
         return form_per_var
 
     def collect_scid_module_b_vars(self):
+        """
+        collects module b variables
+        from the scid to be excluded
+        """
         scid_df = self.data_dictionary_df[
-        self.data_dictionary_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
+        self.data_dictionary_df[
+        'Form Name'] == 'scid5_psychosis_mood_substance_abuse']
         all_scid_vars = scid_df['Variable / Field Name'].tolist()
         exceptions = ['chrscid_bipolar_sub_desc',
         'chrscid_bp_current_severity',
         'chrscid_bp_recent_ep']
-        
         module_b_vars = [var
         for var in all_scid_vars if 'chrscid_b'
         in var and var not in exceptions]
@@ -293,10 +311,14 @@ class CollectMiscVariables():
         return module_b_vars
     
     def collect_scid_module_c_vars(self):
+        """
+        collects module c variables 
+        to be excluded for prescient
+        """
         scid_df = self.data_dictionary_df[
-        self.data_dictionary_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
-        all_scid_vars = scid_df['Variable / Field Name'].tolist()
-        
+        self.data_dictionary_df[
+        'Form Name'] == 'scid5_psychosis_mood_substance_abuse']
+        all_scid_vars = scid_df['Variable / Field Name'].tolist()        
         module_c_vars = []
         for var in all_scid_vars:
             for num in range(1,80):
@@ -305,9 +327,9 @@ class CollectMiscVariables():
     
         return module_c_vars
 
-
     def create_variable_translations(self):
-        """Removes some unwanted characters from
+        """
+        Removes some unwanted characters from
         branching logic and adds them to translation
         dictionary
 
@@ -343,8 +365,8 @@ class CollectMiscVariables():
 
     def collect_pharm_vars(self):
         """
-        Collects pharmaceutical variables
-        used in later checks
+        Collects pharmaceutical
+        variables used in later checks
         """
         
         pharm_df = self.data_dictionary_df[
@@ -355,21 +377,24 @@ class CollectMiscVariables():
         'Form Name':'form'}
 
         pharm_df = pharm_df[list(col_renames.keys())]
-        print(pharm_df)
 
         pharm_df = pharm_df.rename(columns=col_renames)
-        print(pharm_df)
 
         pharm_vars_categorized = {
         'name_vars':[],
         'firstdose_vars':[],
-        'med_status_vars':[]
+        'med_status_vars':[],
+        'timepoint_vars' : []
         }
         
         pattern = r"chrpharm_med\d*_mo\d*"
         for row in pharm_df.itertuples():
             if re.match(pattern, row.var):
-                pharm_vars_categorized.append(row.var)
-            
+                pharm_vars_categorized['med_status_vars'].append(row.var)
+            if 'name' in row.var and 'chrpharm' in row.var:
+                pharm_vars_categorized['name_vars'].append(row.var)
+            if 'chrpharm_med' in row.var and '_tp' in row.var:
+                pharm_vars_categorized['timepoint_vars'].append(row.var)
+
         return pharm_vars_categorized
 

@@ -47,12 +47,9 @@ class OrganizeReports():
         team_report_forms = self.define_team_report_forms()
         self.utils.save_dependency_json(
         team_report_forms, 'team_report_forms.json')
-
         self.utils.save_dependency_json(
         self.variables_added_later, 'variables_added_later.json')
         
-
-
     def organize_blank_check_vars(self):
 
         # applies filters that are relevant to both reports
@@ -292,7 +289,6 @@ class OrganizeReports():
 
         # all forms not yet defined in the above dictionary
         team_reports['Non Team Forms'] = non_team_forms 
-
 
         return team_reports
 

@@ -347,7 +347,6 @@ class TransformBranchingLogic():
     
 
     def edit_av_branch_logic(self, variable, orig_bl):
-
         if variable == 'chrpsychs_av_audio_expl':
             new_branching_logic = '[chrpsychs_av_audio_yn] = 0'
             return new_branching_logic

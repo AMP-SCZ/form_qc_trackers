@@ -13,18 +13,26 @@ from io import BytesIO
 import numpy as np 
 
 """
-cols to match : subject, displayed timepoint, displayed form, displayed variable, error message
+cols to match : subject, displayed timepoint, 
+displayed form, displayed variable, error message
 if row exists in current output and not at all in old
     append date detected as today
 
 if row exists in old output and not new
-     if the most recent date resolved is after the most recent date detected and neither are blank, ignore it
-     if the most recent date detected is after the most recent date resolved and neither are blank, append today's date to the date resolved, set currently_resolved to False
-     if date detected is not blank and date resolved is blank, append today's date to date resolved, set currently_resolved to True
+     if the most recent date resolved is after the most recent date
+    detected and neither are blank, ignore it
+     if the most recent date detected is after the most recent date resolved
+    and neither are blank, append today's date to the date resolved, set currently_resolved to False
+    if date detected is not blank and date resolved is blank, append
+    today's date to date resolved, set currently_resolved to True
 
 if row exists in both outputs
-    if it is currently resolved in the old one, append today's date to dates detected and change currently_resolved to False
-    If it is currently not resolved in the old one, replace it with the new one (so other columns like subject's current timepoint get updated)
+    if it is currently resolved in the old one,
+    append today's date to dates detected
+    and change currently_resolved to False
+    If it is currently not resolved in the old one,
+    replace it with the new one (so other columns like
+    subject's current timepoint get updated)
 """
 
 class CalculateResolvedErrors():
@@ -104,7 +112,8 @@ class CalculateResolvedErrors():
             return False
 
         
-    def read_dropbox_data(self,col_names,columns_to_read,
+    def read_dropbox_data(self,
+        col_names,columns_to_read,
         dropbox_path, dbx, network, reports_to_read,
         excl_report = True
     ):
@@ -154,7 +163,6 @@ class CalculateResolvedErrors():
     def determine_resolved_rows(self):
         new_df = pd.read_csv(self.out_paths['new'], keep_default_na = False)
         #new_df = new_df[new_df['currently_resolved'] == False]
-        
         #new_df = new_df.drop('NDA Excluder', axis=1)
         #old_df = old_df.drop('NDA Excluder', axis=1)
         if os.path.exists(self.out_paths['current']):

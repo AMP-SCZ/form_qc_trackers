@@ -406,6 +406,36 @@ class Utils():
         
         return days_btwn
 
+    def append_suffix_to_cols(self, 
+        input_df : pd.DataFrame, suffix, incl_cols,
+        excl_cols = ['subjectid']
+    ) -> pd.DataFrame:
+        """
+        adds tp suffix to column names, 
+        except for those in excluded list
+
+        Parameters
+        ----------------
+        input_df : pd.DataFrame
+            dataframe being modified 
+        excl_cols : list
+            columns not being modified
+        """
+
+        modified_cols = list(input_df.columns)
+        # columns that will not have timepoint suffix added
+        modified_col = [col + f'_{suffix}' for col in modified_cols if col not in excl_cols]
+        modified_cols = {}
+        for col in input_df.columns:
+            if col in excl_cols:
+                modified_cols[col] = col 
+            else:
+                modified_cols[col] = col + '_tp'
+        modified_df = input_df.rename(columns=modified_cols)
+
+        return modified_df 
+
+
         
 
             

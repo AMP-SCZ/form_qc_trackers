@@ -31,6 +31,8 @@ class ClinicalChecks(FormCheck):
         'scid_diagnosis_vars.json')
 
         self.call_checks(row)
+        
+        #self.dates_per_tp = self.utils 
                
     def __call__(self):
         return self.final_output_list
@@ -48,6 +50,11 @@ class ClinicalChecks(FormCheck):
         self.check_onset_date(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
         ['chrpharm_date_mod'], {'reports': ['Main Report']})
+
+        self.pharm_firstdose_check(row, 
+        ['current_pharmaceutical_treatment_floating_med_125'],
+        ['chrpharm_med1_onset','chrpharm_firstdose_med1'],
+        {'reports': ['Main Report']})
 
     def call_conversion_check(self,row):
         gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
@@ -95,7 +102,6 @@ class ClinicalChecks(FormCheck):
             if self.utils.can_be_float(var_val) and float(var_val) == threshold:
                 self.conversion_criteria_check(row, [form],
                 [var],{'reports': ['Main Report']})
-
 
     def call_chrchs_checks(self, row):
         changed_output = {'reports': ['Main Report']}
@@ -628,6 +634,12 @@ class ClinicalChecks(FormCheck):
         if days_btwn > 10:
             return f'There are {days_btwn} days between the most recent medication date and medication mod date'
 
+    """@FormCheck.standard_qc_check_filter
+    def check_pharm_most_recent(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):"""
+        
     def check_if_over_21_days(self,
         row, missing_spec_var, scr_int_date,
         curr_tp_forms, curr_psychs_form
@@ -664,3 +676,24 @@ class ClinicalChecks(FormCheck):
     ):
         if row.visit_status_string != 'converted':
             return f'{all_vars[0]} is {getattr(row, all_vars[0])}, but participant is not marked as converted.'
+
+    @FormCheck.standard_qc_check_filter   
+    def pharm_firstdose_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        if (row.chrpharm_firstdose_med1 not in (self.utils.missing_code_list + [''])
+        and row.chrpharm_med1_onset not in (self.utils.missing_code_list + [''])
+        and str(row.chrpharm_med1_onset) != str(row.chrpharm_firstdose_med1)):
+            return (f'chrpharm_med1_onset ({row.chrpharm_med1_onset}) does'
+            f' not equal chrpharm_firstdose_med1 ({row.chrpharm_firstdose_med1})')
+
+    """@FormCheck.standard_qc_check_filter
+    def pharm_firstdose_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):"""
+
+        
+
+

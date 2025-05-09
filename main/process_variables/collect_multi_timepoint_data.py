@@ -9,14 +9,20 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 
 class MultiTPDataCollector():
+    """
+    Class to collect data
+    from multiple timepoints 
+
+    """
     def __init__(self):
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
+        self.earliest_latest_dates_per_tp = {}
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
         self.combined_csv_path = self.config_info['paths']['combined_csv_path']
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
-        self.loop_networks()
+        #self.loop_networks()
         self.earliest_date_per_var = {}
         self.var_forms = self.utils.load_dependency_json(
         f"grouped_variables.json")
@@ -28,27 +34,41 @@ class MultiTPDataCollector():
         self.subject_info = self.utils.load_dependency_json(
         'subject_info.json')
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
+        self.multitp_output = pd.DataFrame()
+        self.multi_tp_vars = ['subjectid', 'visit_status_string',
+        'chrblood_wb2id']
         self.loop_csvs()
-
-        self.earliest_latest_dates_per_tp = {}
 
     def __call__(self):
         self.loop_csvs()
 
     def loop_csvs(self):
+        """
+        loops through each combined csv
+        to collect multi timepoint data
+        """
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
+        multi_tp_df = pd.DataFrame()
         for network in ['PRESCIENT','PRONET']:
             for tp in tp_list:
-                print(tp)
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
                 self.collect_earliest_date(combined_df)
                 self.collect_earliest_latest_dates(combined_df, tp)
-        self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
-        'earliest_latest_dates_per_tp.json')
- 
+                """modified_df = self.utils.append_suffix_to_cols(combined_df, tp)
+                if multi_tp_df.empty:
+                    multi_tp_df = modified_df
+                else:
+                    multi_tp_df = multi_tp_data.merge(modified_df,
+                    how = 'outer')"""
+
+        #multi_tp_df.to_csv('multi_tp_df_test.csv',
+        #index = False)
+                self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
+                'earliest_latest_dates_per_tp.json')
+
     def collect_earliest_latest_dates(self,
         combined_df : pd.DataFrame, tp: str
     ):
@@ -59,35 +79,46 @@ class MultiTPDataCollector():
 
         Parameters
         --------
-        combined_df : 
+        combined_df : pd.DataFrame
             current timepoint's dataframe
+        tp : str
+            current tp
         """
         forms_per_tp = self.forms_per_tp
-        tp = tp.replace('screening','screen').replace('baseline','baseln')
+        #tp = tp.replace('screening','screen').replace('baseline','baseln')
         for row in combined_df.itertuples():
             subject = row.subjectid
             if (subject in self.subject_info.keys()
             and self.subject_info[subject]['cohort'] != 'unknown'):
                 cohort = self.subject_info[subject]['cohort']
-                all_forms = forms_per_tp[cohort]
+                all_forms = forms_per_tp[cohort][tp]
                 for form in all_forms:
                     interview_date_var = self.important_form_vars[form]['interview_date_var']
-                    if interview_date_var!= '':
+                    if interview_date_var != '' and hasattr(row,interview_date_var):
                         int_date = getattr(row, interview_date_var)
                         if (int_date not in (self.utils.missing_code_list + [''])
                         and self.utils.check_if_val_date_format(int_date)):
+                            int_date_str = str(int_date).split(' ')[0]
+                            int_date_datetime = datetime.strptime(str(int_date).split(' ')[0], "%Y-%m-%d")
                             self.earliest_latest_dates_per_tp.setdefault(subject, {})
-                            self.earliest_latest_dates_per_tp[subject].setdefault(tp, {})
-                            self.earliest_latest_dates_per_tp[
-                            subject][tp].setdefault(form, {'earliest':int_date,'latest':int_date})
-                            if datetime.strptime(str(int_date), "%Y-%m-%d") < 'earliest':
-                                self.earliest_latest_dates_per_tp[
-                                subject][tp]['earliest'] = int_date
-                            if datetime.strptime(str(int_date), "%Y-%m-%d") > 'latest':
-                                self.earliest_latest_dates_per_tp[subject][tp] = int_date
+                            self.earliest_latest_dates_per_tp[subject].setdefault(tp, {'earliest':int_date_str,'latest':int_date_str})
+                            curr_early = self.earliest_latest_dates_per_tp[
+                            subject][tp]['earliest']
+                            curr_late = curr_early = self.earliest_latest_dates_per_tp[
+                            subject][tp]['latest']
+                            if int_date_datetime < datetime.strptime(curr_early, "%Y-%m-%d"):
+                                self.earliest_latest_dates_per_tp[subject][tp]['earliest'] = int_date_str
+                            if int_date_datetime > datetime.strptime(curr_late, "%Y-%m-%d"):
+                                self.earliest_latest_dates_per_tp[subject][tp]['latest'] = int_date_str
 
-
-    def collect_earliest_date(self, combined_df : pd.DataFrame):
+    def collect_earliest_date(self, 
+        combined_df : pd.DataFrame
+    ):
+        """
+        Collects earliest date a 
+        variable was used if there 
+        is an interview date
+        """
         all_cols = combined_df.columns
         for row in combined_df.itertuples():
             for col in all_cols:
@@ -117,14 +148,30 @@ class MultiTPDataCollector():
         self.utils.save_dependency_json(sorted_date_dict,
         'earliest_dates_per_var.json')
 
-    def search_timepoint_dates(self, row, forms):
+    def search_timepoint_dates(self, 
+        row : tuple,
+        forms : list
+    ):
         date_list = []
         
     def loop_networks(self):
-        for network in ['PRONET']:
+        for network in ['PRONET', 'PRESCIENT']:
             self.collect_blood_duplicates(network)
             
-    def collect_blood_duplicates(self, network):
+    def collect_blood_duplicates(self, 
+        network : str
+    ):
+        """
+        creates dataframe of 
+        blood variables 
+        and calls functions to 
+        check for duplicates
+
+        parameters
+        -------------------
+        network : str
+            current network (Pronet or Prescient) 
+        """
         baseln_df = pd.read_csv(
         f'{self.combined_csv_path}combined-{network}-baseline-day1to1.csv',
         keep_default_na = False)
@@ -143,7 +190,18 @@ class MultiTPDataCollector():
 
         self.check_position_duplicates(merged_blood_df)
 
-    def check_id_duplicates(self, merged_blood_df):
+    def check_id_duplicates(self, 
+        merged_blood_df : pd.DataFrame
+    ):
+        """
+        collects duplicate IDs
+
+        Parameters 
+        -------------
+        merged_blood_df : pd.DataFrame
+            Dataframe of blood variables
+
+        """
         id_vars = self.grouped_vars['blood_vars']['id_variables']
         merged_id_vars = []
         for var in id_vars:
@@ -162,7 +220,18 @@ class MultiTPDataCollector():
         id_df = id_df[id_df.duplicated(subset=['id_val'], keep=False) & 
         (id_df.duplicated(subset=['id_val', 'subjectid'], keep=False) == False)]
 
-    def check_position_duplicates(self, merged_blood_df):
+    def check_position_duplicates(self, 
+        merged_blood_df : pd.DataFrame
+    ):  
+        """
+        collects duplicate
+        blood vial positions
+
+        Parameters 
+        -------------
+        merged_blood_df : pd.DataFrame
+            Dataframe of blood variables
+        """
         pos_vars = self.grouped_vars['blood_vars']['position_variables']
         merged_pos_vars = []
         merged_barcode_vars = []
@@ -203,6 +272,5 @@ class MultiTPDataCollector():
         pos_df = pos_df[pos_df.duplicated(subset=['barc_pos_val'], keep=False) & 
         (pos_df.duplicated(subset=['barc_pos_val', 'subjectid'], keep=False) == False)]
 
+
                                     
-
-

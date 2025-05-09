@@ -39,6 +39,8 @@ class QCFormsMain():
         'raw_csv_conversions', 'variable_ranges']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
+        self.auxiliary_files_new_tabs = ['']
+
     def run_script(self):
         self.move_previous_output()
         self.iterate_combined_dfs()
@@ -101,4 +103,5 @@ class QCFormsMain():
                 combined_output_df.to_csv(
                 f'{combined_flags_path}/new_output/combined_qc_flags.csv',
                 index = False)
-                
+
+        

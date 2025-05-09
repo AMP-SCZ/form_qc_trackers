@@ -40,27 +40,25 @@ class ProcessVariables():
             self.config_info = json.load(file)
 
     def run_script(self):
-        """data_dict_df = self.utils.read_data_dictionary()
+        data_dict_df = self.utils.read_data_dictionary()
         grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
-
         important_form_vars = DefineEssentialFormVars(data_dict_df)
-
         self.identifier_effects = AnalyzeIdentifiers()
         self.identifier_effects.run_script()
-
-        self.utils.save_dependency_json(important_form_vars(), 'important_form_vars.json')
-
+        self.utils.save_dependency_json(important_form_vars(),
+        'important_form_vars.json')
         transform_bl = TransformBranchingLogic(data_dict_df)
         converted_branching_logic = transform_bl()
         self.utils.save_dictionary_as_csv(converted_branching_logic,
         f"{self.config_info['paths']['dependencies_path']}converted_branching_logic.csv")
 
-        self.utils.save_dependency_json(converted_branching_logic, 'converted_branching_logic.json')
-
+        self.utils.save_dependency_json(converted_branching_logic,
+        'converted_branching_logic.json')
         subject_info = CollectSubjectInfo()
 
-        self.utils.save_dependency_json(subject_info(), 'subject_info.json')
+        self.utils.save_dependency_json(subject_info(),
+        'subject_info.json')
 
         organize_reports = OrganizeReports()
         organize_reports.run_script()
@@ -69,11 +67,13 @@ class ProcessVariables():
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
 
         raw_csv_conversions = RawCSVCollector()
-        self.utils.save_dependency_json(raw_csv_conversions(),'raw_csv_conversions.json')
+        self.utils.save_dependency_json(raw_csv_conversions(), 'raw_csv_conversions.json')
 
         var_ranges = RangeDefiner()
-        self.utils.save_dependency_json(var_ranges(),'variable_ranges.json')"""
+        self.utils.save_dependency_json(var_ranges(), 'variable_ranges.json')
 
+        # must be called last as it uses dependencies 
+        # from preceding classes
         self.multi_tp_data = MultiTPDataCollector()
         
 

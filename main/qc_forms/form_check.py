@@ -11,16 +11,15 @@ from utils.utils import Utils
 
 class FormCheck():
 
-    def __init__(self, timepoint, network, form_check_info): 
+    def __init__(self, timepoint : str,
+        network : str, form_check_info : str
+    ): 
         self.utils = Utils()
         self.timepoint = timepoint
         self.network = network   
         self.absolute_path = self.utils.absolute_path
-
         self.final_output_list = []
-
         self.tp_list = self.utils.create_timepoint_list()
-        
         self.subject_info = form_check_info['subject_info'] 
         self.general_check_vars = form_check_info['general_check_vars'] 
         self.important_form_vars = form_check_info['important_form_vars'] 
@@ -33,7 +32,7 @@ class FormCheck():
         self.raw_csv_converters = form_check_info['raw_csv_conversions']
         self.variable_ranges = form_check_info['variable_ranges']
         self.missing_code_list = self.utils.missing_code_list
-
+        
         self.prescient_forms_no_compl_status = [
         'family_interview_for_genetic_studies_figs']
 
@@ -52,7 +51,8 @@ class FormCheck():
     def standard_qc_check_filter(cls, func):
         def qc_check(instance, curr_row, filtered_forms,
         all_vars,changed_output_vals={}, bl_filtered_vars=[],
-        filter_excl_vars=True, *args, **kwargs):
+        filter_excl_vars=True, *args, **kwargs
+    ):
             cohort = instance.subject_info[curr_row.subjectid]['cohort']
             # excludes subjects with no cohort
             if cohort.lower() not in ["hc", "chr"]:
@@ -93,7 +93,9 @@ class FormCheck():
 
         return qc_check
 
-    def check_if_next_tp(self, curr_row):
+    def check_if_next_tp(self,
+        curr_row : tuple
+    ) -> bool:
         # checks if subject has moved to next timepoint
         if self.timepoint in ['floating','conversion']:
             return False
@@ -103,7 +105,9 @@ class FormCheck():
         
         return False
 
-    def standard_form_filter(self, curr_row : tuple, form):
+    def standard_form_filter(self,
+        curr_row : tuple, form : str
+    ) -> bool:
         compl_var = self.important_form_vars[form]["completion_var"]
         if self.network == 'PRESCIENT':
             compl_var += '_rpms'
@@ -114,7 +118,7 @@ class FormCheck():
         completion_filter = False
         if (compl_var == "" or not hasattr(curr_row, compl_var)):
             return False
-        
+
         # will not check the form if it is not marked as complete
         # or the subject has not moved onto the next timepoint (prescient only)
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
@@ -204,7 +208,25 @@ class FormCheck():
             else:
                 return False
 
-    def check_if_after_date(self, curr_row, form, date_var):
+    def check_if_after_date(self, 
+        curr_row : tuple,
+        form : str, date_var : str
+    ) -> bool:
+        """
+        Checks to make sure date 
+        is after it was added in 
+        particularly for missing_data
+        buttons that were added later
+
+        Parameters
+        --------------
+        curr_row : tuple
+            current dataframe row being checked \
+        form : str
+            current form being checked
+        date_var : str
+            date variable being checked
+        """
         date_added = self.vars_added_later[form]
         if hasattr(curr_row, date_var):
             date_val = getattr(curr_row, date_var)
@@ -222,7 +244,28 @@ class FormCheck():
         self, curr_row : tuple, forms: list,
         variables : list, error_message : str,
         output_changes : dict = {}
-    ):
+    ) -> dict:
+        """
+        Creates row for combined output 
+        for a single error
+
+        Parameters
+        -------------
+        curr_row : tuple
+            current row from dataframe
+        forms : list 
+            list of all forms 
+            involved in error
+        varaibles : list
+            list of all variables 
+            involved in error
+
+        Returns 
+        ----------
+        row_output : dict
+            dictionary of current row in
+            output
+        """
         subject = curr_row.subjectid
         if curr_row.visit_status_string == 'removed':
             removed_status = True
@@ -301,21 +344,52 @@ class FormCheck():
 
         return row_output
     
-    def format_lists(self, dict_to_format):
+    def format_lists(self, 
+        dict_to_format : dict
+    ):
+        """
+        formats dictionary to
+        convert list to string
+        separated by pipe
+
+        Parameters 
+        ---------
+        dict_to_format : dict 
+            output dictionary being formatted
+        """
         for key in dict_to_format.keys():
             if isinstance(dict_to_format[key], list):
                 if len(dict_to_format[key]) > 0:
-                    dict_to_format[key] = self.list_to_string(dict_to_format[key])
+                    dict_to_format[key] = self.list_to_string(
+                    dict_to_format[key])
                 else:
                     dict_to_format[key] =''
 
         return dict_to_format
 
-    def list_to_string(self, inp_list):
-        inp_list = [str(item) for item in inp_list]
-        inp_list = '|'.join(inp_list)
+    def list_to_string(self, 
+        inp_list : list
+    ):
+        """
+        Converts list to string separated 
+        by pipe
 
-        return inp_list
+        Parameters 
+        ---------
+        inp_list : list
+            list being converted
+            to string
+
+        Returns
+        ------------
+        output_str : string
+            formatted string
+        """
+
+        inp_list = [str(item) for item in inp_list]
+        output_str = '|'.join(output_str)
+
+        return output_str
 
 
 

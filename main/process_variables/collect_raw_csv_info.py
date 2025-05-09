@@ -9,6 +9,10 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 
 class RawCSVCollector():
+    """
+    class to collect data
+    from Raw CSVs 
+    """
 
     def __init__(self):
         self.utils = Utils()
@@ -19,6 +23,10 @@ class RawCSVCollector():
         return self.conversion_dates
 
     def loop_folders(self):
+        """
+        loops through each
+        subject raw CSV
+        """
         for network in ['Prescient']:
             raw_csv_folder = f'/data/predict1/data_from_nda/{network}/PHOENIX/PROTECTED'
             for site in os.listdir(raw_csv_folder):
@@ -29,7 +37,20 @@ class RawCSVCollector():
                         f'{subject}_ClientStatus_AllDates.csv')
                         self.collect_consent_dates(subject, date_filepath)
 
-    def collect_consent_dates(self, subject, filepath):
+    def collect_consent_dates(
+        self, subject : str, 
+        filepath : str
+    ):
+        """
+        Collect conversion 
+        date from raw CSV
+
+        Parameters
+        ------------
+        subject : str 
+            subject being checked 
+
+        """
         if os.path.exists(filepath):
             df = pd.read_csv(filepath,
             keep_default_na = False)
@@ -39,7 +60,9 @@ class RawCSVCollector():
                 conv_date = self.convert_prescient_dates(conv_date)
                 self.conversion_dates[subject] = conv_date
                 
-    def convert_prescient_dates(self, date_str):
+    def convert_prescient_dates(self, 
+        date_str : str
+    ):
         """
         converts prescient 
         dates to standard format

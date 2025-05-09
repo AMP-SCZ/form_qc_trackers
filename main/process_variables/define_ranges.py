@@ -27,6 +27,9 @@ class RangeDefiner():
         return self.ranges_dict
 
     def collect_ranges(self):
+        """
+        Collects ranges for 
+        """
         data_dict_df = self.utils.read_data_dictionary()
         filtered_df = data_dict_df[((data_dict_df[
         'Text Validation Min'] != '') & (data_dict_df[

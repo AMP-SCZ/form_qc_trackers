@@ -112,7 +112,7 @@ class TestTransformBranchingLogic():
                                 match_key =  network + tp + col + str(getattr(curr_row,col)) + 'False'
                                 bl_cond = False
                                 append = True
-
+                                
                             if append == True:
                                 dupl_removed_output.setdefault(match_key, {
                                 'subjects':[], 'network':network, 'timepoint':tp,
