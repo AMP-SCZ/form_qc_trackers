@@ -36,7 +36,7 @@ class QCFormsMain():
         'important_form_vars','forms_per_timepoint',
         'converted_branching_logic','excluded_branching_logic_vars',
         'team_report_forms','grouped_variables','variables_added_later',
-        'raw_csv_conversions', 'variable_ranges']:
+        'raw_csv_conversions', 'variable_ranges','earliest_latest_dates_per_tp']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
         self.auxiliary_files_new_tabs = ['']
@@ -69,6 +69,8 @@ class QCFormsMain():
         tp_list.extend(['floating','conversion'])
         for network in ['PRESCIENT','PRONET']:
             for tp in tp_list:
+                if tp != 'floating':
+                    continue
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
@@ -97,6 +99,9 @@ class QCFormsMain():
                     test_output.extend(clinical_checks())
                     test_output.extend(sop_checks())
                 combined_output_df = pd.DataFrame(test_output)
+                if combined_output_df.shape[0] > 2000000:
+                    print(f"output rows is {combined_output_df.shape[0]}")
+                    break
                 combined_flags_path = f'{self.output_path}combined_outputs'
                 if not os.path.exists(combined_flags_path):
                     os.makedirs(combined_flags_path)  # Creates the folder and any necessary parent directories

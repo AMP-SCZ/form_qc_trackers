@@ -31,6 +31,7 @@ class FormCheck():
         self.vars_added_later = form_check_info['variables_added_later']
         self.raw_csv_converters = form_check_info['raw_csv_conversions']
         self.variable_ranges = form_check_info['variable_ranges']
+        self.tp_date_ranges = form_check_info['earliest_latest_dates_per_tp']
         self.missing_code_list = self.utils.missing_code_list
         
         self.prescient_forms_no_compl_status = [

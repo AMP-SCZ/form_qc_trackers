@@ -35,6 +35,7 @@ class ProcessVariables():
 
     def __init__(self):
         self.utils = Utils()
+        print(self.utils.create_timepoint_list())
         self.absolute_path = self.utils.absolute_path
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)

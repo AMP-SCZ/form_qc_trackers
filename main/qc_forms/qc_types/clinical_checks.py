@@ -56,6 +56,12 @@ class ClinicalChecks(FormCheck):
         ['chrpharm_med1_onset','chrpharm_firstdose_med1'],
         {'reports': ['Main Report']})
 
+
+        self.pharm_date_mod_check(row, 
+        ['current_pharmaceutical_treatment_floating_med_125'],
+        ['chrpharm_date_mod'],
+        {'reports': ['Main Report']})
+
     def call_conversion_check(self,row):
         gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
         'chrbprs_bprs_guil':5,'chrbprs_bprs_gran':5,
@@ -688,12 +694,31 @@ class ClinicalChecks(FormCheck):
             return (f'chrpharm_med1_onset ({row.chrpharm_med1_onset}) does'
             f' not equal chrpharm_firstdose_med1 ({row.chrpharm_firstdose_med1})')
 
-    """@FormCheck.standard_qc_check_filter
-    def pharm_firstdose_check(self, row, filtered_forms,
+    @FormCheck.standard_qc_check_filter
+    def pharm_date_mod_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
-    ):"""
+    ):
+        if row.subjectid in self.tp_date_ranges.keys():
+            pharm_date_mod = str(row.chrpharm_date_mod).split(' ')[0]
+            tp_list = self.utils.create_timepoint_list()
+            curr_tp = row.visit_status_string.replace(
+            'screen','screening').replace('baseln','baseline')
+            if curr_tp in tp_list:
+                prev_visit_ind = tp_list.index(curr_tp) - 1
+                prev_visit = tp_list[prev_visit_ind]  
+                if (all(vis in self.tp_date_ranges[
+                row.subjectid].keys() for vis in [curr_tp,prev_visit])):
+                    if self.utils.check_if_val_date_format(pharm_date_mod):
+                        all_date_comp_dates = []
+                        for vis in [curr_tp,prev_visit]:
+                            for date in self.tp_date_ranges[row.subjectid][vis].values():
+                                all_date_comp_dates.append(datetime.strptime(date, "%Y-%m-%d"))
+                        pharm_datetime = datetime.strptime(pharm_date_mod, "%Y-%m-%d")
+                        if (all(pharm_datetime > vis_date for vis_date in all_date_comp_dates)
+                        or all(pharm_datetime < vis_date for vis_date in all_date_comp_dates)):
+                            return f"pharm date mode {pharm_date_mod} is out of range of current and previous visits" 
 
-        
+
 
 
