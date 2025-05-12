@@ -8,7 +8,7 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
-from qc_forms.qc_types.clinical_checks import ClinicalChecks
+from qc_forms.qc_types.clinical_checks.clinical_checks_main import ClinicalChecksMain
 from qc_forms.qc_types.SOP_checks import SOPChecks
 
 class QCFormsMain():
@@ -77,7 +77,6 @@ class QCFormsMain():
                 #combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=20)
                 #combined_df = combined_df.sample(n=100, random_state=42)
-                #print(combined_df)
                 for row in combined_df.itertuples(): 
                     #print(tp)
                     #print(row.Index)
@@ -90,7 +89,7 @@ class QCFormsMain():
                     network, self.form_check_info)
                     fluid_checks = FluidChecks(row, tp,
                     network, self.form_check_info)
-                    clinical_checks = ClinicalChecks(row,
+                    clinical_checks = ClinicalChecksMain(row,
                     tp, network, self.form_check_info)
                     sop_checks = SOPChecks(row,
                     tp, network, self.form_check_info)

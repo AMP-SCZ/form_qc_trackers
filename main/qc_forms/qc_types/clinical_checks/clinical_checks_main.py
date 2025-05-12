@@ -2,13 +2,14 @@ import pandas as pd
 import os
 import sys
 import json
-parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
+parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-4])
 sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
+from qc_forms.qc_types.clinical_checks.scid_checks import ScidChecks
 from datetime import datetime
 
-class ClinicalChecks(FormCheck):    
+class ClinicalChecksMain(FormCheck):    
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
@@ -16,7 +17,7 @@ class ClinicalChecks(FormCheck):
         'chrgfs_gf_social_high':['chrgfs_gf_social_scale','chrgfs_gf_social_low']},
         'global_functioning_role_scale':{'chrgfr_gf_role_low chrgfr_gf_role_high': [
         'chrgfr_gf_role_scole','chrgfr_gf_role_low']}},
-                            
+
         'low': {'global_functioning_social_scale':{
         'chrgfs_gf_social_low':['chrgfs_gf_social_scale','chrgfs_gf_social_high']},
         'global_functioning_role_scale':{'chrgfr_gf_role_low' : [
@@ -24,11 +25,13 @@ class ClinicalChecks(FormCheck):
 
         self.excluded_21_day_forms = ['cbc_with_differential',
         'gcp_cbc_with_differential','gcp_current_health_status',
-        'psychs_p1p8_fu','psychs_p1p8_fu_hc'
+        'psychs_p1p8_fu','psychs_p1p8_fu_hc',
         'chrpred_interview_date','sociodemographics']
 
-        self.scid_diagnosis_dict = self.utils.load_dependency_json(
-        'scid_diagnosis_vars.json')
+        scid_checks = ScidChecks(row, timepoint, network,
+        form_check_info)
+
+        self.final_output_list = scid_checks()
 
         self.call_checks(row)
         
@@ -43,7 +46,6 @@ class ClinicalChecks(FormCheck):
         self.call_cssrs_checks(row)
         self.call_twenty_one_day_check(row)
         self.call_tbi_checks(row)
-        self.call_scid_checks(row)
         self.call_bprs_checks(row)
         self.call_chrchs_checks(row)
         self.call_conversion_check(row)
@@ -55,7 +57,6 @@ class ClinicalChecks(FormCheck):
         ['current_pharmaceutical_treatment_floating_med_125'],
         ['chrpharm_med1_onset','chrpharm_firstdose_med1'],
         {'reports': ['Main Report']})
-
 
         self.pharm_date_mod_check(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
@@ -144,48 +145,27 @@ class ClinicalChecks(FormCheck):
             bl_filtered_vars = [], filter_excl_vars = False,
             var_comps = pair)
 
-    def call_scid_checks(self, row):
-        changed_output = {'reports': ['Main Report','Scid Report']}
-        form = 'scid5_psychosis_mood_substance_abuse'
-        self.call_scid_diagnosis_check(row)
-        self.depressed_mood_check(row, [form], 
-        ['chrscid_a27','chrscid_a28','chrscid_a48_1'],
-        changed_output)   
-        self.major_depressive_check(row, [form], 
-        ['chrscid_a26_53','chrscid_a25','chrscid_a51'],
-        changed_output)  
-        self.mood_episode_check(row, [form], 
-        ['chrscid_a25','chrscid_a22','chrscid_a22_1'],
-        changed_output)  
-        self.mood_symptoms_check(row, [form], 
-        ['chrscid_d1','chrscid_a25','chrscid_a51','chrscid_a70',
-        'chrscid_a91','chrscid_a108','chrscid_a129',
-        'chrscid_a138','chrscid_a153','chrscid_a170'],
-        changed_output)   
-        self.curr_major_depressive_threshold_check(row, [form], 
-        ['chrscid_a1','chrscid_a2','chrscid_a25'],
-        changed_output)  
-        self.past_major_depressive_threshold_check(row, [form], 
-        ['chrscid_a27','chrscid_a28','chrscid_a51'],
-        changed_output)       
-        self.mania_not_fulfilled_check(row, [form], 
-        ['chrscid_d28','chrscid_a70','chrscid_a91','chrscid_a108',
-        'chrscid_a129','chrscid_a138'],
-        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
-        self.major_depressive_episode_check(row, [form], 
-        ['chrscid_d26','chrscid_a51','chrscid_a25',
-        'chrscid_d3','chrscid_d9','chrscid_d11','chrscid_d23'],
-        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
-        self.manic_episode_check(row, [form], 
-        ['chrscid_a108','chrscid_a70','chrscid_d2'],
-        changed_output, bl_filtered_vars=[],filter_excl_vars=False)
-        self.hypomanic_episode_check(row, [form], 
-        ['chrscid_d5','chrscid_a91','chrscid_a129'],
-        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
-        self.depressive_manic_check(row, [form], 
-        ['chrscid_d28','chrscid_a54','chrscid_a92','chrscid_a132'],
-        changed_output, bl_filtered_vars=[],filter_excl_vars=False)
 
+    @FormCheck.standard_qc_check_filter 
+    def bprs_val_comparisons(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False, var_comps = {}
+    ):
+        all_vars = list(var_comps.keys())
+        if (all(self.utils.can_be_float(getattr(row,var)) for var in all_vars)):
+            if all(float(getattr(row,var)) in var_comps[var] for var in all_vars):
+                return (f'{all_vars[0]} is'
+                f' {getattr(row, all_vars[0])}, but'
+                f' {all_vars[1]} is {getattr(row,all_vars[1])}')
+            
+    @FormCheck.standard_qc_check_filter 
+    def chrchs_weight_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        weight = getattr(row, 'chrchs_weightkg')
+        if self.utils.can_be_float(weight) and float(weight) <0:
+            return f'chrchs_weightkg is {weight}'
 
     def call_global_function_checks(self,row):
         """
@@ -459,6 +439,7 @@ class ClinicalChecks(FormCheck):
         filter_excl_vars=True
     ):
         if row.subjectid in self.tp_date_ranges.keys():
+            print(row.subjectid)
             pharm_date_mod = str(row.chrpharm_date_mod).split(' ')[0]
             tp_list = self.utils.create_timepoint_list()
             curr_tp = row.visit_status_string.replace(

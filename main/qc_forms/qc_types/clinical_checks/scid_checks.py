@@ -2,37 +2,71 @@ import pandas as pd
 import os
 import sys
 import json
-parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
+parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-4])
 sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 from datetime import datetime
     
-
 class ScidChecks(FormCheck):
+    """
+    Class with all checks for Scid Form
+    """
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
-        self.test_val = 0
-        self.gf_score_check_vars = {'high':{'global_functioning_social_scale':{
-        'chrgfs_gf_social_high':['chrgfs_gf_social_scale','chrgfs_gf_social_low']},
-        'global_functioning_role_scale':{'chrgfr_gf_role_low chrgfr_gf_role_high': [
-        'chrgfr_gf_role_scole','chrgfr_gf_role_low']}},
-                            
-        'low': {'global_functioning_social_scale':{
-        'chrgfs_gf_social_low':['chrgfs_gf_social_scale','chrgfs_gf_social_high']},
-        'global_functioning_role_scale':{'chrgfr_gf_role_low' : [
-        'chrgfr_gf_role_scole','chrgfr_gf_role_high']}}}
-
-        self.excluded_21_day_forms = ['cbc_with_differential',
-        'gcp_cbc_with_differential','gcp_current_health_status',
-        'psychs_p1p8_fu','psychs_p1p8_fu_hc'
-        'chrpred_interview_date','sociodemographics']
-
         self.scid_diagnosis_dict = self.utils.load_dependency_json(
         'scid_diagnosis_vars.json')
-
         self.call_checks(row)
-    
+
+    def call_checks(self, row):
+        self.call_scid_checks(row)
+
+    def __call__(self):
+        return self.final_output_list
+
+
+    def call_scid_checks(self, row):
+        changed_output = {'reports': ['Main Report', 'Scid Report']}
+        form = 'scid5_psychosis_mood_substance_abuse'
+        self.call_scid_diagnosis_check(row)
+        self.depressed_mood_check(row, [form], 
+        ['chrscid_a27','chrscid_a28','chrscid_a48_1'],
+        changed_output)   
+        self.major_depressive_check(row, [form], 
+        ['chrscid_a26_53','chrscid_a25','chrscid_a51'],
+        changed_output)  
+        self.mood_episode_check(row, [form], 
+        ['chrscid_a25','chrscid_a22','chrscid_a22_1'],
+        changed_output)  
+        self.mood_symptoms_check(row, [form], 
+        ['chrscid_d1','chrscid_a25','chrscid_a51','chrscid_a70',
+        'chrscid_a91','chrscid_a108','chrscid_a129',
+        'chrscid_a138','chrscid_a153','chrscid_a170'],
+        changed_output)   
+        self.curr_major_depressive_threshold_check(row, [form], 
+        ['chrscid_a1','chrscid_a2','chrscid_a25'],
+        changed_output)  
+        self.past_major_depressive_threshold_check(row, [form], 
+        ['chrscid_a27','chrscid_a28','chrscid_a51'],
+        changed_output)       
+        self.mania_not_fulfilled_check(row, [form], 
+        ['chrscid_d28','chrscid_a70','chrscid_a91','chrscid_a108',
+        'chrscid_a129','chrscid_a138'],
+        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
+        self.major_depressive_episode_check(row, [form], 
+        ['chrscid_d26','chrscid_a51','chrscid_a25',
+        'chrscid_d3','chrscid_d9','chrscid_d11','chrscid_d23'],
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
+        self.manic_episode_check(row, [form], 
+        ['chrscid_a108','chrscid_a70','chrscid_d2'],
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)
+        self.hypomanic_episode_check(row, [form], 
+        ['chrscid_d5','chrscid_a91','chrscid_a129'],
+        changed_output, bl_filtered_vars=[],filter_excl_vars=False)  
+        self.depressive_manic_check(row, [form], 
+        ['chrscid_d28','chrscid_a54','chrscid_a92','chrscid_a132'],
+        changed_output, bl_filtered_vars=[], filter_excl_vars=False)
+
 
     def call_scid_diagnosis_check(self,row):
         for checked_variable,conditions in self.scid_diagnosis_dict.items(): 
