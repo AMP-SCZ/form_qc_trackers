@@ -49,6 +49,9 @@ class ClinicalChecksMain(FormCheck):
         self.call_bprs_checks(row)
         self.call_chrchs_checks(row)
         self.call_conversion_check(row)
+        self.call_pharm_checks(row)
+
+    def call_pharm_checks(self,row):
         self.check_onset_date(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
         ['chrpharm_date_mod'], {'reports' : ['Main Report']})
@@ -67,6 +70,7 @@ class ClinicalChecksMain(FormCheck):
         self.pharm_med_name_check(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
         name_vars, {'reports' : ['Main Report']})
+
 
     def call_conversion_check(self,row):
         gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
@@ -445,6 +449,7 @@ class ClinicalChecksMain(FormCheck):
         """
         Checks that pharm form has been
         during the current or previous timepoint
+
         #TODO find out if both pharm forms need
         to be filled out at each timepoint
         """
@@ -462,7 +467,7 @@ class ClinicalChecksMain(FormCheck):
                     prev_visit_ind = tp_list.index(curr_tp) - 1
                     if prev_visit_ind >= 0:
                         prev_visit = tp_list[prev_visit_ind]  
-                        vis_list =  [curr_tp,prev_visit]
+                        vis_list =  [curr_tp, prev_visit]
                     else:
                         vis_list =  [curr_tp]
                     if (all(vis in self.tp_date_ranges[
@@ -498,6 +503,18 @@ class ClinicalChecksMain(FormCheck):
                     f'{prim_var} (prim_val) = {second_var} (second_val)')
         if len(duplicates) > 0:
             return f"Duplicates found in pharm name vars ({duplicates})"
+    
+    @FormCheck.standard_qc_check_filter
+    def pharm_overlapping_days(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        for med_count in range(0,51):
+            for med_var in [] 
+
+
+
+        
 
             
 
