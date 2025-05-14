@@ -93,6 +93,8 @@ class MultiTPDataCollector():
                 cohort = self.subject_info[subject]['cohort']
                 all_forms = forms_per_tp[cohort][tp]
                 for form in all_forms:
+                    if self.utils.check_if_missing(row, form) == True:
+                        continue
                     interview_date_var = self.important_form_vars[form]['interview_date_var']
                     if interview_date_var != '' and hasattr(row,interview_date_var):
                         int_date = getattr(row, interview_date_var)
@@ -101,7 +103,8 @@ class MultiTPDataCollector():
                             int_date_str = str(int_date).split(' ')[0]
                             int_date_datetime = datetime.strptime(str(int_date).split(' ')[0], "%Y-%m-%d")
                             self.earliest_latest_dates_per_tp.setdefault(subject, {})
-                            self.earliest_latest_dates_per_tp[subject].setdefault(tp, {'earliest':int_date_str,'latest':int_date_str})
+                            self.earliest_latest_dates_per_tp[subject].setdefault(tp,
+                            {'earliest':int_date_str,'latest':int_date_str})
                             curr_early = self.earliest_latest_dates_per_tp[
                             subject][tp]['earliest']
                             curr_late = curr_early = self.earliest_latest_dates_per_tp[

@@ -67,10 +67,8 @@ class QCFormsMain():
         test_output=[]
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRESCIENT','PRONET']:
+        for network in ['PRONET','PRESCIENT']:
             for tp in tp_list:
-                if tp != 'floating':
-                    continue
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)

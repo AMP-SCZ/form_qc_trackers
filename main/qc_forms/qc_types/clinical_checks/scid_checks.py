@@ -24,7 +24,6 @@ class ScidChecks(FormCheck):
     def __call__(self):
         return self.final_output_list
 
-
     def call_scid_checks(self, row):
         changed_output = {'reports': ['Main Report', 'Scid Report']}
         form = 'scid5_psychosis_mood_substance_abuse'
@@ -111,26 +110,6 @@ class ScidChecks(FormCheck):
                         affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
                         diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled) 
 
-    @FormCheck.standard_qc_check_filter 
-    def bprs_val_comparisons(self, row, filtered_forms,
-        all_vars, changed_output_vals, bl_filtered_vars=[],
-        filter_excl_vars=False, var_comps = {}
-    ):
-        all_vars = list(var_comps.keys())
-        if (all(self.utils.can_be_float(getattr(row,var)) for var in all_vars)):
-            if all(float(getattr(row,var)) in var_comps[var] for var in all_vars):
-                return (f'{all_vars[0]} is'
-                f' {getattr(row, all_vars[0])}, but'
-                f' {all_vars[1]} is {getattr(row,all_vars[1])}')
-            
-    @FormCheck.standard_qc_check_filter 
-    def chrchs_weight_check(self, row, filtered_forms,
-        all_vars, changed_output_vals, bl_filtered_vars=[],
-        filter_excl_vars=False
-    ):
-        weight = getattr(row, 'chrchs_weightkg')
-        if self.utils.can_be_float(weight) and float(weight) <0:
-            return f'chrchs_weightkg is {weight}'
 
     @FormCheck.standard_qc_check_filter 
     def scid_diagnostic_criteria_check(self, row, filtered_forms,

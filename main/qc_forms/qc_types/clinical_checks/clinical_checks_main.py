@@ -31,7 +31,7 @@ class ClinicalChecksMain(FormCheck):
         scid_checks = ScidChecks(row, timepoint, network,
         form_check_info)
 
-        self.final_output_list = scid_checks()
+        #self.final_output_list = scid_checks()
 
         self.call_checks(row)
         
@@ -51,23 +51,22 @@ class ClinicalChecksMain(FormCheck):
         self.call_conversion_check(row)
         self.check_onset_date(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
-        ['chrpharm_date_mod'], {'reports': ['Main Report']})
+        ['chrpharm_date_mod'], {'reports' : ['Main Report']})
 
         self.pharm_firstdose_check(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
         ['chrpharm_med1_onset','chrpharm_firstdose_med1'],
-        {'reports': ['Main Report']})
+        {'reports' : ['Main Report']})
 
         self.pharm_date_mod_check(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
         ['chrpharm_date_mod'],
-        {'reports': ['Main Report']})
+        {'reports' : ['Main Report']})
 
         name_vars = self.grouped_vars['pharm_vars']['name_vars']
         self.pharm_med_name_check(row, 
         ['current_pharmaceutical_treatment_floating_med_125'],
-        name_vars, {'reports': ['Main Report']})
-
+        name_vars, {'reports' : ['Main Report']})
 
     def call_conversion_check(self,row):
         gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
@@ -105,7 +104,7 @@ class ClinicalChecksMain(FormCheck):
             var_val = getattr(row, var) 
             if self.utils.can_be_float(var_val) and float(var_val) > threshold:
                 self.conversion_criteria_check(row, [form],
-                [var],{'reports': ['Main Report']})
+                [var], {'reports': ['Main Report']})
 
         for var, threshold in eq_var_val_pairs.items():
             form = self.grouped_vars['var_forms'][var]
@@ -144,7 +143,6 @@ class ClinicalChecksMain(FormCheck):
             all_vars =vars,changed_output_vals = changed_output,
             bl_filtered_vars = [], filter_excl_vars = False,
             var_comps = pair)
-
 
     @FormCheck.standard_qc_check_filter 
     def bprs_val_comparisons(self, row, filtered_forms,
@@ -272,6 +270,7 @@ class ClinicalChecksMain(FormCheck):
             if (var_val in self.utils.missing_code_list 
             or not self.utils.can_be_float(var_val)):
                 return
+                
         if (lifetime_var_val in self.utils.all_dtype([2])
         and recent_var_val in self.utils.all_dtype([1])):
             return (f'Lifetime variable ({lifetime_var}) was answered as yes,'
@@ -288,9 +287,10 @@ class ClinicalChecksMain(FormCheck):
             if (var_val in self.utils.missing_code_list 
             or not self.utils.can_be_float(var_val)):
                 return
+
         if float(lifetime_var_val) < float(recent_var_val):
             return (f'Lifetime variable ({lifetime_var} = {lifetime_var_val}) has lower intensity,'
-                    f' than recent variable ({recent_var} = {recent_var_val}).')
+            f' than recent variable ({recent_var} = {recent_var_val}).')
 
     @FormCheck.standard_qc_check_filter
     def oasis_anxiety_check(self, row, filtered_forms,
@@ -317,6 +317,7 @@ class ClinicalChecksMain(FormCheck):
             if (var_val in self.missing_code_list 
             or not self.utils.can_be_float(var_val)):
                 return
+
         if float(compared_oasis_val) < 2 and float(lifestyle_var_val) > cutoff:
             return (f"chroasis_oasis_3 states that lifestyle"
             f" was not affected, but {lifestyle_var} is greater than {cutoff}")
@@ -366,24 +367,26 @@ class ClinicalChecksMain(FormCheck):
     def check_onset_date(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True):
-        chrpharm_med2_onset
+        
         date_list = []
         for x in range(0,10):
             date_list.append(f'chrpharm_med{x}_onset')
         for date_var in date_list:
             if hasattr(row, date_var):
                 date_val = str(getattr(row,date_var))
-                data_entry_val = str(getattr(row,chrpharm_date_mod))
+                data_entry_val = str(getattr(row,'chrpharm_date_mod'))
+                if (date_val in self.utils.missing_code_list or 
+                data_entry_val in self.utils.missing_code_list):
+                    continue
                 if (self.utils.check_if_val_date_format(
-                self, date_val, date_format="%Y-%m-%d")
+                date_val, date_format="%Y-%m-%d")
                 and self.utils.check_if_val_date_format(
-                self, data_entry_val, date_format="%Y-%m-%d")):
+                data_entry_val, date_format="%Y-%m-%d")):
                     days_btwn = self.utils.find_days_between(
                     date_val,data_entry_val)      
-        print(days_btwn)
-        print(row.subjectid)   
-        if days_btwn > 10:
-            return f'There are {days_btwn} days between the most recent medication date and medication mod date'
+                    if days_btwn > 10:
+                        return (f'There are {days_btwn} days between'
+                        f' the most recent medication date ({date_val}) and medication mod date ({data_entry_val})')
         
     def check_if_over_21_days(self,
         row, missing_spec_var, scr_int_date,
@@ -429,7 +432,8 @@ class ClinicalChecksMain(FormCheck):
     ):
         if (row.chrpharm_firstdose_med1 not in (self.utils.missing_code_list + [''])
         and row.chrpharm_med1_onset not in (self.utils.missing_code_list + [''])
-        and str(row.chrpharm_med1_onset) != str(row.chrpharm_firstdose_med1)):
+        and str(row.chrpharm_med1_onset).split(' ')[0]
+        != str(row.chrpharm_firstdose_med1).split(' ')[0]):
             return (f'chrpharm_med1_onset ({row.chrpharm_med1_onset}) does'
             f' not equal chrpharm_firstdose_med1 ({row.chrpharm_firstdose_med1})')
 
@@ -438,27 +442,43 @@ class ClinicalChecksMain(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):
+        """
+        Checks that pharm form has been
+        during the current or previous timepoint
+        #TODO find out if both pharm forms need
+        to be filled out at each timepoint
+        """
+        
         if row.subjectid in self.tp_date_ranges.keys():
-            print(row.subjectid)
-            pharm_date_mod = str(row.chrpharm_date_mod).split(' ')[0]
-            tp_list = self.utils.create_timepoint_list()
-            curr_tp = row.visit_status_string.replace(
-            'screen','screening').replace('baseln','baseline')
-            if curr_tp in tp_list:
-                prev_visit_ind = tp_list.index(curr_tp) - 1
-                prev_visit = tp_list[prev_visit_ind]  
-                if (all(vis in self.tp_date_ranges[
-                row.subjectid].keys() for vis in [curr_tp,prev_visit])):
-                    if self.utils.check_if_val_date_format(pharm_date_mod):
-                        all_date_comp_dates = []
-                        for vis in [curr_tp,prev_visit]:
-                            for date in self.tp_date_ranges[row.subjectid][vis].values():
-                                all_date_comp_dates.append(datetime.strptime(date, "%Y-%m-%d"))
-                        pharm_datetime = datetime.strptime(pharm_date_mod, "%Y-%m-%d")
-                        if (all(pharm_datetime > vis_date for vis_date in all_date_comp_dates)
-                        or all(pharm_datetime < vis_date for vis_date in all_date_comp_dates)):
-                            return f"pharm date mode {pharm_date_mod} is out of range of current and previous visits" 
-
+            mod_vars_out_of_range = 0
+            for mod_var in ['chrpharm_date_mod','chrpharm_date_mod_2']:
+                pharm_date_mod = str(getattr(row,mod_var)).split(' ')[0]
+                if pharm_date_mod in self.utils.missing_code_list:
+                    continue
+                tp_list = self.utils.create_timepoint_list()
+                curr_tp = row.visit_status_string.replace(
+                'screen','screening').replace('baseln','baseline')
+                if curr_tp in tp_list:
+                    prev_visit_ind = tp_list.index(curr_tp) - 1
+                    if prev_visit_ind >= 0:
+                        prev_visit = tp_list[prev_visit_ind]  
+                        vis_list =  [curr_tp,prev_visit]
+                    else:
+                        vis_list =  [curr_tp]
+                    if (all(vis in self.tp_date_ranges[
+                    row.subjectid].keys() for vis in vis_list)):
+                        if self.utils.check_if_val_date_format(pharm_date_mod):
+                            all_date_comp_dates = []
+                            for vis in vis_list:
+                                for date in self.tp_date_ranges[row.subjectid][vis].values():
+                                    all_date_comp_dates.append(datetime.strptime(date, "%Y-%m-%d"))
+                            pharm_datetime = datetime.strptime(pharm_date_mod, "%Y-%m-%d")
+                            if (all(pharm_datetime > vis_date for vis_date in all_date_comp_dates)
+                            or all(pharm_datetime < vis_date for vis_date in all_date_comp_dates)):
+                                mod_vars_out_of_range +=1
+            if mod_vars_out_of_range == 2:
+                return (f"pharm modification dates ({getattr(row,'chrpharm_date_mod')}"
+                f" and {getattr(row,'chrpharm_date_mod')}) are out of range of current and previous visits") 
 
     @FormCheck.standard_qc_check_filter
     def pharm_med_name_check(self, row, filtered_forms,

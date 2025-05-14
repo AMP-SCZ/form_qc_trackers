@@ -435,6 +435,59 @@ class Utils():
 
         return modified_df 
 
+    def check_if_missing(self,
+        curr_row : tuple, form : str
+    ):
+        """
+        Checks if a form is marked as missing 
+
+        Parameters 
+        ------------
+        curr_row : tuple
+            current row of dataframe
+        form : str
+            current form
+        """
+        # floating forms do not need to 
+        # be marked missing
+        if self.timepoint == 'floating':
+            return False
+        compl_var = self.important_form_vars[form]["completion_var"]
+        date_var = self.important_form_vars[form]["interview_date_var"]
+        if self.network == 'PRESCIENT':
+            compl_var += '_rpms'
+            # rpms compl variables same for both cohorts
+            compl_var = compl_var.replace('_hc','').replace('onboarding','checkin') 
+        missing_var = self.important_form_vars[form]["missing_var"]
+        non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
+        non_bl_vars_filled_out = 0        
+        if missing_var != "" and not (form in self.vars_added_later.keys()
+        and missing_var in self.vars_added_later[form].keys() and
+        self.check_if_after_date(curr_row, form, date_var) == False):                
+            if not hasattr(curr_row, missing_var):
+                return False
+            # prescient missingness can also be indicated by the completion var
+            if (self.network == 'PRESCIENT' and
+            getattr(curr_row, compl_var) in self.utils.all_dtype([3,4])):
+                return True
+            if getattr(curr_row, missing_var) not in self.utils.all_dtype([1]):
+                return False
+            else:
+                return True
+        
+        elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
+        in self.vars_added_later[form].keys() and
+        self.check_if_after_date(curr_row, form, date_var) == False):
+            for non_bl_var in non_bl_vars:
+                if (hasattr(curr_row,non_bl_var)
+                and getattr(curr_row,non_bl_var) != ''):
+                    non_bl_vars_filled_out +=1
+            if non_bl_vars_filled_out < (len(non_bl_vars)/2):
+                return True
+            else:
+                return False
+
+
 
         
 

@@ -62,20 +62,24 @@ class FormCheck():
             curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
             if not (all(form in curr_tp_forms for form in filtered_forms)):
                 return
+
             # filters out forms with standard_form_filter function
             if not (all(instance.standard_form_filter(
             curr_row, form) for form in filtered_forms)):
                 return
+
             # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
+
             # filters out form if variables in excluded variables 
             if filter_excl_vars:
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
                 if any(var in excl_vars for var in all_vars):
                     return
+
             # error message set to what the QC function returns
-            error_message = func(instance,curr_row,
+            error_message = func(instance, curr_row,
             filtered_forms,all_vars,changed_output_vals={},
             bl_filtered_vars=[],filter_excl_vars=True, *args, **kwargs)
             if error_message == None:
@@ -121,7 +125,7 @@ class FormCheck():
             return False
 
         # will not check the form if it is not marked as complete
-        # or the subject has not moved onto the next timepoint (prescient only)
+        # or the subject has not moved onto the next timepoint (prescient only)        
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
         or getattr(curr_row, compl_var) in self.utils.all_dtype([2])):
             completion_filter = True
@@ -129,10 +133,13 @@ class FormCheck():
         in self.prescient_forms_no_compl_status 
         and self.check_if_next_tp(curr_row) == False):
             completion_filter = False
+        
         if completion_filter == False:
             return False
+
         if self.check_if_missing(curr_row, form) == True:
             return False
+
         if self.extra_form_conditions(curr_row, form) == False:
             return False
                    
@@ -172,6 +179,10 @@ class FormCheck():
         form : str
             current form
         """
+        # floating forms do not need to 
+        # be marked missing
+        if self.timepoint == 'floating':
+            return False
         compl_var = self.important_form_vars[form]["completion_var"]
         date_var = self.important_form_vars[form]["interview_date_var"]
         if self.network == 'PRESCIENT':
@@ -180,12 +191,10 @@ class FormCheck():
             compl_var = compl_var.replace('_hc','').replace('onboarding','checkin') 
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
-        non_bl_vars_filled_out = 0
-
+        non_bl_vars_filled_out = 0        
         if missing_var != "" and not (form in self.vars_added_later.keys()
         and missing_var in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):
-                
+        self.check_if_after_date(curr_row, form, date_var) == False):                
             if not hasattr(curr_row, missing_var):
                 return False
             # prescient missingness can also be indicated by the completion var
@@ -199,7 +208,7 @@ class FormCheck():
         
         elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
         in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):     
+        self.check_if_after_date(curr_row, form, date_var) == False):
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):

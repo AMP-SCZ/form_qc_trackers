@@ -23,7 +23,7 @@ class SOPChecks(FormCheck):
     
     def call_checks(self, row):
         self.call_conversion_checks(row)
-        #self.withdrawn_check(row)
+        self.withdrawn_check(row)
 
     def call_conversion_checks(self, row):
         changed_output = {'reports': ['Main Report']}
@@ -45,42 +45,34 @@ class SOPChecks(FormCheck):
             return "Subject converted, but date not filled out in conversion form."
     
     def withdrawn_check(self, row):
-        visit = row.visit_status
-        visit = visit.replace('_','')
+        """
+        Calculates days between most recent visit 
+        (with a form that has a date and is not marked missing)
+        and when the next visit should be
+        """
         cohort = self.subject_info[row.subjectid]['cohort']
-        if self.timepoint == visit and cohort.lower() != 'unknown':
-            all_tp_forms = self.forms_per_tp[cohort.upper()][self.timepoint]
-            form_vars = self.important_form_vars
-            all_dates = {}
-            for form in all_tp_forms:
-                if form in form_vars.keys():
-                    date_var = ''
-                    if 'interview_date_var' in form_vars[form].keys():
-                        date_var = form_vars[form]['interview_date_var']
-                    elif 'entry_date_var' in form_vars[form].keys():
-                        date_var = form_vars[form]['entry_date_var']
-                    if (date_var != '' and hasattr(row, date_var) and
-                    self.utils.check_if_val_date_format(getattr(row, date_var))):
-                        all_dates[date_var] = getattr(row, date_var) 
-        else:
-            return
         
-        if all_dates != {}:
-            most_recent_date_var = self.utils.recent_date_from_dict(all_dates)
+        if row.subjectid in self.tp_date_ranges.keys():
+            for tp, dates in self.tp_date_ranges[row.subjectid].items():
+                if tp in ['floating','conversion']:
+                    continue
+                most_recent_date = dates['latest']
+                visit = tp
             days_until_next_tp = self.utils.time_to_next_visit(visit)
-            print(days_until_next_tp)
-            if days_until_next_tp != None and most_recent_date_var != '':
-                days_since_form = self.utils.days_since_today(all_dates[most_recent_date_var])
+            if days_until_next_tp != None:
+                days_since_form = self.utils.days_since_today(most_recent_date)
                 days_over_expected = days_until_next_tp - days_since_form
-                print('-----------')
-                print(days_over_expected)
-                print(row.subjectid)
                 withdrawn_status_list.append({'subjectid':row.subjectid,
-                'days_until_expected_next_visit':days_over_expected,'current_timepoint':visit,
-                'most_recent_date':all_dates[most_recent_date_var],
-                'most_recent_date_var':most_recent_date_var, 'withdrawn_status':row.removed})
+                'days_until_expected_next_visit':days_over_expected,
+                'current_timepoint':visit, 'most_recent_date':most_recent_date,
+                'withdrawn_status':row.removed})
                 df = pd.DataFrame(withdrawn_status_list)
-                df.to_csv('withdrawn_status.csv',index = False)
+                df.to_csv(f'{self.utils.config_info["paths"]["output_path"]}withdrawn_status.csv',
+                index = False)
+
+        return 
+
+        
 
 
         

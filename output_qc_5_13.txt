@@ -1,0 +1,19 @@
+/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_multi_timepoint_data.py:55: DtypeWarning: Columns (2166,2175,2179,2182,2185) have mixed types. Specify dtype option on import or set low_memory=False.
+  combined_df = pd.read_csv(
+['screening', 'baseline', 'month1', 'month2', 'month3', 'month4', 'month5', 'month6', 'month7', 'month8', 'month9', 'month10', 'month11', 'month12', 'month18', 'month24']
+Traceback (most recent call last):
+  File "run_qc.py", line 44, in <module>
+    RunQC().run_script()
+  File "run_qc.py", line 37, in run_script
+    self.process_vars.run_script()
+  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/process_variables_main.py", line 78, in run_script
+    self.multi_tp_data = MultiTPDataCollector()
+  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_multi_timepoint_data.py", line 40, in __init__
+    self.loop_csvs()
+  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_multi_timepoint_data.py", line 59, in loop_csvs
+    self.collect_earliest_latest_dates(combined_df, tp)
+  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/process_variables/collect_multi_timepoint_data.py", line 96, in collect_earliest_latest_dates
+    if self.utils.check_if_missing(row, form) == True:
+  File "/PHShome/ob001/anaconda3/refactored_qc/form_qc_trackers/main/utils/utils.py", line 453, in check_if_missing
+    if self.timepoint == 'floating':
+AttributeError: 'Utils' object has no attribute 'timepoint'
