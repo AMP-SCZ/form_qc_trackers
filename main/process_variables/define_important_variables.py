@@ -1,5 +1,11 @@
 import pandas as pd
 import re
+import os, sys
+
+parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
+sys.path.insert(1, parent_dir)
+
+from utils.utils import Utils
 
 class DefineEssentialFormVars():
     """
@@ -24,7 +30,7 @@ class DefineEssentialFormVars():
     """
 
     def __init__(self, data_dictionary_df):
-        self.data_dictionary_df = data_dictionary_df   
+        self.data_dictionary_df = data_dictionary_df 
         self.all_forms = list(set(self.data_dictionary_df['Form Name'].tolist()))     
 
     def __call__(self):
@@ -230,6 +236,8 @@ class CollectMiscVariables():
         data_dictionary_df : pd.DataFrame
     ):
         self.data_dictionary_df = data_dictionary_df   
+        self.utils = Utils()  
+
         self.all_forms = list(set(self.data_dictionary_df['Form Name'].tolist()))     
 
     def __call__(self):
@@ -238,7 +246,7 @@ class CollectMiscVariables():
                                   "module_c_vars":self.collect_scid_module_c_vars()},
                     "var_forms" : self.collect_form_per_var(),
                     'var_translations' : self.create_variable_translations(),
-                    'pharm_vars':self.collect_pharm_vars()}
+                    'pharm_vars' : self.collect_pharm_vars()}
 
         return var_info
 

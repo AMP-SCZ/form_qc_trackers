@@ -58,12 +58,17 @@ class SOPChecks(FormCheck):
                     continue
                 most_recent_date = dates['latest']
                 visit = tp
+            if visit != self.timepoint:
+                return
             days_until_next_tp = self.utils.time_to_next_visit(visit)
             if days_until_next_tp != None:
                 days_since_form = self.utils.days_since_today(most_recent_date)
                 days_over_expected = days_until_next_tp - days_since_form
+                if (any(row.subjectid == entry['subjectid']
+                for entry in withdrawn_status_list)):
+                    return
                 withdrawn_status_list.append({'subjectid':row.subjectid,
-                'days_until_expected_next_visit':days_over_expected,
+                'network' : self.network,'days_until_expected_next_visit':days_over_expected,
                 'current_timepoint':visit, 'most_recent_date':most_recent_date,
                 'withdrawn_status':row.removed})
                 df = pd.DataFrame(withdrawn_status_list)

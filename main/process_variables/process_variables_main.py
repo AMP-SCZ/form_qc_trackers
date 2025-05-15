@@ -41,6 +41,7 @@ class ProcessVariables():
             self.config_info = json.load(file)
 
     def run_script(self):
+        """
         data_dict_df = self.utils.read_data_dictionary()
         grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
@@ -72,11 +73,11 @@ class ProcessVariables():
 
         var_ranges = RangeDefiner()
         self.utils.save_dependency_json(var_ranges(), 'variable_ranges.json')
+        """
 
         # must be called last as it uses dependencies 
         # from preceding classes
         self.multi_tp_data = MultiTPDataCollector()
-        
 
 
         

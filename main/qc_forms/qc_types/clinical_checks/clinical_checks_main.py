@@ -7,7 +7,7 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 from qc_forms.qc_types.clinical_checks.scid_checks import ScidChecks
-from datetime import datetime
+from datetime import datetime,timedelta
 
 class ClinicalChecksMain(FormCheck):    
     def __init__(self, row, timepoint, network, form_check_info):
@@ -50,26 +50,88 @@ class ClinicalChecksMain(FormCheck):
         self.call_chrchs_checks(row)
         self.call_conversion_check(row)
         self.call_pharm_checks(row)
+        self.call_premorbid_adjustment_checks(row)
+        self.call_pgis_pps_checks(row)
+        self.call_age_comparisons(row)
+    
+    def call_pgis_pps_checks(self,row):
+        forms = ['pgis','psychosis_polyrisk_score']
+
+        reports = {'reports' : ['Main Report']}
+
+        for pps_var in ['chrpps_fdob','chrpps_mdob']:
+            vars = ['chrpgi_interview_date',pps_var]
+            self.pgi_pps_age_comp(row, forms, vars, reports)
+
+    def call_age_comparisons(self,row):
+        for var in ['chrpps_fage','chrpps_mage',
+        'chrfigs_mother_age','chrfigs_father_age']:
+            forms = [self.grouped_vars['var_forms'][var]]
+
+            reports = {'reports' : ['Main Report']}
+   
+            self.age_comparison(row, forms, [var],reports, 
+            bl_filtered_vars = [], filter_excl_vars = True, compared_age_var = var,
+            diff_min = 10, diff_max = 85)
+
+        for var in ['chrscid_c56_c65','chrscid_a52',
+        'chrscid_a109','chrscid_c58_c66',
+        'chrscid_d45_d49_d54_d56','chrscid_d61_d65',
+        'chrscid_e19_37','chrscid_e164_302',
+        'chrscid_e168_306','chrscid_e172_310',
+        'chrscid_e176_314','chrscid_e180_318','chrscid_e184_322',
+        'chrscid_e188_326','chrscid_e192_330']:
+            forms = [self.grouped_vars['var_forms'][var]]
+            reports = {'reports' : ['Main Report']}
+            self.age_comparison(row, forms, [var], reports, 
+            bl_filtered_vars = [], filter_excl_vars = True, compared_age_var = var,
+            diff_min = 0, diff_max = 0)
+
+
+    def call_premorbid_adjustment_checks(self, row):
+        forms = ['premorbid_adjustment_scale']
+
+        reports = {'reports' : ['Main Report']}
+
+        self.pas_marriage_check(row, forms, ['chrpas_pmod_adult3v3',
+        'chrpas_pmod_adult3v1'], reports)
+
 
     def call_pharm_checks(self,row):
-        self.check_onset_date(row, 
-        ['current_pharmaceutical_treatment_floating_med_125'],
-        ['chrpharm_date_mod'], {'reports' : ['Main Report']})
+        forms = ['current_pharmaceutical_treatment_floating_med_125',
+        'current_pharmaceutical_treatment_floating_med_2650']
 
-        self.pharm_firstdose_check(row, 
-        ['current_pharmaceutical_treatment_floating_med_125'],
-        ['chrpharm_med1_onset','chrpharm_firstdose_med1'],
-        {'reports' : ['Main Report']})
+        reports = {'reports' : ['Main Report']}
 
-        self.pharm_date_mod_check(row, 
-        ['current_pharmaceutical_treatment_floating_med_125'],
-        ['chrpharm_date_mod'],
-        {'reports' : ['Main Report']})
+        self.check_onset_date(row, forms,
+        ['chrpharm_date_mod'], reports)
+
+        self.pharm_firstdose_check(row, forms,
+        ['chrpharm_med1_onset','chrpharm_firstdose_med1'], reports)
+
+        self.pharm_date_mod_check(row, forms,
+        ['chrpharm_date_mod'], reports)
 
         name_vars = self.grouped_vars['pharm_vars']['name_vars']
         self.pharm_med_name_check(row, 
-        ['current_pharmaceutical_treatment_floating_med_125'],
-        name_vars, {'reports' : ['Main Report']})
+        forms, name_vars, reports)
+
+        for initial_med_count in range(0,50):
+            for secondary_med_count in range(0,50):
+                if initial_med_count == secondary_med_count:
+                    continue
+                med_vars = [
+                f'chrpharm_med{initial_med_count}_name',
+                f'chrpharm_med{initial_med_count}_onset',
+                f'chrpharm_lastuse_med{initial_med_count}',
+                f'chrpharm_med{initial_med_count}_use',
+                f'chrpharm_med{secondary_med_count}_name',
+                f'chrpharm_med{secondary_med_count}_onset',
+                f'chrpharm_lastuse_med{secondary_med_count}',
+                f'chrpharm_med{secondary_med_count}_use'
+                ]  
+
+                self.pharm_overlapping_days(row, forms, med_vars, reports)          
 
 
     def call_conversion_check(self,row):
@@ -194,7 +256,7 @@ class ClinicalChecksMain(FormCheck):
         report_list = ['Main Report', 'Non Team Forms']
         for x in range(2, 6):
             oasis_anx_var = f'chroasis_oasis_{x}'
-            self.oasis_anxiety_check(row, forms, ['chroasis_oasis_1',oasis_anx_var],
+            self.oasis_anxiety_check(row, forms, ['chroasis_oasis_1', oasis_anx_var],
             {'reports': report_list}, bl_filtered_vars=[],
                 filter_excl_vars=True, anx_var = oasis_anx_var)
         oasis_lifestyle_vars = {'chroasis_oasis_4': 1 , 'chroasis_oasis_5' : 0}
@@ -370,8 +432,8 @@ class ClinicalChecksMain(FormCheck):
     @FormCheck.standard_qc_check_filter
     def check_onset_date(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
-        filter_excl_vars=True):
-        
+        filter_excl_vars=True
+    ):
         date_list = []
         for x in range(0,10):
             date_list.append(f'chrpharm_med{x}_onset')
@@ -390,7 +452,8 @@ class ClinicalChecksMain(FormCheck):
                     date_val,data_entry_val)      
                     if days_btwn > 10:
                         return (f'There are {days_btwn} days between'
-                        f' the most recent medication date ({date_val}) and medication mod date ({data_entry_val})')
+                        f' the most recent medication date ({date_val}) and'
+                        f' medication mod date ({data_entry_val})')
         
     def check_if_over_21_days(self,
         row, missing_spec_var, scr_int_date,
@@ -427,15 +490,33 @@ class ClinicalChecksMain(FormCheck):
         filter_excl_vars=True
     ):
         if row.visit_status_string != 'converted':
-            return f'{all_vars[0]} is {getattr(row, all_vars[0])}, but participant is not marked as converted.'
+            return (f'{all_vars[0]} is {getattr(row, all_vars[0])},'
+            ' but participant is not marked as converted.')
 
+    @FormCheck.standard_qc_check_filter   
+    def pas_marriage_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):
+        """
+        These variables are excluded,
+        so need to set filter_excl_vars to False
+        """
+
+        if (getattr(row, 'chrpas_pmod_adult3v1') in self.utils.all_dtype([0,1,2,3]) and
+        getattr(row, 'chrpas_pmod_adult3v3') in self.utils.all_dtype([0,1,2,3,4,5,6])):
+            return (f"chrpas_pmod_adult3v1 is equal to {getattr(row, 'chrpas_pmod_adult3v1')},"
+            f" but chrpas_pmod_adult3v3 is equal to {getattr(row, 'chrpas_pmod_adult3v3')}")
+            
     @FormCheck.standard_qc_check_filter   
     def pharm_firstdose_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):
-        if (row.chrpharm_firstdose_med1 not in (self.utils.missing_code_list + [''])
-        and row.chrpharm_med1_onset not in (self.utils.missing_code_list + [''])
+        if (str(row.chrpharm_med1_onset).split(' ')[0]
+        not in (self.utils.missing_code_list + [''])
+        and str(row.chrpharm_firstdose_med1).split(' ')[0]
+        not in (self.utils.missing_code_list + [''])
         and str(row.chrpharm_med1_onset).split(' ')[0]
         != str(row.chrpharm_firstdose_med1).split(' ')[0]):
             return (f'chrpharm_med1_onset ({row.chrpharm_med1_onset}) does'
@@ -509,13 +590,94 @@ class ClinicalChecksMain(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):
-        for med_count in range(0,51):
-            for med_var in [] 
+        date_vars = []
+        nums = []
+        for var in all_vars:
+            if 'onset' in var or 'lastuse' in var:
+                date_vars.append(var)
+            var_num = self.utils.collect_digit(var)
+            if self.utils.collect_digit(var_num) not in nums:
+                nums.append(var_num)
+        lower_num = min(nums)
+        upper_num = max(nums)
+        # makes sure all date variables are valid
+        if any((self.utils.check_if_val_date_format(
+        str(getattr(row, date_var)).split(' ')[0]) == False 
+        or str(getattr(row, date_var)).split(' ')[0] in
+        self.utils.missing_code_list)
+        for date_var in date_vars):
+            return
+        if self.det_if_overlapping_pharm_dates(row,nums) == True:
+            med_use_lower = getattr(row,f'chrpharm_med{lower_num}_use')
+            med_use_upper = getattr(row,f'chrpharm_med{upper_num}_use')
+            if (not((med_use_lower in self.utils.all_dtype([1])
+            and med_use_upper in self.utils.all_dtype([2]))
+            or (med_use_lower in self.utils.all_dtype([2]) 
+            and med_use_upper in self.utils.all_dtype([1])))):
+                lower_name = getattr(row,f'chrpharm_med{lower_num}_name')
+                upper_name = getattr(row,f'chrpharm_med{upper_num}_name')
+                if lower_name == upper_name:
+                    return (f"Medications have the same names and overlapping dates"
+                    f" (chrpharm_med{lower_num}_name = {lower_name} and"
+                    f" chrpharm_med{upper_num}_name = {upper_name} )")
+    
+    def det_if_overlapping_pharm_dates(self,row, nums):
+        ranges_iterated_daily = []
+        ranges_per_var_num = []
+        for num in nums:
+            onset_var = f'chrpharm_med{num}_onset'
+            lastuse_var = f'chrpharm_lastuse_med{num}'
+            onset_val = datetime.strptime(str(getattr(
+            row,onset_var)).split(' ')[0],"%Y-%m-%d") 
+            lastuse_val = datetime.strptime(str(getattr(
+            row, lastuse_var)).split(' ')[0],"%Y-%m-%d") 
+            ranges_per_var_num.append(
+            f'{onset_val} to {lastuse_val}')
+            if onset_val == lastuse_val:
+                ranges_iterated_daily.append(onset_val)
+                continue
+            if onset_val > lastuse_val:
+                return False
+            add_days = True
+            while add_days:
+                ranges_iterated_daily.append(onset_val)
+                if onset_val == lastuse_val:
+                    add_days = False
+                onset_val += timedelta(days=1)
+        ranges_set = set(ranges_iterated_daily)
+        # checks for duplicates
+        if len(ranges_set) == len(ranges_iterated_daily):
+            return True
+        else:
+            return False
 
-
-
-        
-
+    @FormCheck.standard_qc_check_filter
+    def pgi_pps_age_comp(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        if (any((getattr(row,var) in self.utils.missing_code_list or not 
+        self.utils.check_if_val_date_format(str(getattr(row,var)).split(' ')[0]))
+        for var in all_vars)):
+            return 
+        pgi_date = str(getattr(row,all_vars[0])).split(' ')[0]
+        pps_date = str(getattr(row,all_vars[1])).split(' ')[0]
+        days_between = self.utils.find_days_between(pgi_date, pps_date)
+        yrs_between = days_between/365
+        if yrs_between < 10 or yrs_between > 85:
+            return f"Difference between {all_vars[0]} and {all_vars[1]} is {yrs_between}."
             
-
+    @FormCheck.standard_qc_check_filter
+    def age_comparison(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, compared_age_var = '',
+        diff_min = 0,diff_max = 0
+    ):
+        age = self.subject_info[row.subjectid]['age']
+        compared_age = getattr(row,compared_age_var)
+        if self.utils.can_be_float(age) and self.utils.can_be_float(compared_age):
+            diff = round(abs(float(age) - float(compared_age)), 2)
+            if diff < diff_min or diff > diff_max:
+                return (f"Difference between demographics"
+                f" age ({age}) and {compared_age_var} ({compared_age}) is {diff}")
 

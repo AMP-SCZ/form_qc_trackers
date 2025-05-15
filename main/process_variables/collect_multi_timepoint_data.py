@@ -12,7 +12,6 @@ class MultiTPDataCollector():
     """
     Class to collect data
     from multiple timepoints 
-
     """
     def __init__(self):
         self.utils = Utils()
@@ -24,9 +23,6 @@ class MultiTPDataCollector():
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
         #self.loop_networks()
         self.earliest_date_per_var = {}
-        self.var_forms = self.utils.load_dependency_json(
-        f"grouped_variables.json")
-        self.forms_per_var = self.var_forms['var_forms']
         self.important_form_vars = self.utils.load_dependency_json(
         'important_form_vars.json')
         self.forms_per_tp = self.utils.load_dependency_json(
@@ -35,8 +31,14 @@ class MultiTPDataCollector():
         'subject_info.json')
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         self.multitp_output = pd.DataFrame()
-        self.multi_tp_vars = ['subjectid', 'visit_status_string',
-        'chrblood_wb2id']
+        self.variable_type_distributions = {}
+
+        self.multi_tp_vars = [
+        'chrpps_fage','chrfigs_father_age',
+        'chrpps_mage','chrfigs_mother_age','chrblood_wb1id',
+        'chrblood_wb2id','chrblood_se3id'
+        ]
+
         self.loop_csvs()
 
     def __call__(self):
@@ -55,22 +57,28 @@ class MultiTPDataCollector():
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
-                self.collect_earliest_date(combined_df)
-                self.collect_earliest_latest_dates(combined_df, tp)
-                """modified_df = self.utils.append_suffix_to_cols(combined_df, tp)
+                #self.collect_earliest_date(combined_df)
+                #self.collect_earliest_latest_dates(combined_df, tp, network)
+                #self.collect_variable_type_distributions(combined_df)
+                modified_df = self.utils.append_suffix_to_cols(combined_df, tp,
+                )
                 if multi_tp_df.empty:
                     multi_tp_df = modified_df
                 else:
-                    multi_tp_df = multi_tp_data.merge(modified_df,
-                    how = 'outer')"""
-
-        #multi_tp_df.to_csv('multi_tp_df_test.csv',
-        #index = False)
+                    multi_tp_df = multi_tp_df.merge(modified_df,
+                    how = 'outer')
+                print(multi_tp_df)
+                print(multi_tp_df.columns)
+                multi_tp_df.to_csv('multi_tp_csv.csv',
+                index = False)
                 self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
                 'earliest_latest_dates_per_tp.json')
+                self.utils.save_dependency_json(self.variable_type_distributions,
+                'variable_type_distributions.json')
 
     def collect_earliest_latest_dates(self,
-        combined_df : pd.DataFrame, tp: str
+        combined_df : pd.DataFrame, tp: str,
+        network : str
     ):
         """
         Collects the earliest and
@@ -93,7 +101,7 @@ class MultiTPDataCollector():
                 cohort = self.subject_info[subject]['cohort']
                 all_forms = forms_per_tp[cohort][tp]
                 for form in all_forms:
-                    if self.utils.check_if_missing(row, form) == True:
+                    if self.utils.check_if_missing(row, form, tp, network) == True:
                         continue
                     interview_date_var = self.important_form_vars[form]['interview_date_var']
                     if interview_date_var != '' and hasattr(row,interview_date_var):
@@ -203,8 +211,8 @@ class MultiTPDataCollector():
         -------------
         merged_blood_df : pd.DataFrame
             Dataframe of blood variables
-
         """
+
         id_vars = self.grouped_vars['blood_vars']['id_variables']
         merged_id_vars = []
         for var in id_vars:
@@ -235,6 +243,7 @@ class MultiTPDataCollector():
         merged_blood_df : pd.DataFrame
             Dataframe of blood variables
         """
+
         pos_vars = self.grouped_vars['blood_vars']['position_variables']
         merged_pos_vars = []
         merged_barcode_vars = []
@@ -274,6 +283,46 @@ class MultiTPDataCollector():
         pos_df = pos_df[~pos_df['barc_pos_val'].isin(excluded_val_list)]
         pos_df = pos_df[pos_df.duplicated(subset=['barc_pos_val'], keep=False) & 
         (pos_df.duplicated(subset=['barc_pos_val', 'subjectid'], keep=False) == False)]
+
+    def collect_variable_type_distributions(self, 
+        combined_df : pd.DataFrame
+    ):
+        """
+        Collects distribution of different value
+        categories for each variable
+
+        Parameters
+        -------------
+        combined_df : pd.DataFrame 
+            current combined dataframe
+            being looped through
+        """
+
+        for row in combined_df.itertuples():
+            for var in combined_df.columns:
+                var_val = getattr(row,var)
+                self.variable_type_distributions.setdefault(var, {'missing_code':0,
+                'num':0,'date':0,'blank':0,'string':0, 'other':0})
+                if var_val in self.utils.missing_code_list:
+                    self.variable_type_distributions[var]['missing_code'] +=1
+                elif self.utils.can_be_float(var_val):
+                    self.variable_type_distributions[var]['num'] +=1
+                elif self.utils.check_if_val_date_format(
+                str(var_val).split(' ')[0]):
+                    self.variable_type_distributions[var]['date'] +=1 
+                elif var_val == '':
+                    self.variable_type_distributions[var]['blank'] +=1 
+                elif isinstance(var_val, str):
+                    self.variable_type_distributions[var]['string'] +=1 
+                else:
+                    self.variable_type_distributions[var]['other'] +=1 
+
+
+
+
+
+
+
 
 
                                     

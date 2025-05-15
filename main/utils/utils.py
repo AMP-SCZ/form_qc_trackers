@@ -43,6 +43,12 @@ class Utils():
                 'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
         
         self.withdrawn_status_list = []
+        self.important_form_vars = self.load_dependency_json(
+        'important_form_vars.json')
+
+        self.vars_added_later = self.load_dependency_json(
+        'variables_added_later.json')
+
 
     def create_timepoint_list(self):
         """
@@ -335,7 +341,7 @@ class Utils():
 
         return abs(days_between)
     
-    def check_if_val_date_format(self,string, date_format="%Y-%m-%d"):
+    def check_if_val_date_format(self, string, date_format="%Y-%m-%d"):
         try:
             datetime.strptime(string, date_format)
             return True
@@ -424,19 +430,52 @@ class Utils():
 
         modified_cols = list(input_df.columns)
         # columns that will not have timepoint suffix added
-        modified_col = [col + f'_{suffix}' for col in modified_cols if col not in excl_cols]
         modified_cols = {}
         for col in input_df.columns:
             if col in excl_cols:
                 modified_cols[col] = col 
-            else:
-                modified_cols[col] = col + '_tp'
+            elif col in incl_cols:
+                modified_cols[col] = col + f'_{suffix}'
         modified_df = input_df.rename(columns=modified_cols)
+        modified_df = modified_df[list(modified_cols.values())]
 
         return modified_df 
 
+    def check_if_after_date(self, 
+        curr_row : tuple,
+        form : str, date_var : str
+    ) -> bool:
+        """
+        Checks to make sure date 
+        is after it was added in 
+        particularly for missing_data
+        buttons that were added later
+
+        Parameters
+        --------------
+        curr_row : tuple
+            current dataframe row being checked \
+        form : str
+            current form being checked
+        date_var : str
+            date variable being checked
+        """
+        date_added = self.vars_added_later[form]
+        if hasattr(curr_row, date_var):
+            date_val = getattr(curr_row, date_var)
+            date_val = str(date_val)
+            try:
+                date_val = datetime.strptime(date_val, '%Y-%m-%d')
+            except Exception as e:
+                return False
+            if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
+                return True
+        
+        return False
+
     def check_if_missing(self,
-        curr_row : tuple, form : str
+        curr_row : tuple, form : str,
+        timepoint : str, network: str
     ):
         """
         Checks if a form is marked as missing 
@@ -450,14 +489,16 @@ class Utils():
         """
         # floating forms do not need to 
         # be marked missing
-        if self.timepoint == 'floating':
+        if timepoint == 'floating':
             return False
         compl_var = self.important_form_vars[form]["completion_var"]
         date_var = self.important_form_vars[form]["interview_date_var"]
-        if self.network == 'PRESCIENT':
+        if network == 'PRESCIENT':
             compl_var += '_rpms'
             # rpms compl variables same for both cohorts
-            compl_var = compl_var.replace('_hc','').replace('onboarding','checkin') 
+            compl_var = compl_var.replace('_hc','').replace(
+            'onboarding','checkin').replace(
+            'end_of_12month_study_pe','checkin').replace('end_of_12month_study_p','checkin')  
         missing_var = self.important_form_vars[form]["missing_var"]
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         non_bl_vars_filled_out = 0        
@@ -467,10 +508,10 @@ class Utils():
             if not hasattr(curr_row, missing_var):
                 return False
             # prescient missingness can also be indicated by the completion var
-            if (self.network == 'PRESCIENT' and
-            getattr(curr_row, compl_var) in self.utils.all_dtype([3,4])):
+            if (network == 'PRESCIENT' and
+            getattr(curr_row, compl_var) in self.all_dtype([3,4])):
                 return True
-            if getattr(curr_row, missing_var) not in self.utils.all_dtype([1]):
+            if getattr(curr_row, missing_var) not in self.all_dtype([1]):
                 return False
             else:
                 return True
@@ -487,6 +528,39 @@ class Utils():
             else:
                 return False
 
+    def collect_all_type_vars(self, 
+        data_type : str = 'date',
+        threshold : float = 0.5
+    ):
+        """
+        Collects all variables with 
+        a defined threshold of values
+        being the specified data type.
+
+        Parameters
+        -----------------
+        threshold : float
+            threshold of values that need to 
+            the be specified category
+
+        Returns
+        --------------------
+        all_type_vars : list
+            list of all variables that belog to 
+            the sprecified category
+        """
+
+        variable_type_distributions = self.utils.load_dependency_json(
+        'variable_type_distributions.json')
+        all_type_vars = []
+        for var, distributions in variable_type_distributions.items():
+            total = (distributions['num'] + distributions['string']
+             + distributions['date'])
+            if total > 0:
+                if distributions[data_type]/total > threshold:
+                    all_type_vars.append(var)
+
+        return all_type_vars
 
 
         
