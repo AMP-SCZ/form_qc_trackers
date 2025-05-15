@@ -20,6 +20,7 @@ class MultiTPDataCollector():
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
         self.combined_csv_path = self.config_info['paths']['combined_csv_path']
+        self.depend_path = self.config_info["paths"]["dependencies_path"]
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
         #self.loop_networks()
         self.earliest_date_per_var = {}
@@ -35,8 +36,9 @@ class MultiTPDataCollector():
 
         self.multi_tp_vars = [
         'chrpps_fage','chrfigs_father_age',
-        'chrpps_mage','chrfigs_mother_age','chrblood_wb1id',
-        'chrblood_wb2id','chrblood_se3id'
+        'chrpps_mage','chrfigs_mother_age',
+        'chrblood_wb1id','chrblood_wb2id',
+        'chrblood_se3id'
         ]
 
         self.loop_csvs()
@@ -51,8 +53,8 @@ class MultiTPDataCollector():
         """
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        multi_tp_df = pd.DataFrame()
         for network in ['PRESCIENT','PRONET']:
+            multi_tp_df = pd.DataFrame()
             for tp in tp_list:
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
@@ -60,21 +62,21 @@ class MultiTPDataCollector():
                 #self.collect_earliest_date(combined_df)
                 #self.collect_earliest_latest_dates(combined_df, tp, network)
                 #self.collect_variable_type_distributions(combined_df)
-                modified_df = self.utils.append_suffix_to_cols(combined_df, tp,
-                )
+                modified_df = self.utils.append_suffix_to_cols(combined_df,
+                tp, self.multi_tp_vars)
                 if multi_tp_df.empty:
                     multi_tp_df = modified_df
                 else:
                     multi_tp_df = multi_tp_df.merge(modified_df,
-                    how = 'outer')
-                print(multi_tp_df)
-                print(multi_tp_df.columns)
-                multi_tp_df.to_csv('multi_tp_csv.csv',
-                index = False)
+                    on = 'subjectid', how = 'outer')
                 self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
                 'earliest_latest_dates_per_tp.json')
                 self.utils.save_dependency_json(self.variable_type_distributions,
                 'variable_type_distributions.json')
+
+            multi_tp_df.to_csv(
+            f'{self.depend_path}multi_tp_{network}_combined.csv',
+            index = False)
 
     def collect_earliest_latest_dates(self,
         combined_df : pd.DataFrame, tp: str,

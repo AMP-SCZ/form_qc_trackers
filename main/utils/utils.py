@@ -428,8 +428,6 @@ class Utils():
             columns not being modified
         """
 
-        modified_cols = list(input_df.columns)
-        # columns that will not have timepoint suffix added
         modified_cols = {}
         for col in input_df.columns:
             if col in excl_cols:
