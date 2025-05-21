@@ -391,7 +391,7 @@ class Utils():
         return recent_date_var
     
     def time_to_next_visit(
-        self, curr_tp : str
+        self, curr_tp : str, cohort :str,
     ) -> int:
         """
         Calculates the number of days that there
@@ -407,6 +407,9 @@ class Utils():
         else:
             curr_tp_ind = timepoints.index(curr_tp)
             next_tp = timepoints[curr_tp_ind + 1]
+            if cohort.lower() == 'hc' and curr_tp == 'month2':
+                next_tp = 'month12'
+                
             months_btwn = int(next_tp.replace('month',''))-int(curr_tp.replace('month',''))
             days_btwn = months_btwn * 30
         

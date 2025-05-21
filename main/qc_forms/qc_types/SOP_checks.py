@@ -24,7 +24,7 @@ class SOPChecks(FormCheck):
     
     def call_checks(self, row):
         self.call_conversion_checks(row)
-        #self.withdrawn_check(row)
+        self.withdrawn_check(row)
 
     def call_conversion_checks(self, row):
         changed_output = {'reports': ['Main Report']}
@@ -53,8 +53,12 @@ class SOPChecks(FormCheck):
         and is not marked missing)
         and when the next visit should be
         """
-
-        cohort = self.subject_info[row.subjectid]['cohort']
+        if row.subjectid in self.subject_info.keys():
+            cohort = self.subject_info[row.subjectid]['cohort']
+        else:
+            return
+        if cohort.lower() == 'unknown':
+            return
         
         if row.subjectid in self.tp_date_ranges.keys():
             for tp, dates in self.tp_date_ranges[row.subjectid].items():
@@ -64,7 +68,7 @@ class SOPChecks(FormCheck):
                 visit = tp
             if visit != self.timepoint:
                 return
-            days_until_next_tp = self.utils.time_to_next_visit(visit)
+            days_until_next_tp = self.utils.time_to_next_visit(visit,cohort)
             if days_until_next_tp != None:
                 days_since_form = self.utils.days_since_today(most_recent_date)
                 days_over_expected = days_until_next_tp - days_since_form

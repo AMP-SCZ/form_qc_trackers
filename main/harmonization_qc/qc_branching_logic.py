@@ -90,6 +90,7 @@ class TestTransformBranchingLogic():
                     for col in combined_df.columns:
                         if self.filter_rows(curr_row, col) == False:
                             continue
+                        form = self.forms_per_var[col]
                         bl = converted_bl[col]['converted_branching_logic']
                         bl = bl.replace('instance', 'self')
                         if bl == '':
@@ -116,7 +117,7 @@ class TestTransformBranchingLogic():
                             if append == True:
                                 dupl_removed_output.setdefault(match_key, {
                                 'subjects':[], 'network':network, 'timepoint':tp,
-                                'variable':col, 'variable_value':getattr(curr_row,col), 'count': 0,
+                                'variable':col,'form':form, 'variable_value':getattr(curr_row,col), 'count': 0,
                                 'pronet_branching_logic':converted_bl[col]['original_branching_logic'],
                                 'converted_branching_logic': bl,'BL_cond':bl_cond})
                                 dupl_removed_output[match_key]['count'] +=1

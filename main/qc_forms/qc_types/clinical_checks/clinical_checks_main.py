@@ -28,12 +28,16 @@ class ClinicalChecksMain(FormCheck):
         'psychs_p1p8_fu','psychs_p1p8_fu_hc',
         'chrpred_interview_date','sociodemographics']
 
+        # subjects should be converted if 
+        # these variables exceed their respective values
         self.gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
         'chrbprs_bprs_guil':5,'chrbprs_bprs_gran':5,
         'chrbprs_bprs_susp':5,'chrbprs_bprs_hall':5,
         'chrbprs_bprs_unus':5,'chrbprs_bprs_bizb':5,
         'chrbprs_bprs_conc':5}
         
+        # subjects should be converted if 
+        # these variables equal their respective values
         self.eq_var_val_pairs = {'chrpsychs_fu_1c0':6,
         'chrpsychs_fu_1d0':6,'chrpsychs_fu_2c0':6,
         'chrpsychs_fu_2d0':6,'chrpsychs_fu_3c0':6,
@@ -687,9 +691,9 @@ class ClinicalChecksMain(FormCheck):
             return
         pps_int_date = str(getattr(row,'chrpps_interview_date')).split(' ')[0]
         pps_dob = str(getattr(row,pps_dob_var)).split(' ')[0]
-        days_between = self.utils.find_days_between(pps_int_date, pps_date)
+        days_between = self.utils.find_days_between(pps_int_date, pps_dob)
         yrs_between = days_between/365
-        age_diffs = yrs_between - age
+        age_diffs = yrs_between - float(age)
         if age_diffs >= 1:
             return f"Age ({age_var} = {age}) does not align with date of birth ({pps_dob})."
 
