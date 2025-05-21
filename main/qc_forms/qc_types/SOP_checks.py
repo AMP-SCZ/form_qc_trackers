@@ -9,6 +9,7 @@ from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 import re
 withdrawn_status_list = []
+
 class SOPChecks(FormCheck):
     def __init__(self,
         row, timepoint, network, form_check_info
@@ -23,7 +24,7 @@ class SOPChecks(FormCheck):
     
     def call_checks(self, row):
         self.call_conversion_checks(row)
-        self.withdrawn_check(row)
+        #self.withdrawn_check(row)
 
     def call_conversion_checks(self, row):
         changed_output = {'reports': ['Main Report']}
@@ -35,6 +36,7 @@ class SOPChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=False, var_comps = {}
     ):
+    
         """
         Finds subjects that are converted
         but did not fill out the conversion form.
@@ -47,9 +49,11 @@ class SOPChecks(FormCheck):
     def withdrawn_check(self, row):
         """
         Calculates days between most recent visit 
-        (with a form that has a date and is not marked missing)
+        (with a form that has a date 
+        and is not marked missing)
         and when the next visit should be
         """
+
         cohort = self.subject_info[row.subjectid]['cohort']
         
         if row.subjectid in self.tp_date_ranges.keys():

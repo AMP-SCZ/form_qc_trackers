@@ -10,6 +10,7 @@ from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
 from qc_forms.qc_types.clinical_checks.clinical_checks_main import ClinicalChecksMain
 from qc_forms.qc_types.SOP_checks import SOPChecks
+from qc_forms.qc_types.multi_tp_checks import MultiTPChecks
 
 class QCFormsMain():
     def __init__(self):
@@ -18,8 +19,8 @@ class QCFormsMain():
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
-        depen_path = self.config_info['paths']['dependencies_path']
-        with open(f'{depen_path}converted_branching_logic.json','r') as file:
+        self.depen_path = self.config_info['paths']['dependencies_path']
+        with open(f'{self.depen_path}converted_branching_logic.json','r') as file:
             self.conv_bl = json.load(file)
 
         self.output_path = self.config_info['paths']['output_path']
@@ -68,7 +69,17 @@ class QCFormsMain():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
+            multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
+            multi_tp_df = pd.read_csv(multi_tp_path,
+            keep_default_na = False)
+            for row in multi_tp_df.itertuples():
+                multi_tp_checks = MultiTPChecks(row,
+                'multiple_timepoints', network, 
+                self.form_check_info)
+                test_output.extend(multi_tp_checks())
             for tp in tp_list:
+                print(tp)
+                print('-------')
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)

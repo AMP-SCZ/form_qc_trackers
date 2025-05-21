@@ -1,6 +1,7 @@
-import pandas as pd 
 import sys
 import os
+import pandas as pd 
+
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
@@ -13,7 +14,7 @@ class VisualizeDataInflux():
         self.date_list = []
 
     def run_script(self):
-        self.collect_lengths('PRONET')
+        self.collect_lengths('PRESCIENT')
         self.create_line_graph()
 
     def collect_lengths(self, network : str):
@@ -43,11 +44,11 @@ class VisualizeDataInflux():
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         
         plt.xticks(rotation=45, ha='right')
-        plt.title('PRONET Data Changes Over Time')
+        plt.title('PRESCIENT Data Changes Over Time')
         plt.xlabel('Date')
         plt.ylabel('Variables Changed')
         plt.tight_layout()
-        plt.savefig('data_changes_pronet.png',dpi = 600)
+        plt.savefig('data_changes_prescient.png',dpi = 600)
 
 
 if __name__ == '__main__':

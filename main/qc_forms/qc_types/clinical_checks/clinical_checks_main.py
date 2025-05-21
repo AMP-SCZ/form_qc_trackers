@@ -28,6 +28,34 @@ class ClinicalChecksMain(FormCheck):
         'psychs_p1p8_fu','psychs_p1p8_fu_hc',
         'chrpred_interview_date','sociodemographics']
 
+        self.gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
+        'chrbprs_bprs_guil':5,'chrbprs_bprs_gran':5,
+        'chrbprs_bprs_susp':5,'chrbprs_bprs_hall':5,
+        'chrbprs_bprs_unus':5,'chrbprs_bprs_bizb':5,
+        'chrbprs_bprs_conc':5}
+        
+        self.eq_var_val_pairs = {'chrpsychs_fu_1c0':6,
+        'chrpsychs_fu_1d0':6,'chrpsychs_fu_2c0':6,
+        'chrpsychs_fu_2d0':6,'chrpsychs_fu_3c0':6,
+        'chrpsychs_fu_3d0':6,'chrpsychs_fu_4c0':6,
+        'chrpsychs_fu_4d0':6,'chrpsychs_fu_5c0':6,
+        'chrpsychs_fu_5d0':6,'chrpsychs_fu_6c0':6,
+        'chrpsychs_fu_6d0':6,'chrpsychs_fu_7c0':6,
+        'chrpsychs_fu_7d0':6,'chrpsychs_fu_8c0':6,
+        'chrpsychs_fu_8d0':6,'chrpsychs_fu_9c0':6,
+        'chrpsychs_fu_9d0':6,'chrpsychs_fu_10c0':6,
+        'chrpsychs_fu_10d0':6,'chrpsychs_fu_11c0':6,
+        'chrpsychs_fu_11d0':6,'chrpsychs_fu_12c0':6,
+        'chrpsychs_fu_12d0':6,'chrpsychs_fu_13c0':6,
+        'chrpsychs_fu_13d0':6,'chrpsychs_fu_14c0':6,
+        'chrpsychs_fu_14d0':6,'chrpsychs_fu_15c0':6,
+        'chrpsychs_fu_15d0':6,'chrscid_c10':3,
+        'chrscid_c26':3,'chrscid_c14':3,'chrscid_c37':3,
+        'chrscid_c44':3,'chrscid_d47_d52':1,'chrscid_d63':1,
+        'chrscid_c71':3,'chrscid_c78':3,'chrscid_c11':1,
+        'chrscid_c21':1,'chrscid_c47':1,'chrscid_c28':1,
+        'chrscid_c50':3,'chrscid_c51':8}
+
         scid_checks = ScidChecks(row, timepoint, network,
         form_check_info)
 
@@ -51,28 +79,31 @@ class ClinicalChecksMain(FormCheck):
         self.call_conversion_check(row)
         self.call_pharm_checks(row)
         self.call_premorbid_adjustment_checks(row)
-        self.call_pgis_pps_checks(row)
         self.call_age_comparisons(row)
+        self.call_pps_checks(row)
     
-    def call_pgis_pps_checks(self,row):
-        forms = ['pgis','psychosis_polyrisk_score']
-
+    def call_pps_checks(self,row):
+        forms = ['psychosis_polyrisk_score']
         reports = {'reports' : ['Main Report']}
-
-        for pps_var in ['chrpps_fdob','chrpps_mdob']:
-            vars = ['chrpgi_interview_date',pps_var]
-            self.pgi_pps_age_comp(row, forms, vars, reports)
+        for dob_var, pps_age_var in {'chrpps_fdob':'chrpps_fage',
+        'chrpps_mdob':'chrpps_mage'}.items():
+            vars = ['chrpps_interview_date',pps_age_var]
+            self.pps_dob_age_range_check(row, forms,
+            ['chrpps_interview_date', dob_var], reports)
+            for age_var in [pps_age_var, 'demographics_age']:
+                self.pps_age_comp(row,forms,['chrpps_interview_date',
+                dob_var, age_var], bl_filtered_vars =[],
+                filter_excl_vars=False, age_var = age_var,
+                pps_dob_var = dob_var)
 
     def call_age_comparisons(self,row):
         for var in ['chrpps_fage','chrpps_mage',
         'chrfigs_mother_age','chrfigs_father_age']:
             forms = [self.grouped_vars['var_forms'][var]]
-
             reports = {'reports' : ['Main Report']}
-   
             self.age_comparison(row, forms, [var],reports, 
-            bl_filtered_vars = [], filter_excl_vars = True, compared_age_var = var,
-            diff_min = 10, diff_max = 85)
+            bl_filtered_vars = [], filter_excl_vars = True,
+            compared_age_var = var, diff_min = 10, diff_max = 85)
 
         for var in ['chrscid_c56_c65','chrscid_a52',
         'chrscid_a109','chrscid_c58_c66',
@@ -84,9 +115,8 @@ class ClinicalChecksMain(FormCheck):
             forms = [self.grouped_vars['var_forms'][var]]
             reports = {'reports' : ['Main Report']}
             self.age_comparison(row, forms, [var], reports, 
-            bl_filtered_vars = [], filter_excl_vars = True, compared_age_var = var,
-            diff_min = 0, diff_max = 0)
-
+            bl_filtered_vars = [], filter_excl_vars = True,
+            compared_age_var = var, diff_min = 0, diff_max = 0)
 
     def call_premorbid_adjustment_checks(self, row):
         forms = ['premorbid_adjustment_scale']
@@ -96,8 +126,7 @@ class ClinicalChecksMain(FormCheck):
         self.pas_marriage_check(row, forms, ['chrpas_pmod_adult3v3',
         'chrpas_pmod_adult3v1'], reports)
 
-
-    def call_pharm_checks(self,row):
+    def call_pharm_checks(self, row):
         forms = ['current_pharmaceutical_treatment_floating_med_125',
         'current_pharmaceutical_treatment_floating_med_2650']
 
@@ -135,35 +164,7 @@ class ClinicalChecksMain(FormCheck):
 
 
     def call_conversion_check(self,row):
-        gt_var_val_pairs = {'chrbprs_bprs_somc': 5,
-        'chrbprs_bprs_guil':5,'chrbprs_bprs_gran':5,
-        'chrbprs_bprs_susp':5,'chrbprs_bprs_hall':5,
-        'chrbprs_bprs_unus':5,'chrbprs_bprs_bizb':5,
-        'chrbprs_bprs_conc':5}
-        
-        eq_var_val_pairs = {'chrpsychs_fu_1c0':6,
-        'chrpsychs_fu_1d0':6,'chrpsychs_fu_2c0':6,
-        'chrpsychs_fu_2d0':6,'chrpsychs_fu_3c0':6,
-        'chrpsychs_fu_3d0':6,'chrpsychs_fu_4c0':6,
-        'chrpsychs_fu_4d0':6,'chrpsychs_fu_5c0':6,
-        'chrpsychs_fu_5d0':6,'chrpsychs_fu_6c0':6,
-        'chrpsychs_fu_6d0':6,'chrpsychs_fu_7c0':6,
-        'chrpsychs_fu_7d0':6,'chrpsychs_fu_8c0':6,
-        'chrpsychs_fu_8d0':6,'chrpsychs_fu_9c0':6,
-        'chrpsychs_fu_9d0':6,'chrpsychs_fu_10c0':6,
-        'chrpsychs_fu_10d0':6,'chrpsychs_fu_11c0':6,
-        'chrpsychs_fu_11d0':6,'chrpsychs_fu_12c0':6,
-        'chrpsychs_fu_12d0':6,'chrpsychs_fu_13c0':6,
-        'chrpsychs_fu_13d0':6,'chrpsychs_fu_14c0':6,
-        'chrpsychs_fu_14d0':6,'chrpsychs_fu_15c0':6,
-        'chrpsychs_fu_15d0':6,'chrscid_c10':3,
-        'chrscid_c26':3,'chrscid_c14':3,'chrscid_c37':3,
-        'chrscid_c44':3,'chrscid_d47_d52':1,'chrscid_d63':1,
-        'chrscid_c71':3,'chrscid_c78':3,'chrscid_c11':1,
-        'chrscid_c21':1,'chrscid_c47':1,'chrscid_c28':1,
-        'chrscid_c50':3,'chrscid_c51':8}
-
-        for var, threshold in gt_var_val_pairs.items():
+        for var, threshold in self.gt_var_val_pairs.items():
             form = self.grouped_vars['var_forms'][var]
             if not hasattr(row,var):
                 continue
@@ -172,7 +173,7 @@ class ClinicalChecksMain(FormCheck):
                 self.conversion_criteria_check(row, [form],
                 [var], {'reports': ['Main Report']})
 
-        for var, threshold in eq_var_val_pairs.items():
+        for var, threshold in self.eq_var_val_pairs.items():
             form = self.grouped_vars['var_forms'][var]
             if not hasattr(row,var):
                 continue
@@ -397,7 +398,6 @@ class ClinicalChecksMain(FormCheck):
         compared_score_val = getattr(row, compared_score_var)
         if not self.utils.can_be_float(compared_score_val):
             return
-
         for score_var in other_score_vars:
             other_score_val = getattr(row,score_var)
             if self.utils.can_be_float(other_score_val):
@@ -652,7 +652,7 @@ class ClinicalChecksMain(FormCheck):
             return False
 
     @FormCheck.standard_qc_check_filter
-    def pgi_pps_age_comp(self, row, filtered_forms,
+    def pps_dob_age_range_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):
@@ -660,19 +660,48 @@ class ClinicalChecksMain(FormCheck):
         self.utils.check_if_val_date_format(str(getattr(row,var)).split(' ')[0]))
         for var in all_vars)):
             return 
-        pgi_date = str(getattr(row,all_vars[0])).split(' ')[0]
+        pps_int_date = str(getattr(row,all_vars[0])).split(' ')[0]
         pps_date = str(getattr(row,all_vars[1])).split(' ')[0]
-        days_between = self.utils.find_days_between(pgi_date, pps_date)
+        days_between = self.utils.find_days_between(pps_int_date, pps_date)
         yrs_between = days_between/365
         if yrs_between < 10 or yrs_between > 85:
             return f"Difference between {all_vars[0]} and {all_vars[1]} is {yrs_between}."
-            
+
+    @FormCheck.standard_qc_check_filter
+    def pps_age_comp(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, age_var = '', pps_dob_var = ''
+    ):
+        # if date variables are missing codes or improper dates
+        if (any((getattr(row,var) in self.utils.missing_code_list or not 
+        self.utils.check_if_val_date_format(str(getattr(row,var)).split(' ')[0]))
+        for var in [pps_dob_var,'chrpps_interview_date'])):
+            return 
+        if age_var == 'demographics_age':
+            age = self.subject_info[row.subjectid]['age']
+        else:
+            age = getattr(row, age_var)
+        # if age variable is missing codes or not a number
+        if (age in self.utils.missing_code_list 
+        or not self.utils.can_be_float(age)):
+            return
+        pps_int_date = str(getattr(row,'chrpps_interview_date')).split(' ')[0]
+        pps_dob = str(getattr(row,pps_dob_var)).split(' ')[0]
+        days_between = self.utils.find_days_between(pps_int_date, pps_date)
+        yrs_between = days_between/365
+        age_diffs = yrs_between - age
+        if age_diffs >= 1:
+            return f"Age ({age_var} = {age}) does not align with date of birth ({pps_dob})."
+
     @FormCheck.standard_qc_check_filter
     def age_comparison(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True, compared_age_var = '',
-        diff_min = 0,diff_max = 0
+        diff_min = 0, diff_max = 0
     ):
+        if (any(getattr(row,var) in self.utils.missing_code_list
+        for var in all_vars)):
+            return
         age = self.subject_info[row.subjectid]['age']
         compared_age = getattr(row,compared_age_var)
         if self.utils.can_be_float(age) and self.utils.can_be_float(compared_age):
@@ -680,4 +709,3 @@ class ClinicalChecksMain(FormCheck):
             if diff < diff_min or diff > diff_max:
                 return (f"Difference between demographics"
                 f" age ({age}) and {compared_age_var} ({compared_age}) is {diff}")
-

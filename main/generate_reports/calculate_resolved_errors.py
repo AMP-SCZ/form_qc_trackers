@@ -186,7 +186,7 @@ class CalculateResolvedErrors():
         new_df.to_csv(self.out_paths['current'], index = False)
 
 
-    def compare_old_new_outputs(self, orig_columns,cols_to_merge, merged_df):
+    def compare_old_new_outputs(self, orig_columns, cols_to_merge, merged_df):
         curr_date = str(datetime.today().date())
         for row in merged_df.itertuples():
             curr_row_output = {}

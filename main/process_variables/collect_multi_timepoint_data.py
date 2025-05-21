@@ -22,6 +22,7 @@ class MultiTPDataCollector():
         self.combined_csv_path = self.config_info['paths']['combined_csv_path']
         self.depend_path = self.config_info["paths"]["dependencies_path"]
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
+        self.forms_per_var = self.grouped_vars['var_forms']
         #self.loop_networks()
         self.earliest_date_per_var = {}
         self.important_form_vars = self.utils.load_dependency_json(
@@ -59,9 +60,9 @@ class MultiTPDataCollector():
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
-                #self.collect_earliest_date(combined_df)
-                #self.collect_earliest_latest_dates(combined_df, tp, network)
-                #self.collect_variable_type_distributions(combined_df)
+                self.collect_earliest_date(combined_df)
+                self.collect_earliest_latest_dates(combined_df, tp, network)
+                self.collect_variable_type_distributions(combined_df)
                 modified_df = self.utils.append_suffix_to_cols(combined_df,
                 tp, self.multi_tp_vars)
                 if multi_tp_df.empty:
