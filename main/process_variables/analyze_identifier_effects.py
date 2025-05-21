@@ -59,4 +59,5 @@ class AnalyzeIdentifiers():
                         affected_fields.append(
                         {'var': row.variable,'affected_col':col_to_check,
                         'affected_col_val':str_to_check,'identifier':ident_var})
+                        
         return affected_fields

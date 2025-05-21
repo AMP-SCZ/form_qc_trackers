@@ -41,6 +41,14 @@ class Utils():
                 'JE': 'Jena, DE (JE)', 'LS': 'Lausanne, CH (LS)', 'ME': 'Melbourne (ME)',\
                 'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
                 'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
+        
+        self.withdrawn_status_list = []
+        self.important_form_vars = self.load_dependency_json(
+        'important_form_vars.json')
+
+        self.vars_added_later = self.load_dependency_json(
+        'variables_added_later.json')
+
 
     def create_timepoint_list(self):
         """
@@ -296,7 +304,6 @@ class Utils():
 
         return dbx
 
-        
     def days_since_today(self,date_str, date_format="%Y-%m-%d"):
         date_str = date_str.replace('/','-')
         input_date = datetime.strptime(date_str, date_format)
@@ -314,7 +321,6 @@ class Utils():
 
         return reversed_dict
 
-    
     def find_days_between(self,d1,d2):
         """
         finds the days between two dates
@@ -335,12 +341,231 @@ class Utils():
 
         return abs(days_between)
     
-    def check_if_val_date_format(self,string, date_format="%Y-%m-%d"):
+    def check_if_val_date_format(self, string, date_format="%Y-%m-%d"):
         try:
             datetime.strptime(string, date_format)
             return True
         except ValueError:
             return False
+        
+    def convert_prescient_compl_var(
+        self, inp_compl_var : str
+    ) -> str:
+        output_compl_var = inp_compl_var.replace('_hc','').replace('onboarding','checkin') 
+
+    def recent_date_from_dict(self,
+        dates : dict
+    ) -> str:
+        """
+        returns which date variables has 
+        the most recent date, excluding missing
+        codes
+
+        Parameters
+        --------------
+        dates : dict
+            dictionary with 
+            the variable names as the
+            keys and dates as the values
+
+        Returns
+        ------------
+        recent_date_var : str
+            name of the variable that 
+            corresponds to the most recent
+            date in the dictionary
+        """
+        recent_date_var = ''
+        for date_var, date in dates.items():
+            if date in self.missing_code_list:
+                continue
+            curr_date = datetime.strptime(date, "%Y-%m-%d")
+            if curr_date > datetime.today():
+                continue
+            if recent_date_var == '':
+                recent_date_var = date_var
+            elif self.check_if_val_date_format(date):
+                if curr_date > datetime.strptime(dates[recent_date_var], "%Y-%m-%d"):
+                    recent_date_var = date_var
+
+        return recent_date_var
+    
+    def time_to_next_visit(
+        self, curr_tp : str
+    ) -> int:
+        """
+        Calculates the number of days that there
+        should be until the next timepoint
+        """
+        timepoints = self.create_timepoint_list()
+
+        if curr_tp in ['month24','conversion']:
+            return
+
+        if curr_tp in ['screening','baseline']:
+            days_btwn = 30
+        else:
+            curr_tp_ind = timepoints.index(curr_tp)
+            next_tp = timepoints[curr_tp_ind + 1]
+            months_btwn = int(next_tp.replace('month',''))-int(curr_tp.replace('month',''))
+            days_btwn = months_btwn * 30
+        
+        return days_btwn
+
+    def append_suffix_to_cols(self, 
+        input_df : pd.DataFrame, suffix, incl_cols,
+        excl_cols = ['subjectid']
+    ) -> pd.DataFrame:
+        """
+        adds tp suffix to column names, 
+        except for those in excluded list
+
+        Parameters
+        ----------------
+        input_df : pd.DataFrame
+            dataframe being modified 
+        excl_cols : list
+            columns not being modified
+        """
+
+        modified_cols = {}
+        for col in input_df.columns:
+            if col in excl_cols:
+                modified_cols[col] = col 
+            elif col in incl_cols:
+                modified_cols[col] = col + f'_{suffix}'
+        modified_df = input_df.rename(columns=modified_cols)
+        modified_df = modified_df[list(modified_cols.values())]
+
+        return modified_df 
+
+    def check_if_after_date(self, 
+        curr_row : tuple,
+        form : str, date_var : str
+    ) -> bool:
+        """
+        Checks to make sure date 
+        is after it was added in 
+        particularly for missing_data
+        buttons that were added later
+
+        Parameters
+        --------------
+        curr_row : tuple
+            current dataframe row being checked \
+        form : str
+            current form being checked
+        date_var : str
+            date variable being checked
+        """
+        date_added = self.vars_added_later[form]
+        if hasattr(curr_row, date_var):
+            date_val = getattr(curr_row, date_var)
+            date_val = str(date_val)
+            try:
+                date_val = datetime.strptime(date_val, '%Y-%m-%d')
+            except Exception as e:
+                return False
+            if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
+                return True
+        
+        return False
+
+    def check_if_missing(self,
+        curr_row : tuple, form : str,
+        timepoint : str, network: str
+    ):
+        """
+        Checks if a form is marked as missing 
+
+        Parameters 
+        ------------
+        curr_row : tuple
+            current row of dataframe
+        form : str
+            current form
+        """
+        # floating forms do not need to 
+        # be marked missing
+        if timepoint == 'floating':
+            return False
+        compl_var = self.important_form_vars[form]["completion_var"]
+        date_var = self.important_form_vars[form]["interview_date_var"]
+        if network == 'PRESCIENT':
+            compl_var += '_rpms'
+            # rpms compl variables same for both cohorts
+            compl_var = compl_var.replace('_hc','').replace(
+            'onboarding','checkin').replace(
+            'end_of_12month_study_pe','checkin').replace('end_of_12month_study_p','checkin')  
+        missing_var = self.important_form_vars[form]["missing_var"]
+        non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
+        non_bl_vars_filled_out = 0        
+        if missing_var != "" and not (form in self.vars_added_later.keys()
+        and missing_var in self.vars_added_later[form].keys() and
+        self.check_if_after_date(curr_row, form, date_var) == False):                
+            if not hasattr(curr_row, missing_var):
+                return False
+            # prescient missingness can also be indicated by the completion var
+            if (network == 'PRESCIENT' and
+            getattr(curr_row, compl_var) in self.all_dtype([3,4])):
+                return True
+            if getattr(curr_row, missing_var) not in self.all_dtype([1]):
+                return False
+            else:
+                return True
+        
+        elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
+        in self.vars_added_later[form].keys() and
+        self.check_if_after_date(curr_row, form, date_var) == False):
+            for non_bl_var in non_bl_vars:
+                if (hasattr(curr_row,non_bl_var)
+                and getattr(curr_row,non_bl_var) != ''):
+                    non_bl_vars_filled_out +=1
+            if non_bl_vars_filled_out < (len(non_bl_vars)/2):
+                return True
+            else:
+                return False
+
+    def collect_all_type_vars(self, 
+        data_type : str = 'date',
+        threshold : float = 0.5
+    ):
+        """
+        Collects all variables with 
+        a defined threshold of values
+        being the specified data type.
+
+        Parameters
+        -----------------
+        threshold : float
+            threshold of values that need to 
+            the be specified category
+
+        Returns
+        --------------------
+        all_type_vars : list
+            list of all variables that belog to 
+            the sprecified category
+        """
+
+        variable_type_distributions = self.utils.load_dependency_json(
+        'variable_type_distributions.json')
+        all_type_vars = []
+        for var, distributions in variable_type_distributions.items():
+            total = (distributions['num'] + distributions['string']
+             + distributions['date'])
+            if total > 0:
+                if distributions[data_type]/total > threshold:
+                    all_type_vars.append(var)
+
+        return all_type_vars
+
+
+        
+
+            
+
+
 
 
 

@@ -8,7 +8,9 @@ sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
-from qc_forms.qc_types.clinical_checks import ClinicalChecks
+from qc_forms.qc_types.clinical_checks.clinical_checks_main import ClinicalChecksMain
+from qc_forms.qc_types.SOP_checks import SOPChecks
+from qc_forms.qc_types.multi_tp_checks import MultiTPChecks
 
 class QCFormsMain():
     def __init__(self):
@@ -17,8 +19,8 @@ class QCFormsMain():
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
-        depen_path = self.config_info['paths']['dependencies_path']
-        with open(f'{depen_path}converted_branching_logic.json','r') as file:
+        self.depen_path = self.config_info['paths']['dependencies_path']
+        with open(f'{self.depen_path}converted_branching_logic.json','r') as file:
             self.conv_bl = json.load(file)
 
         self.output_path = self.config_info['paths']['output_path']
@@ -34,8 +36,11 @@ class QCFormsMain():
         for filename in ['subject_info','general_check_vars',
         'important_form_vars','forms_per_timepoint',
         'converted_branching_logic','excluded_branching_logic_vars',
-        'team_report_forms','grouped_variables']:
+        'team_report_forms','grouped_variables','variables_added_later',
+        'raw_csv_conversions', 'variable_ranges','earliest_latest_dates_per_tp']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
+
+        self.auxiliary_files_new_tabs = ['']
 
     def run_script(self):
         self.move_previous_output()
@@ -64,29 +69,47 @@ class QCFormsMain():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
+            multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
+            multi_tp_df = pd.read_csv(multi_tp_path,
+            keep_default_na = False)
+            for row in multi_tp_df.itertuples():
+                multi_tp_checks = MultiTPChecks(row,
+                'multiple_timepoints', network, 
+                self.form_check_info)
+                test_output.extend(multi_tp_checks())
             for tp in tp_list:
+                print(tp)
+                print('-------')
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
                 #combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=20)
                 #combined_df = combined_df.sample(n=100, random_state=42)
-                #print(combined_df)
                 for row in combined_df.itertuples(): 
                     #print(tp)
                     #print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
-                    if row.subjectid not in self.form_check_info['subject_info']:
-                        print(row.subjectid)
+                    if (row.subjectid not
+                    in self.form_check_info['subject_info']):
                         continue
                     #print(row.Index)
-                    gen_checks = GeneralChecks(row, tp, network, self.form_check_info)
-                    fluid_checks = FluidChecks(row, tp, network, self.form_check_info)
-                    clinical_checks = ClinicalChecks(row, tp, network, self.form_check_info)
+                    gen_checks = GeneralChecks(row, tp,
+                    network, self.form_check_info)
+                    fluid_checks = FluidChecks(row, tp,
+                    network, self.form_check_info)
+                    clinical_checks = ClinicalChecksMain(row,
+                    tp, network, self.form_check_info)
+                    sop_checks = SOPChecks(row,
+                    tp, network, self.form_check_info)
                     test_output.extend(gen_checks())
                     test_output.extend(fluid_checks())
                     test_output.extend(clinical_checks())
+                    test_output.extend(sop_checks())
                 combined_output_df = pd.DataFrame(test_output)
+                if combined_output_df.shape[0] > 2000000:
+                    print(f"output rows is {combined_output_df.shape[0]}")
+                    break
                 combined_flags_path = f'{self.output_path}combined_outputs'
                 if not os.path.exists(combined_flags_path):
                     os.makedirs(combined_flags_path)  # Creates the folder and any necessary parent directories
@@ -94,3 +117,4 @@ class QCFormsMain():
                 f'{combined_flags_path}/new_output/combined_qc_flags.csv',
                 index = False)
 
+        

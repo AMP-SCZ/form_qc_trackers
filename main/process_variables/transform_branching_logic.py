@@ -22,7 +22,6 @@ class TransformBranchingLogic():
 
         self.data_dictionary_df = data_dictionary_df
 
-
         self.all_vars = self.data_dictionary_df['Variable / Field Name'].tolist()
         self.all_converted_branching_logic = {}
         self.manual_conversions = {"chr_ae1date_dr":
@@ -95,7 +94,6 @@ class TransformBranchingLogic():
             'original_branching_logic': branching_logic, 'converted_branching_logic': converted_bl}
         
         return all_converted_branching_logic
-    
 
     def find_pattern_exceptions(self):
         all_patterns = [ (r"(\()*(\s*)(and|or)?(\s*)(\(*)(\[\w+(\(\d+\))?\])(\s*)"
@@ -116,7 +114,8 @@ class TransformBranchingLogic():
             branching_logic = self.edit_past_pharm_branch_logic(var, branching_logic)
             branching_logic = self.edit_av_branch_logic(var, branching_logic)
             converted_bl = ''
-            modified_bl = str(branching_logic).replace('OR', 'or').replace('AND', 'and').replace("\n", ' ').replace('"',"'")
+            modified_bl = str(branching_logic).replace(
+            'OR', 'or').replace('AND', 'and').replace("\n", ' ').replace('"',"'")
             if modified_bl !='':
                 for pattern in all_patterns:
                     modified_bl = re.sub(
@@ -262,10 +261,7 @@ class TransformBranchingLogic():
             x in var for x in ['error','chrsaliva_flag','chrchs_flag','_err','invalid']):
                 if ('float' not in converted_bl and converted_bl != ''
                 and "!=''" not in converted_bl and 'pharm' not in converted_bl):
-                    print(var)
-                    print(converted_bl)
                     count+=1
-                    print(count)
                 else:
                     split_bl = converted_bl.replace(' or ',' and ').split(' and ')
                     for bl_sect in split_bl:
@@ -351,7 +347,6 @@ class TransformBranchingLogic():
     
 
     def edit_av_branch_logic(self, variable, orig_bl):
-
         if variable == 'chrpsychs_av_audio_expl':
             new_branching_logic = '[chrpsychs_av_audio_yn] = 0'
             return new_branching_logic
@@ -367,8 +362,9 @@ class TransformBranchingLogic():
 
         return orig_bl
 
-
-    def edit_scid_bl(self, variable, orig_bl):
+    def edit_scid_bl(
+        self, variable : str, orig_bl : str
+    ) -> str:
         """
         instructions from nora : chrscid_b45 - chrscid_b64 are blank
         only if any of the fields chrscid_b1-chrscid_b14
@@ -400,7 +396,9 @@ class TransformBranchingLogic():
         
         return orig_bl
 
-    def loop_scid_conditions(self, range_max : int, range_min : int, bl : str):
+    def loop_scid_conditions(
+        self, range_max : int, range_min : int, bl : str
+    ) -> str:
         new_bl = bl
         for cond_var_count in range(range_min, range_max):
             new_bl+= f"[chrscid_b{cond_var_count}] = 3 or "
