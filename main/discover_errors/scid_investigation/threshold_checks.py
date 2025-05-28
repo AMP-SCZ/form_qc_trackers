@@ -7,8 +7,7 @@ class ThresholdCheck():
                           'chrscid_b11', 'chrscid_b12', 'chrscid_b13', 'chrscid_b14', 'chrscid_b16', 'chrscid_b17', 'chrscid_b18', 'chrscid_b19', 'chrscid_b20', 'chrscid_b21', 'chrscid_b24']
 
         self.data_dict_df = pd.read_csv('data_dictionary.csv')
-        self.psychs_vars = self.data_dict_df[self.data_dict_df['Variable / Field Name'].str.contains(
-            'chrpsychs', case=False, na=False)]['Variable / Field Name'].tolist()
+        self.psychs_vars = self.data_dict_df[self.data_dict_df['Variable / Field Name'].isin(['chrpsychs', 'hcpsychs'])]['Variable / Field Name'].tolist()
         print(len(self.psychs_vars))
 
         self.rslt = []
