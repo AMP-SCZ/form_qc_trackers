@@ -44,7 +44,8 @@ form_qc_trackers/
       ├── scid_diagnosis_vars.json  
       ├── forms_per_timepoint.json                
       ├── data_dictionary/
-         ├── current_data_dictionary.csv/  # can store any data dictionaries in here, 
+      
+         ├── current_data_dictionary.csv  # can store any data dictionaries in here, 
                                              but include the string "current_data_dictionary"
                                              for the one being used 
 
