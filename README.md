@@ -1,2 +1,51 @@
-# Form_QC_Trackers
-Program to detect errors in all AMPSCZ forms and generate trackers to report the errors to each site.
+# AMP SCZ Form Quality Control Trackers
+
+This repository contains a quality control (QC) framework developed for the **Accelerating Medicines Partnership for Schizophrenia (AMP SCZ)** project—a large-scale, longitudinal study on schizophrenia. 
+
+##  Overview
+
+The QC system:
+- Analyzes datasets for missing, unexpected, or inconsistent values
+- Detects mismatches between variable values and form specifications
+- Flags potential outliers and tracks resolved errors
+- Generates detailed reports for quality tracking over time
+
+##  Project Structure
+
+```
+form_qc_trackers/
+├── run_qc.py                     # Main entry point
+├── config.json                   # Customizable parameters for each run
+├── logging_config.py             # Logging setup
+├── main/
+│   ├── analyze_dataset/          # Unique value checks, etc.
+│   ├── discover_errors/          # Mismatches, outliers, missing data
+│   └── generate_reports/         # Error tracking and summaries
+├── README.md
+└── LICENSE
+```
+
+##  Getting Started
+
+
+3. **Configure your run**
+   - Modify `config.json` to define paths.
+   - download packages specified in requirements.txt
+   - Include dependencies listed below
+   in dependencies folder that you define in
+   the config file
+
+4. **Run the pipeline**
+   
+   - Files Needed (all other dependencies will be generated)
+      dependencies./
+
+      ├── dropbox_credentials.json                    
+      ├── scid_diagnosis_vars.json  
+      ├── forms_per_timepoint.json                
+      ├── data_dictionary/
+         ├── current_data_dictionary.csv/  # can store any data dictionaries in here, 
+                                             but include the string "current_data_dictionary"
+                                             for the one being used 
+
+   - Execute the "run_qc.py" file

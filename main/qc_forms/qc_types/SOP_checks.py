@@ -11,6 +11,13 @@ import re
 withdrawn_status_list = []
 
 class SOPChecks(FormCheck):
+    """
+    QC Checks that compare 
+    forms from different timepoints 
+    using the dataframe that combines 
+    each timepoint for specified variables
+    """  
+
     def __init__(self,
         row, timepoint, network, form_check_info
     ):
@@ -55,9 +62,18 @@ class SOPChecks(FormCheck):
         """
         if row.subjectid in self.subject_info.keys():
             cohort = self.subject_info[row.subjectid]['cohort']
+            inclusion = self.subject_info[row.subjectid]['inclusion_status']
+            if self.network == 'PRONET':
+                screen_fail = self.subject_info[row.subjectid]['screenfail']
+                completed_study = self.subject_info[row.subjectid]['completed_study']
+            else:
+                screen_fail = 'false'
+                completed_study = 'false'
         else:
             return
-        if cohort.lower() == 'unknown':
+        if (cohort.lower() == 'unknown' or 
+        inclusion != 'included' or screen_fail == 'true'
+        or completed_study == 'true'):
             return
         
         if row.subjectid in self.tp_date_ranges.keys():

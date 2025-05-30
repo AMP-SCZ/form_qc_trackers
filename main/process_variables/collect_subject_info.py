@@ -28,12 +28,15 @@ class CollectSubjectInfo():
         self.var_translations = {
             'chrcrit_included': {1:'included',0: 'excluded'},
             'chrcrit_part' : {1: 'CHR', 2: 'HC'},
-            'chrdemo_sexassigned' : {1 : 'Male', 2 : 'Female'}
+            'chrdemo_sexassigned' : {1 : 'Male', 2 : 'Female'},
+            'chr_statusform_screenfail' : {1 : 'true', 0 : 'false'},
+            'chr_subject_eos' : {1 : 'true', 0 : 'false'}
         }
 
     def __call__(self):
         self.collect_screening_info()
         self.collect_baseline_info()
+        self.collect_floating_info()
 
         return self.subject_info
 
@@ -104,5 +107,26 @@ class CollectSubjectInfo():
                 self.var_translations['chrdemo_sexassigned'], row.chrdemo_sexassigned)
                 self.subject_info[sub][
                 'age'] = self.collect_age(row)
+
+    def collect_floating_info(self):
+        tp = 'floating'
+        for network in ['PRONET']:
+            combined_df = pd.read_csv(
+                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
+            col_list = ['subjectid','chr_statusform_screenfail','chr_subject_eos']
+            col_list = [col for col in col_list if col in combined_df.columns]
+            combined_df = combined_df[col_list]
+            for row in combined_df.itertuples():
+                sub = row.subjectid
+                self.subject_info.setdefault(sub, {})
+                self.subject_info[sub][
+                'screenfail'] = self.translate_var_vals(
+                self.var_translations['chr_statusform_screenfail'], 
+                row.chr_statusform_screenfail)
+
+                self.subject_info[sub][
+                'completed_study'] = self.translate_var_vals(
+                self.var_translations['chr_subject_eos'], 
+                row.chr_subject_eos)
 
     

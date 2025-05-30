@@ -10,6 +10,9 @@ from qc_forms.qc_types.clinical_checks.scid_checks import ScidChecks
 from datetime import datetime,timedelta
 
 class ClinicalChecksMain(FormCheck):    
+    """
+    QC Checks related to clinical forms
+    """   
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0

@@ -1,7 +1,9 @@
 import datetime
 
 class CognitionChecks():
-
+    """
+    QC Checks related to cognitive forms
+    """
     def find_iq_age(self):
         """
         Finds age at the time of the iq

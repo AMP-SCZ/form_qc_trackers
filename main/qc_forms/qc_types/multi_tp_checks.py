@@ -9,7 +9,14 @@ from qc_forms.form_check import FormCheck
 from qc_forms.qc_types.clinical_checks.scid_checks import ScidChecks
 from datetime import datetime,timedelta
 
-class MultiTPChecks(FormCheck):    
+class MultiTPChecks(FormCheck): 
+    """
+    QC Checks that compare 
+    forms from different timepoints 
+    using the dataframe that combines 
+    each timepoint for specified variables
+    """  
+   
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
         self.timepoint = timepoint
