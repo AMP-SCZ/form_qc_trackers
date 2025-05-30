@@ -43,6 +43,6 @@ form_qc_trackers/
       ├── dropbox_credentials.json                    
       ├── scid_diagnosis_vars.json  
       ├── forms_per_timepoint.json                
-      ├── data_dictionary/ # include the string "current_data_dictionary"  for the one being used 
-      │   ├── current_data_dictionary.csv 
+      ├── data_dictionary/                                       
+      │   └── current_data_dictionary.csv 
    - Execute the "run_qc.py" file
