@@ -7,11 +7,12 @@ class ThresholdCheck():
                           'chrscid_b11', 'chrscid_b12', 'chrscid_b13', 'chrscid_b14', 'chrscid_b16', 'chrscid_b17', 'chrscid_b18', 'chrscid_b19', 'chrscid_b20', 'chrscid_b21', 'chrscid_b24']
 
         self.data_dict_df = pd.read_csv('data_dictionary.csv')
-        self.psychs_vars = self.data_dict_df[self.data_dict_df['Form Name'].isin(['psychs_p1p8', 'psychs_p1p8_fu','psychs_p1p8_fu_hc','psychs_p9ac32', 'psychs_p9ac32_fu','psychs_p9ac32_fu_hc']
- )]['Variable / Field Name'].tolist()
+        self.psychs_vars = self.data_dict_df[self.data_dict_df['Form Name'].isin(['psychs_p1p8', 'psychs_p1p8_fu', 'psychs_p1p8_fu_hc', 'psychs_p9ac32', 'psychs_p9ac32_fu', 'psychs_p9ac32_fu_hc']
+                                                                                 )]['Variable / Field Name'].tolist()
         print(len(self.psychs_vars))
 
         self.rslt = []
+        self.scid_vars_rslt = []
 
     def loop_combined_df(self):
         tp_list = self.create_timepoint_list()
@@ -32,6 +33,9 @@ class ThresholdCheck():
 
         df_rslt = pd.DataFrame(self.rslt)
         df_rslt.to_csv('scid_threshold_checks.csv', index=False)
+
+        vars_rslt = pd.DataFrame(self.scid_vars_rslt)
+        vars_rslt.to_csv('scid_vars_with_three.csv', index=False)
 
     def create_timepoint_list(self):
         """
@@ -57,6 +61,7 @@ class ThresholdCheck():
             psychs_with_6 = []
             output_row = {'participant': '', 'timepoint': '',
                           'scid_vars_with_3': '', 'psychs_with_6': '', 'mismatch': ''}
+            var_output_row = {'participant': '', 'timepoint': ''}
 
             for var in self.scid_vars:
                 if hasattr(row, var) and getattr(row, var) in [3, 3.0, '3', '3.0']:
@@ -71,8 +76,15 @@ class ThresholdCheck():
 
             if len(scid_with_3) > 0:
                 output_row['participant'] = row.subjectid
+                var_output_row['participant'] = row.subjectid
                 output_row['timepoint'] = tp
+                var_output_row['timepoint'] = tp
                 output_row['scid_vars_with_3'] = '|'.join(scid_with_3)
+
+                # Creates colunms for each var
+                for var in self.scid_vars:
+                    val = 'YES' if var in scid_with_3 else 'NO'
+                    var_output_row[var] = val
 
                 if len(psychs_with_6) > 0:
                     output_row['psychs_with_6'] = '|'.join(psychs_with_6)
@@ -82,6 +94,7 @@ class ThresholdCheck():
                     output_row['psychs_with_6'] = 'None'
 
                 self.rslt.append(output_row)
+                self.scid_vars_rslt.append(var_output_row)
 
         self.rslt.sort(key=lambda row: not row['mismatch'])
 
