@@ -44,10 +44,10 @@ class MultiTPChecks(FormCheck):
     ):
         if any((getattr(row,var) in self.utils.missing_code_list
         or not self.utils.can_be_float(getattr(row,var)))
-        for var in [pps_age_var,figs_age_var]):
+        for var in [pps_age_var, figs_age_var]):
             return 
         
         if float(getattr(row,pps_age_var)) != float(getattr(row, figs_age_var)):
-            return f"{pps_age_var} is equal to {getattr(row,pps_age_var)},"
+            return f"{pps_age_var} is equal to {getattr(row, pps_age_var)},"
             f" but {figs_age_var} is equal to {float(getattr(row, figs_age_var))}"
         

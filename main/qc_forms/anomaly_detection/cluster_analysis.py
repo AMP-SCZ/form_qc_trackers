@@ -187,6 +187,7 @@ class ClusterAnalysis():
                 keep_default_na = False)
                 combined_df = combined_df.replace(self.utils.missing_code_list + [99,99.0,'99','99.0'], '')
                 all_columns = list(combined_df.columns)
+                
                 self.collect_numerical_vars(combined_df, all_columns, tp, network)
                 all_columns = [var for var in all_columns if var in
                             self.vars_to_check and var in self.numerical_vars[network][tp]

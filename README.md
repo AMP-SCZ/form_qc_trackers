@@ -18,9 +18,9 @@ form_qc_trackers/
 ├── config.json                   # Customizable parameters for each run
 ├── logging_config.py             # Logging setup
 ├── main/
-│   ├── analyze_dataset/          # Unique value checks, etc.
-│   ├── discover_errors/          # Mismatches, outliers, missing data
-│   └── generate_reports/         # Error tracking and summaries
+│   ├── analyze_dataset/          # Analyzes structure of data
+│   ├── discover_errors/          # Searches for anomalies and potential errors
+│   └── generate_reports/         # Creates and uploads output to Dropbox
 ├── README.md
 └── LICENSE
 ```

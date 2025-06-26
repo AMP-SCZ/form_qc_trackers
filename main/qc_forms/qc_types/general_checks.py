@@ -35,7 +35,7 @@ class GeneralChecks(FormCheck):
             self.guid_format_check(row, ['guid_form'],
             [guid_var],{'reports':['Main Report','Non Team Forms'],
             "withdrawn_enabled" : True},
-            bl_filtered_vars=[guid_var],filter_excl_vars=True,
+            bl_filtered_vars=[guid_var], filter_excl_vars=True,
             checked_guid_var=guid_var)
 
         #self.missing_code_check(row)
@@ -45,9 +45,9 @@ class GeneralChecks(FormCheck):
             min = range_dict['min']
             max = range_dict['max']
             self.range_check(row, [range_dict['form']],[var],
-            {"reports" : ['Main Report']},bl_filtered_vars=[],
+            {"reports" : ['Main Report']}, bl_filtered_vars=[],
             filter_excl_vars=True,range_var = var,
-            lower = min,upper = max)
+            lower = min, upper = max)
 
     def check_blank_values(self, row):
         #TODO:optimize performance of this part
@@ -64,7 +64,7 @@ class GeneralChecks(FormCheck):
                         if self.prescient_scid_filter(var, row) == True:
                             continue
                         self.check_if_blank(row, [form], [var],
-                        {"reports" : report_list},[var])
+                        {"reports" : report_list}, [var])
 
     def check_missing_code_values(self, row):
         #TODO:optimize performance of this part
@@ -154,6 +154,8 @@ class GeneralChecks(FormCheck):
         if (self.check_if_next_tp(row) == True ):
             for form in curr_tp_forms:
                 if form in self.prescient_forms_no_compl_status:
+                    continue
+                if 'gcp' in form:
                     continue
                 compl_var = self.important_form_vars[form]['completion_var']   
                 if self.network == 'PRESCIENT':

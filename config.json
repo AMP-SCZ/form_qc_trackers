@@ -5,5 +5,6 @@
         "error_log_path" : "/PHShome/ob001/anaconda3/refactored_qc/error_logs/",
         "output_path": "/PHShome/ob001/anaconda3/refactored_qc/output/"
     },
-    "testing_enabled" : "False"
+    "testing_enabled" : "True",
+    "remove_flags" : "False"
 }

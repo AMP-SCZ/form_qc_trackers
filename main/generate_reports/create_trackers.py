@@ -29,16 +29,18 @@ import time
 from functools import wraps
 
 class CreateTrackers():
-
     def __init__(self, formatted_col_names):
         self.utils = Utils()
         with open(f'{self.utils.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
         self.output_path = self.config_info['paths']['output_path']
+        self.dropbox_pull_path =  f'{self.output_path}formatted_outputs/dropbox_files/'
+        self.dropbox_save_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
         if self.config_info["testing_enabled"] == "True":
             self.output_path += "testing/"
-        
-        self.all_reports = ['Main Report','Secondary Report']
+            self.dropbox_save_path += "testing/"
+        self.dropbox_pull_path =  f'{self.output_path}formatted_outputs/dropbox_files/'
+
         self.site_reports = ['Main Report']
         self.all_report_df = {}
         self.all_pronet_sites = self.utils.all_pronet_sites
@@ -50,13 +52,13 @@ class CreateTrackers():
         self.formatted_outputs_path = f'{self.output_path}formatted_outputs/'
         if not os.path.exists(self.formatted_outputs_path):
             os.makedirs(self.formatted_outputs_path)
-        self.dropbox_output_path =  f'{self.output_path}formatted_outputs/dropbox_files/'
         self.colors = {"green" : PatternFill(start_color='b9d9b4', end_color='b9d9b4', fill_type='gray125'),
                        "yellow" : PatternFill(start_color='e8e7b0', end_color='e8e7b0', fill_type='gray125'),
                        "blue" : PatternFill(start_color='d8cffc', end_color='d8cffc', fill_type='gray125'),
                        "orange" : PatternFill(start_color='ebba83', end_color='ebba83', fill_type='gray125'),
                        "red" : PatternFill(start_color='de9590', end_color='de9590', fill_type='gray125'),
                        "grey" : PatternFill(start_color='ededed', end_color='ededed', fill_type='gray125')}
+
         self.thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'),bottom=Side(style='thin'))
         self.formatted_column_names = formatted_col_names
@@ -65,18 +67,9 @@ class CreateTrackers():
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
         keep_default_na= False)
-        self.collect_new_reports()
+        self.all_reports = self.utils.collect_new_reports(self.combined_tracker)
         self.generate_reports()
         self.upload_trackers()
-
-    def collect_new_reports(self):
-        for row in self.combined_tracker.itertuples():
-            if row.reports == '':
-                continue
-            reports = (row.reports).split(' | ')
-            for report in reports:
-                if report not in self.all_reports:
-                    self.all_reports.append(report)
 
     def generate_reports(self):
         for network in ['PRONET','PRESCIENT']:
@@ -90,14 +83,14 @@ class CreateTrackers():
                     continue
                 report_df = self.convert_to_shared_format(report_df, network)
                 if report in self.all_reports: 
-                    combined_path = f'{self.dropbox_output_path}{network}/combined/'
+                    combined_path = f'{self.dropbox_pull_path}{network}/combined/'
                     if not os.path.exists(combined_path):
                         os.makedirs(combined_path)
                     # add new tabs here 
                     self.format_excl_sheet(report_df,report,
                     combined_path,
-                    f'{network}_combined_Output.xlsx')
-                    #self.loop_sites(network, report, report_df)
+                    f'{network}_Output_v2.xlsx')
+                    self.loop_sites(network, report, report_df)
 
     def loop_sites(self, network, report, report_df):
         for site_abr in self.all_sites[network]:
@@ -110,31 +103,36 @@ class CreateTrackers():
             if report != 'Non Team Forms' and site_abr == 'ME':
                 continue 
             if site_abr == 'ME':
-                self.loop_ras(network,site, report, report_df)
-            site_path = f'{self.dropbox_output_path}{network}/{site}/'
+                self.loop_ras(network, site, report, report_df)
+            site_path = f'{self.dropbox_pull_path}{network}/{site}/'
             if not os.path.exists(site_path):
                 os.makedirs(site_path)
             site_df = report_df[report_df['Participant'].str[:2] == site_abr]
             self.format_excl_sheet(site_df,
             report,site_path,
-            f'{network}_{site_abr}_Output.xlsx')
+            f'{network}_{site_abr}_Output_v2.xlsx')
 
-    def loop_ras(self,network,site, report, report_df):
+    def loop_ras(self, network, site, report, report_df):
         for ra, subjects in self.melbourne_ras.items():
-            ra_path = f'{self.dropbox_output_path}{network}/{site}/{ra}/'
+            ra_path = f'{self.dropbox_pull_path}{network}/{site}/{ra.replace(" ","_")}/'
             ra_df = report_df[report_df['Participant'].isin(subjects)]
             self.format_excl_sheet(ra_df,
             report,ra_path,
-            f'{network}_Melbourne_RA_Output.xlsx')
+            f'{network}_Melbourne_RA_Output_v2.xlsx')
 
     def upload_trackers(self):
-        fullpath = self.output_path + '/formatted_outputs/dropbox_files/'
+        fullpath = self.output_path + 'formatted_outputs/dropbox_files/'
+        print(fullpath)
+        print('--------------------------')
         for root, dirs, files in os.walk(fullpath):
             for file in files:
-                if file.endswith('Output.xlsx'):
+                print('$$$$$$$$')
+                print(file)
+                if file.endswith('Output_v2.xlsx'):
+                    print('--------------------------')
                     full_path = root + '/' + file
-                    local_path = root.replace(fullpath,'') + '/' + file
-                    self.save_to_dropbox(full_path,local_path)
+                    local_path = root.replace(fullpath, '') + '/' + file
+                    self.save_to_dropbox(full_path, local_path)
 
     def format_excl_sheet(self, df, report, folder, filename):
         print('formatting')
@@ -156,8 +154,8 @@ class CreateTrackers():
         worksheet = self.change_excel_column_sizes(worksheet)
         workbook.save(full_path)
 
-        #if not os.path.exists(folder + filename):
-        #df.to_excel(folder + filename, sheet_name = report, index = False)
+        if not os.path.exists(folder + filename):
+            df.to_excel(folder + filename, sheet_name = report, index = False)
     
     def change_excel_colors(self, worksheet):
         for row in worksheet.iter_rows():
@@ -299,10 +297,11 @@ class CreateTrackers():
         return result
 
     def save_to_dropbox(self, fullpath, local_path):
+        print('-----------uploading')
         dbx = self.utils.collect_dropbox_credentials()
-        dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
         with open(fullpath, 'rb') as f:
-            dbx.files_upload(f.read(), dropbox_path + local_path,\
+            print('-----------uploading')
+            dbx.files_upload(f.read(), self.dropbox_save_path + local_path,\
             mode=dropbox.files.WriteMode.overwrite)
 
 

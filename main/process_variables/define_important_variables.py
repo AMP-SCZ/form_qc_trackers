@@ -394,11 +394,22 @@ class CollectMiscVariables():
         'med_status_vars':[],
         'timepoint_vars' : []
         }
-        
-        pattern = r"chrpharm_med\d*_mo\d*"
+
+        additional_pharm_keywords = ['onset','offset',
+        'use','dosage','comp','indication']
+        for pharm_keyword in additional_pharm_keywords:
+            pharm_vars_categorized.setdefault(pharm_keyword + '_var', [])
+
         for row in pharm_df.itertuples():
-            if re.match(pattern, row.var):
+            if re.match(r"chrpharm_med\d*_mo\d*", row.var):
                 pharm_vars_categorized['med_status_vars'].append(row.var)
+            for pharm_keyword in additional_pharm_keywords:
+                if re.match(rf"chrpharm_med\d*_{pharm_keyword}", row.var):
+                    pharm_vars_categorized[f'{pharm_keyword}_var'].append(row.var)
+            
+            if re.match(r"chrpharm_med\d*", row.var):
+                pharm_vars_categorized[f'chrpharm_medX_offset'].append(row.var)
+                
             if 'name' in row.var and 'chrpharm' in row.var:
                 pharm_vars_categorized['name_vars'].append(row.var)
             if 'chrpharm_med' in row.var and '_tp' in row.var:
