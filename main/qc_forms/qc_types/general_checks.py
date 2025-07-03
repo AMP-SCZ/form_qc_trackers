@@ -48,6 +48,19 @@ class GeneralChecks(FormCheck):
             {"reports" : ['Main Report']},bl_filtered_vars=[],
             filter_excl_vars=True,range_var = var,
             lower = min,upper = max)
+        for var in self.neg_values:
+            form = self.forms_per_var[var]
+            self.check_neg_values(row, [form],[var],
+            {"reports" : ['Main Report']},bl_filtered_vars=[],
+            filter_excl_vars=True)
+        
+        if  (getattr(row, all_vars[0]) 
+        in self.utils.missing_code_list or
+        str(getattr(row, all_vars[0])).replace(' ','') == 'NaN'):
+            return "Variable is a missing code."
+        return
+
+        
 
     def check_blank_values(self, row):
         #TODO:optimize performance of this part
@@ -111,6 +124,18 @@ class GeneralChecks(FormCheck):
         
         return 
 
+
+    @FormCheck.standard_qc_check_filter
+    def check_neg_values(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):  
+        var = all_Vars[0]
+        if (self.utils.can_be_float(getattr(row,var)) and
+        getattr(row, var) not in self.utils.missing_code_list):
+            if float(getattr(row,var)):
+                return f"{var} is marked as {getattr(row,'var')}"
+         
     @FormCheck.standard_qc_check_filter
     def check_if_missing_code(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
