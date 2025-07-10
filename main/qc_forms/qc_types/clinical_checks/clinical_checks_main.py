@@ -149,6 +149,9 @@ class ClinicalChecksMain(FormCheck):
         self.pharm_date_mod_check(row, curr_pharm_forms,
         ['chrpharm_date_mod'], reports)
 
+        self.check_firstdose_date(row,
+         self.grouped_vars['pharm_vars']['firstdose_vars'])
+
         name_vars = self.grouped_vars['pharm_vars']['name_vars']
         for forms in [past_pharm_form, curr_pharm_forms]:
             self.pharm_med_name_check(row, 
@@ -698,6 +701,30 @@ class ClinicalChecksMain(FormCheck):
                             row, [form], [name_var],
                             error_message, output_changes)
                             self.final_output_list.append(error_output)
+
+        def check_firstdose_date(self,row, firstdose_vars):
+            for firsdose_var in firsdose_vars:
+                med_count = self.utils.collect_digit(firsdose_var)
+                
+                if (hasattr(row, onset_var) and hasattr(row,firsdose_var)): 
+                    onset_var =  f"chrpharm_med{med_count}_onset"
+                    onset_val = str(getattr(row, onset_var)).split(' ')[0]
+                    firstdose_val = str(getattr(row, firsdose_var)).split(' ')[0]
+                    if all(self.utils.check_if_val_date_format(date_val) and 
+                    date_val not in self.utils.missing_code_list
+                    for date_val in [onset_val, offset_val]): 
+                        if (datetime.strptime(onset_val, '%Y-%m-%d')
+                        != datetime.strptime(offset_val, '%Y-%m-%d')):
+                            error_message = (f"Onset date ({onset_var} = {onset_val})"
+                            f" is does not equal firsdose date ({firstdose_var} = {firstdose_val})")
+                            output_changes = {'reports' : ['Main Report']}
+                            error_output = self.create_row_output(
+                            row, [form], [name_var],
+                            error_message, output_changes)
+                            self.final_output_list.append(error_output)
+
+
+
 
 
 

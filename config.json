@@ -1,6 +1,6 @@
 {
     "paths" : {
-        "combined_csv_path" : "/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/",
+        "combined_csv_path" : "/home/ob001/combined_csv/",
         "dependencies_path" : "/home/ob001/dependencies/",
         "error_log_path" : "/home/ob001/error_logs/",
         "output_path": "/data/predict1/formqc/output/"

@@ -401,6 +401,8 @@ class CollectMiscVariables():
                 pharm_vars_categorized['med_status_vars'].append(row.var)
             if 'name' in row.var and 'chrpharm' in row.var:
                 pharm_vars_categorized['name_vars'].append(row.var)
+            if 'firstdose' in row.var and 'chrpharm' in row.var:
+                pharm_vars_categorized['firstdose_vars'].append(row.var)
             if 'chrpharm_med' in row.var and '_tp' in row.var:
                 pharm_vars_categorized['timepoint_vars'].append(row.var)
 
