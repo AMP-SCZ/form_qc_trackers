@@ -17,7 +17,7 @@ class ClinicalChecksMain(FormCheck):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
         self.gf_score_check_vars = {'high':{'global_functioning_social_scale':{
-        'chrgfs_gf_social_high':['chrgfs_gf_social_scale','chrgfs_gf_social_low']},
+        'chrgfs_gf_social_high' : ['chrgfs_gf_social_scale','chrgfs_gf_social_low']},
         'global_functioning_role_scale':{'chrgfr_gf_role_low chrgfr_gf_role_high': [
         'chrgfr_gf_role_scole','chrgfr_gf_role_low']}},
 
@@ -134,23 +134,27 @@ class ClinicalChecksMain(FormCheck):
         'chrpas_pmod_adult3v1'], reports)
 
     def call_pharm_checks(self, row):
-        forms = ['current_pharmaceutical_treatment_floating_med_125',
+        past_pharm_form = ['past_pharmaceutical_treatment']
+        curr_pharm_forms = ['current_pharmaceutical_treatment_floating_med_125',
         'current_pharmaceutical_treatment_floating_med_2650']
 
-        reports = {'reports' : ['Main Report']}
+        reports = {'reports' : ['Main Report', 'Non Teams Forms']}
 
-        self.check_onset_date(row, forms,
+        self.check_onset_date(row, curr_pharm_forms,
         ['chrpharm_date_mod'], reports)
 
-        self.pharm_firstdose_check(row, forms,
+        self.pharm_firstdose_check(row, curr_pharm_forms,
         ['chrpharm_med1_onset','chrpharm_firstdose_med1'], reports)
 
-        self.pharm_date_mod_check(row, forms,
+        self.pharm_date_mod_check(row, curr_pharm_forms,
         ['chrpharm_date_mod'], reports)
 
         name_vars = self.grouped_vars['pharm_vars']['name_vars']
-        self.pharm_med_name_check(row, 
-        forms, name_vars, reports)
+        for forms in [past_pharm_form, curr_pharm_forms]:
+            self.pharm_med_name_check(row, 
+            curr_pharm_forms, name_vars, reports)
+        
+        self.medication_blinded_check(row, name_vars, curr_pharm_forms)
 
         for initial_med_count in range(0,50):
             for secondary_med_count in range(0,50):
@@ -166,10 +170,55 @@ class ClinicalChecksMain(FormCheck):
                 f'chrpharm_lastuse_med{secondary_med_count}',
                 f'chrpharm_med{secondary_med_count}_use'
                 ]  
+                self.pharm_overlapping_days(row, forms, med_vars, reports)  
 
-                self.pharm_overlapping_days(row, forms, med_vars, reports)          
-
-
+    def medication_blinded_check(
+        self, row, med_name_vars, form
+    ):
+        """
+        Checks if med statuses are appropriate
+        """
+        for name_var in med_name_vars:
+            if hasattr(row, name_var):
+                if (getattr(row, name_var) in
+                self.utils.all_dtype([573,542,538,539])):
+                    error_message = (f"Medication is currently"
+                    f" blinded ({name_var} = {getattr(row, name_var)})")
+                    output_changes = {'reports' : ['Main Report']}
+                    error_output = self.create_row_output(
+                    row, [form], [name_var],
+                    error_message, output_changes)
+                    self.final_output_list.append(error_output)
+                elif getattr(row, name_var) in self.utils.all_dtype([888]):
+                    pharm_count = self.utils.collect_digit(str(getattr(row,name_var)))
+                    comp_vars_with_vals = []
+                    comp_vars = [
+                    f'chrpharm_med{pharm_count}_onset',
+                    f'chrpharm_med{pharm_count}_offset',
+                    f'chrpharm_interm_meds_{pharm_count}',
+                    f'chrpharm_med{pharm_count}_dosage',
+                    f'chrpharm_med{pharm_count}_dosage_2',
+                    f'chrpharm_med{pharm_count}_comp',
+                    f'chrpharm_med{pharm_count}_comp_2'
+                    ]
+                    for tp_count in range(0, 9):
+                        comp_vars.append(f'chrpharm_med{pharm_count}_mo{tp_count}')
+                    for comp_var in comp_vars:
+                        if (hasattr(row, comp_var) and
+                        getattr(row, comp_var) not in 
+                        (self.utils.missing_code_list + [''])):
+                            comp_vars_with_vals.append(comp_var)
+                    if len(comp_vars_with_vals) > 0:
+                        output_changes = {'reports' : reports}
+                        error_output = self.create_row_output(
+                        row, [curr_psychs_form], [missing_spec_var],
+                        error_message, output_changes)
+                        self.final_output_list.append(error_output)
+                        error_message = (f"The med_name indicates that there"
+                        " is no information on whether the subject took any"
+                        f" medication, but other fields ({comp_vars_with_vals})"
+                        " indicate that 777 is more plausible") 
+                        
     def call_conversion_check(self,row):
         for var, threshold in self.gt_var_val_pairs.items():
             form = self.grouped_vars['var_forms'][var]
@@ -258,7 +307,7 @@ class ClinicalChecksMain(FormCheck):
                     bl_filtered_vars=[], filter_excl_vars=True,
                     compared_score_var = low_score, 
                     other_score_vars = other_scores, gt = gt_bool)
-
+                    
     def call_oasis_checks(self, row):
         forms = ['oasis']
         report_list = ['Main Report', 'Non Team Forms']
@@ -419,7 +468,7 @@ class ClinicalChecksMain(FormCheck):
     def call_twenty_one_day_check(self, row):   
         if self.timepoint != 'baseline':
             return 
-        cohort = self.subject_info[row.subjectid]['cohort']
+        cohort = self.subject_info[row.subjectid]['cohort'].lower()
         if cohort.lower() not in ["hc", "chr"]:
             return
         curr_tp_forms = self.forms_per_tp[cohort][self.timepoint]
@@ -545,7 +594,7 @@ class ClinicalChecksMain(FormCheck):
         if row.subjectid in self.tp_date_ranges.keys():
             mod_vars_out_of_range = 0
             for mod_var in ['chrpharm_date_mod','chrpharm_date_mod_2']:
-                pharm_date_mod = str(getattr(row,mod_var)).split(' ')[0]
+                pharm_date_mod = str(getattr(row, mod_var)).split(' ')[0]
                 if pharm_date_mod in self.utils.missing_code_list:
                     continue
                 tp_list = self.utils.create_timepoint_list()
@@ -627,7 +676,7 @@ class ClinicalChecksMain(FormCheck):
                     return (f"Medications have the same names and overlapping dates"
                     f" (chrpharm_med{lower_num}_name = {lower_name} and"
                     f" chrpharm_med{upper_num}_name = {upper_name} )")
-    
+
     def det_if_overlapping_pharm_dates(self,row, nums):
         ranges_iterated_daily = []
         ranges_per_var_num = []
@@ -651,7 +700,7 @@ class ClinicalChecksMain(FormCheck):
                 if onset_val == lastuse_val:
                     add_days = False
                 onset_val += timedelta(days=1)
-        ranges_set = set(ranges_iterated_daily)
+        ranges_set = (ranges_iterated_daily)
         # checks for duplicates
         if len(ranges_set) == len(ranges_iterated_daily):
             return True
