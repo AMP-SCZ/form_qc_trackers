@@ -155,6 +155,7 @@ class ClinicalChecksMain(FormCheck):
             curr_pharm_forms, name_vars, reports)
         
         self.medication_blinded_check(row, name_vars, curr_pharm_forms)
+        self.check_onset_offset_dates(row)
 
         for initial_med_count in range(0,50):
             for secondary_med_count in range(0,50):
@@ -676,6 +677,29 @@ class ClinicalChecksMain(FormCheck):
                     return (f"Medications have the same names and overlapping dates"
                     f" (chrpharm_med{lower_num}_name = {lower_name} and"
                     f" chrpharm_med{upper_num}_name = {upper_name} )")
+                    
+    def check_onset_offset_dates(self, row):
+        for med_count in range(0,61):
+            for pharm_tp_str in ["","_past"]
+            onset_var = f"chrpharm_med{med_count}_onset{pharm_tp_str}"
+            offset_var = f"chrpharm_med{med_count}_offset{pharm_tp_str}"
+            if (hasattr(row, onset_var) and hasattr(row,offset_var)):
+                onset_val = str(getattr(row, onset_var)).split(' ')[0]
+                offset_val = str(getattr(row, offset_var)).split(' ')[0]
+                if all(self.utils.check_if_val_date_format(date_val)
+                for date_val in [onset_val, offset_val]):
+                    if (datetime.strptime(onset_val, '%Y-%m-%d')
+                    > datetime.strptime(offset_val, '%Y-%m-%d')):
+                        error_message = (f"Onset date ({onset_var} = {onset_val})"
+                        f" is later than offset date ({offset_var} = {offset_val})")
+                        output_changes = {'reports' : ['Main Report']}
+                        error_output = self.create_row_output(
+                        row, [form], [name_var],
+                        error_message, output_changes)
+                        self.final_output_list.append(error_output)
+
+
+
 
     def det_if_overlapping_pharm_dates(self,row, nums):
         ranges_iterated_daily = []
