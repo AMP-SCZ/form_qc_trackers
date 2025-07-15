@@ -211,13 +211,31 @@ class OrganizeReports():
         for x in range(1,16):
             excluded_strings['PRESCIENT'].append(f'chrscid_s{x}_yn')
 
+        excluded_strings['PRESCIENT'].extend(self.collect_excluded_floating_vars())
+
         for network in ['PRONET','PRESCIENT']:
             filtered_df = self.utils.apply_df_str_filter(
             self.data_dict_df, excluded_strings[network], 'Variable / Field Name')
             excluded_vars[network] = filtered_df['Variable / Field Name'].tolist()
                 
         return excluded_vars
+    
+    def collect_excluded_floating_vars(self):
+        """
+        Excludes psychosocial_treatment_form
+        and resource_use_log from prescient output
+        """
 
+        filtered_df = self.data_dict_df[
+        self.data_dict_df['Form Name'].isin([
+        'psychosocial_treatment_form',
+        'resource_use_log'])]
+
+        vars = self.data_dict_df[
+        'Variable / Field Name'].tolist()
+
+        return vars
+        
     def collect_psychs_variables(self):
         """
         Function to collect all of the Psychs

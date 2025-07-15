@@ -461,16 +461,20 @@ class Utils():
         date_var : str
             date variable being checked
         """
-        date_added = self.vars_added_later[form]
+        if form not in self.vars_added_later.keys():
+            return True
+        if date_var not in self.vars_added_later[form].keys():
+            return True
+        date_added = self.vars_added_later[form][date_var]
         if hasattr(curr_row, date_var):
             date_val = getattr(curr_row, date_var)
             date_val = str(date_val)
             try:
                 date_val = datetime.strptime(date_val, '%Y-%m-%d')
+                if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
+                    return True
             except Exception as e:
                 return False
-            if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
-                return True
         
         return False
 
@@ -561,13 +565,20 @@ class Utils():
                 if distributions[data_type]/total > threshold:
                     all_type_vars.append(var)
 
-        return all_type_vars
+        return all_type_vars            
+    
+    def date_ranges_overlap(self, start1, end1, start2, end2):
+        """
+        Check if two date ranges [start1, end1] and [start2, end2] overlap.
 
+        Parameters:
+        - start1, end1: datetime objects for the first range
+        - start2, end2: datetime objects for the second range
 
-        
-
-            
-
+        Returns:
+        - True if the ranges overlap, False otherwise
+        """
+        return start1 <= end2 and start2 <= end1
 
 
 

@@ -91,9 +91,11 @@ class CognitionChecks(FormCheck):
         unique_ranges = df.iloc[1].unique().tolist()
         range_to_use = ''
         for range_str in unique_ranges:
-            if iq_age in self.utils.convert_range_to_list(self.unique_ranges):
+            if iq_age in self.utils.convert_range_to_list(range_str):
                 range_to_use = range_str
         if range_to_use != '':
+            filtered_Table = df.loc[:, df.iloc[1] == range_to_use]
+
             
 
 

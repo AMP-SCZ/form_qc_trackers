@@ -16,15 +16,11 @@ class ClinicalChecksMain(FormCheck):
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
-        self.gf_score_check_vars = {'high':{'global_functioning_social_scale':{
-        'chrgfs_gf_social_high':['chrgfs_gf_social_scale','chrgfs_gf_social_low']},
-        'global_functioning_role_scale':{'chrgfr_gf_role_low chrgfr_gf_role_high': [
-        'chrgfr_gf_role_scole','chrgfr_gf_role_low']}},
-
-        'low': {'global_functioning_social_scale':{
-        'chrgfs_gf_social_low':['chrgfs_gf_social_scale','chrgfs_gf_social_high']},
-        'global_functioning_role_scale':{'chrgfr_gf_role_low' : [
-        'chrgfr_gf_role_scole','chrgfr_gf_role_high']}}}
+        self.gf_score_check_vars = {
+        'global_functioning_role_scale': ['chrgfr_gf_role_low'
+        ,'chrgfr_gf_role_scole','chrgfr_gf_role_high'],
+        'global_functioning_social_scale': ['chrgfs_gf_social_low',
+        'chrgfs_gf_social_scale','chrgfs_gf_social_high']}
 
         self.excluded_21_day_forms = ['cbc_with_differential',
         'gcp_cbc_with_differential','gcp_current_health_status',
@@ -62,7 +58,7 @@ class ClinicalChecksMain(FormCheck):
         'chrscid_c71':3,'chrscid_c78':3,'chrscid_c11':1,
         'chrscid_c21':1,'chrscid_c47':1,'chrscid_c28':1,
         'chrscid_c50':3,'chrscid_c51':8}
-
+        
         scid_checks = ScidChecks(row, timepoint, network,
         form_check_info)
 
@@ -146,8 +142,8 @@ class ClinicalChecksMain(FormCheck):
         self.det_med_name_improper_value(row, past = False, forms = curr_forms)
         self.det_med_name_improper_value(row, past = True, forms = past_form)
         
-        self.check_onset_date(row, curr_forms,
-        ['chrpharm_date_mod'], reports)
+        #self.check_onset_date(row, curr_forms,
+        #['chrpharm_date_mod'], reports)
 
         self.pharm_firstdose_check(row, curr_forms,
         ['chrpharm_med1_onset','chrpharm_firstdose_med1'], reports)
@@ -184,7 +180,7 @@ class ClinicalChecksMain(FormCheck):
             var_val = getattr(row, var) 
             if self.utils.can_be_float(var_val) and float(var_val) > threshold:
                 self.conversion_criteria_check(row, [form],
-                [var], {'reports': ['Main Report']})
+                [var], {'reports': ['Conversion Report']})
 
         for var, threshold in self.eq_var_val_pairs.items():
             form = self.grouped_vars['var_forms'][var]
@@ -252,19 +248,11 @@ class ClinicalChecksMain(FormCheck):
         global functioning forms
         """
         report_list = ['Main Report','Non Team Forms']
-        for score_type, score_vals in self.gf_score_check_vars.items():
-            if score_type == 'low':
-                gt_bool = True
-            else:
-                gt_bool = False
-            for form, vars  in score_vals.items():
-                for low_score, other_scores in vars.items():
-                    var_list = other_scores + [low_score]
-                    self.functioning_score_check(row, [form],
-                    var_list, {'reports' : report_list},
-                    bl_filtered_vars=[], filter_excl_vars=True,
-                    compared_score_var = low_score, 
-                    other_score_vars = other_scores, gt = gt_bool)
+        for form, score_vars in self.gf_score_check_vars.items():
+            var_list = score_vars
+            self.functioning_score_check(row, [form],
+            var_list, {'reports' : report_list},
+            bl_filtered_vars=[], filter_excl_vars=True)
 
     def call_oasis_checks(self, row):
         forms = ['oasis']
@@ -406,22 +394,19 @@ class ClinicalChecksMain(FormCheck):
     @FormCheck.standard_qc_check_filter
     def functioning_score_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
-        filter_excl_vars=True, compared_score_var = '',
-        other_score_vars = [], gt = True
+        filter_excl_vars=True, 
     ):  
-        compared_score_val = getattr(row, compared_score_var)
-        if not self.utils.can_be_float(compared_score_val):
-            return
-        for score_var in other_score_vars:
-            other_score_val = getattr(row,score_var)
-            if self.utils.can_be_float(other_score_val):
-                if gt == True and float(compared_score_val) > float(other_score_val):
-                    return (f'{compared_score_var} ({compared_score_val}) is'
-                    f' not the lowest score ({score_var} = {other_score_val})')
-                elif gt == False and float(compared_score_val) < float(other_score_val):
-                    return (f'{compared_score_var} ({compared_score_val}) is'
-                    f' not the highest score ({score_var} = {other_score_val})')
-        return 
+        for score_ind in range(0,len(all_vars)):
+            if score_ind > 0:
+                gt_var = all_vars[score_ind]
+                lt_var = all_vars[score_ind-1]
+                if all(var_val not in (self.utils.missing_code_list + ['']) and
+                self.utils.can_be_float(var_val) for var_val in 
+                [getattr(row,gt_var),getattr(row,lt_var)]):
+                    if float(getattr(row,gt_var)) < float(getattr(row,lt_var)):
+                        return (f"{gt_var} ({getattr(row,gt_var)})"
+                        f" is less than {lt_var} ({getattr(row,lt_var)})")
+
     
     def call_twenty_one_day_check(self, row):   
         if self.timepoint != 'baseline':
@@ -665,23 +650,32 @@ class ClinicalChecksMain(FormCheck):
         self.utils.missing_code_list)
         for date_var in date_vars):
             return
-        if self.det_if_overlapping_pharm_dates(row,nums) == True:
-            med_use_lower = getattr(row,f'chrpharm_med{lower_num}_use')
-            med_use_upper = getattr(row,f'chrpharm_med{upper_num}_use')
-            if (not((med_use_lower in self.utils.all_dtype([1])
-            and med_use_upper in self.utils.all_dtype([2]))
-            or (med_use_lower in self.utils.all_dtype([2]) 
-            and med_use_upper in self.utils.all_dtype([1])))):
-                lower_name = getattr(row,f'chrpharm_med{lower_num}_name')
-                upper_name = getattr(row,f'chrpharm_med{upper_num}_name')
-                if lower_name == upper_name:
-                    error_message = f"Medications have the same names and overlapping dates"
-                    f" (chrpharm_med{lower_num}_name = {lower_name} and"
-                    f" chrpharm_med{upper_num}_name = {upper_name} )"
-                    error_output = self.create_row_output(
-                    row, filtered_forms, all_vars,
-                    error_message, changed_output_vals)
-                    self.final_output_list.append(error_output)
+        dates_to_check = [f'chrpharm_med{lower_num}_onset',
+        f'chrpharm_med{lower_num}_offset',
+        f'chrpharm_med{upper_num}_onset',
+        f'chrpharm_med{upper_num}_offset']
+        if all(str(getattr(row,date_var)).split(' ')[0]
+        not in self.utils.missing_code_list and 
+        self.utils.check_if_val_date_format(str(
+        getattr(row,date_var).split(' ')[0])) for date_var in dates_to_check):
+            if (self.utils.date_ranges_overlap(dates_to_check[0],
+            dates_to_check[1],dates_to_check[2],dates_to_check[3])):
+                med_use_lower = getattr(row,f'chrpharm_med{lower_num}_use')
+                med_use_upper = getattr(row,f'chrpharm_med{upper_num}_use')
+                if (not((med_use_lower in self.utils.all_dtype([1])
+                and med_use_upper in self.utils.all_dtype([2]))
+                or (med_use_lower in self.utils.all_dtype([2]) 
+                and med_use_upper in self.utils.all_dtype([1])))):
+                    lower_name = getattr(row,f'chrpharm_med{lower_num}_name')
+                    upper_name = getattr(row,f'chrpharm_med{upper_num}_name')
+                    if lower_name == upper_name:
+                        error_message = f"Medications have the same names and overlapping dates"
+                        f" (chrpharm_med{lower_num}_name = {lower_name} and"
+                        f" chrpharm_med{upper_num}_name = {upper_name} )"
+                        error_output = self.create_row_output(
+                        row, filtered_forms, all_vars,
+                        error_message, changed_output_vals)
+                        self.final_output_list.append(error_output)
 
     def check_med_onset_offset_dates(self,
         row, past = False, forms = []
@@ -857,13 +851,14 @@ class ClinicalChecksMain(FormCheck):
         if (any(getattr(row, var) in self.utils.missing_code_list
         for var in all_vars)):
             return
-        age = self.subject_info[row.subjectid]['age']
-        compared_age = getattr(row,compared_age_var)
-        if self.utils.can_be_float(age) and self.utils.can_be_float(compared_age):
-            diff = round(abs(float(age) - float(compared_age)), 2)
-            if diff < diff_min or diff > diff_max:
-                return (f"Difference between demographics"
-                f" age ({age}) and {compared_age_var} ({compared_age}) is {diff}")
+        if 'age' in self.subject_info[row.subjectid].keys():
+            age = self.subject_info[row.subjectid]['age']
+            compared_age = getattr(row,compared_age_var)
+            if self.utils.can_be_float(age) and self.utils.can_be_float(compared_age):
+                diff = round(abs(float(age) - float(compared_age)), 2)
+                if diff < diff_min or diff > diff_max:
+                    return (f"Difference between demographics"
+                    f" age ({age}) and {compared_age_var} ({compared_age}) is {diff}")
 
 
     

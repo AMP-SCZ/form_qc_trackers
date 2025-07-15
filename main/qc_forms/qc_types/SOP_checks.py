@@ -31,7 +31,7 @@ class SOPChecks(FormCheck):
     
     def call_checks(self, row):
         self.call_conversion_checks(row)
-        self.withdrawn_check(row)
+        #self.withdrawn_check(row)
 
     def call_conversion_checks(self, row):
         changed_output = {'reports': ['Main Report']}

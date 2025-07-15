@@ -81,6 +81,8 @@ class QCFormsMain():
                 self.form_check_info)
                 test_output.extend(multi_tp_checks())
             for tp in tp_list:
+                if 'float' not in tp:
+                    continue
                 print(tp)
                 print('-------')
                 combined_df = pd.read_csv(
@@ -97,26 +99,27 @@ class QCFormsMain():
                     in self.form_check_info['subject_info']):
                         continue
                     #print(row.Index)
-                    """gen_checks = GeneralChecks(row, tp,
+                    gen_checks = GeneralChecks(row, tp,
                     network, self.form_check_info)
                     fluid_checks = FluidChecks(row, tp,
                     network, self.form_check_info)
                     clinical_checks = ClinicalChecksMain(row,
-                    tp, network, self.form_check_info)"""
+                    tp, network, self.form_check_info)
                     sop_checks = SOPChecks(row,
                     tp, network, self.form_check_info)
-                    #test_output.extend(gen_checks())
-                    #test_output.extend(fluid_checks())
-                    #test_output.extend(clinical_checks())
+                    test_output.extend(gen_checks())
+                    test_output.extend(fluid_checks())
+                    test_output.extend(clinical_checks())
                     test_output.extend(sop_checks())
-                combined_output_df = pd.DataFrame(test_output)
-                if combined_output_df.shape[0] > 2000000:
-                    print(f"output rows is {combined_output_df.shape[0]}")
-                    break
-                combined_flags_path = f'{self.output_path}combined_outputs'
-                if not os.path.exists(combined_flags_path):
-                    os.makedirs(combined_flags_path)  # Creates the folder and any necessary parent directories
-                combined_output_df.to_csv(
-                f'{combined_flags_path}/new_output/combined_qc_flags.csv',
-                index = False)
+                if len(test_output) > 0:
+                    combined_output_df = pd.DataFrame(test_output)
+                    if combined_output_df.shape[0] > 2000000:
+                        print(f"output rows is {combined_output_df.shape[0]}")
+                        break
+                    combined_flags_path = f'{self.output_path}combined_outputs'
+                    if not os.path.exists(combined_flags_path):
+                        os.makedirs(combined_flags_path)  # Creates the folder and any necessary parent directories
+                    combined_output_df.to_csv(
+                    f'{combined_flags_path}/new_output/combined_qc_flags.csv',
+                    index = False)
 

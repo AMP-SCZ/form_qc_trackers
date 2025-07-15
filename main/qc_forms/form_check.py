@@ -194,7 +194,7 @@ class FormCheck():
         non_bl_vars_filled_out = 0        
         if missing_var != "" and not (form in self.vars_added_later.keys()
         and missing_var in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):                
+        self.utils.check_if_after_date(curr_row, form, date_var) == False):                
             if not hasattr(curr_row, missing_var):
                 return False
             # prescient missingness can also be indicated by the completion var
@@ -208,7 +208,7 @@ class FormCheck():
         
         elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
         in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):
+        self.utils.check_if_after_date(curr_row, form, date_var) == False):
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
@@ -218,37 +218,6 @@ class FormCheck():
             else:
                 return False
 
-    def check_if_after_date(self, 
-        curr_row : tuple,
-        form : str, date_var : str
-    ) -> bool:
-        """
-        Checks to make sure date 
-        is after it was added in 
-        particularly for missing_data
-        buttons that were added later
-
-        Parameters
-        --------------
-        curr_row : tuple
-            current dataframe row being checked \
-        form : str
-            current form being checked
-        date_var : str
-            date variable being checked
-        """
-        date_added = self.vars_added_later[form]
-        if hasattr(curr_row, date_var):
-            date_val = getattr(curr_row, date_var)
-            date_val = str(date_val)
-            try:
-                date_val = datetime.strptime(date_val, '%Y-%m-%d')
-            except Exception as e:
-                return False
-            if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
-                return True
-        
-        return False
     
     def create_row_output(
         self, curr_row : tuple, forms: list,

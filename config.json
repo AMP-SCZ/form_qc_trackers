@@ -1,7 +1,7 @@
 {
     "paths" : {
         "combined_csv_path" : "/home/ob001/combined_csv/",
-        "dependencies_path" : "/home/ob001/dependencies/",
+        "dependencies_path" : "/home/ob001/refactored_qc/dependencies/",
         "error_log_path" : "/home/ob001/error_logs/",
         "output_path": "/data/predict1/formqc/output/"
     },
