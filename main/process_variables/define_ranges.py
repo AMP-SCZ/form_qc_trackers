@@ -11,13 +11,20 @@ from utils.utils import Utils
 class RangeDefiner():
     def __init__(self):
         self.utils = Utils()
-        self.ranges_dict = {
-            'chrpps_mage': {'min':10,'max':85, 'form':'psychosis_polyrisk_score'},
+        self.ranges_dict = { "PRONET":
+            {'chrpps_mage': {'min':10,'max':85, 'form':'psychosis_polyrisk_score'},
             'chrpps_fage': {'min':10,'max':85, 'form':'psychosis_polyrisk_score'},
             'chrfigs_mother_age': {'min':10,'max':85,
             'form':'family_interview_for_genetic_studies_figs'},
             'chrfigs_father_age': {'min':10,'max':85,
+            'form':'family_interview_for_genetic_studies_figs'}},
+
+            "PRESCIENT": {'chrpps_mage': {'min':10,'max':85, 'form':'psychosis_polyrisk_score'},
+            'chrpps_fage': {'min':10,'max':85, 'form':'psychosis_polyrisk_score'},
+            'chrfigs_mother_age': {'min':10,'max':85,
             'form':'family_interview_for_genetic_studies_figs'},
+            'chrfigs_father_age': {'min':10,'max':85,
+            'form':'family_interview_for_genetic_studies_figs'}}
         }
         
         self.comparative_values_dict = {}
@@ -46,10 +53,23 @@ class RangeDefiner():
         for row in filtered_df.itertuples():
             if (self.utils.can_be_float(row.min)
             and self.utils.can_be_float(row.max)):
-                self.ranges_dict[row.variable] = {
+                self.ranges_dict["PRONET"][row.variable] = {
                 'min':float(row.min),'max':float(row.max),'form':row.form}
+                # modify prescient values
+                if 'saliva' in var and 'vol' in var:
+                    prescient_val = 2.0
+                presc_min, presc_max = self.modify_prescient_vals(var, row.min, row.max)
+                self.ranges_dict["PRESCIENT"][row.variable] = {
+                'min':float(presc_min),'max':float(presc_max),'form':row.form}
 
-    def collect_comparative_values(self):
-        pass
+
+    def modify_prescient_vals(self, var, orig_min, orig_max):
+        mod_min = orig_min
+        mod_max = orig_max
+        if 'saliva' in var and 'vol' in var:
+            mod_min = orig_max
+            mod_max = 2.0
+
+        return mod_min, mod_max
 
             

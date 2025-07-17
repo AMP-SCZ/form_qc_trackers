@@ -41,7 +41,7 @@ class GeneralChecks(FormCheck):
         #self.missing_code_check(row)
 
     def call_range_checks(self, row):
-        for var, range_dict in self.variable_ranges.items():
+        for var, range_dict in self.variable_ranges[self.network].items():
             min = range_dict['min']
             max = range_dict['max']
             self.range_check(row, [range_dict['form']],[var],
