@@ -9,6 +9,8 @@ from utils.utils import Utils
 from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
 from qc_forms.qc_types.clinical_checks.clinical_checks_main import ClinicalChecksMain
+from qc_forms.qc_types.cognition_checks import CognitionChecks
+
 from qc_forms.qc_types.SOP_checks import SOPChecks
 from qc_forms.qc_types.multi_tp_checks import MultiTPChecks
 
@@ -31,7 +33,7 @@ class QCFormsMain():
 
         self.combined_flags_path = f'{self.output_path}combined_outputs/'
 
-        self.form_check_info = {}
+        self.form_check_info = {'cognition_csvs':{}}
 
         for filename in ['subject_info','general_check_vars',
         'important_form_vars','forms_per_timepoint',
@@ -39,6 +41,13 @@ class QCFormsMain():
         'team_report_forms','grouped_variables','variables_added_later',
         'raw_csv_conversions', 'variable_ranges','earliest_latest_dates_per_tp']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
+
+        for iq_type in ['wais','wasi']:
+            for conv_type in ['iq_raw','fsiq']:
+                self.form_check_info['cognition_csvs'][
+                f'{conv_type}_conversion_{iq_type}'] = pd.read_csv(
+                f'{self.depen_path}cognition/{conv_type}_conversion_{iq_type}.csv',
+                keep_default_na = False) 
 
         self.auxiliary_files_new_tabs = ['']
 
@@ -81,8 +90,6 @@ class QCFormsMain():
                 self.form_check_info)
                 test_output.extend(multi_tp_checks())
             for tp in tp_list:
-                if 'float' not in tp:
-                    continue
                 print(tp)
                 print('-------')
                 combined_df = pd.read_csv(
@@ -105,21 +112,35 @@ class QCFormsMain():
                     network, self.form_check_info)
                     clinical_checks = ClinicalChecksMain(row,
                     tp, network, self.form_check_info)
+                    cognition_checks = CognitionChecks(row,
+                    tp, network, self.form_check_info)
                     sop_checks = SOPChecks(row,
                     tp, network, self.form_check_info)
                     test_output.extend(gen_checks())
                     test_output.extend(fluid_checks())
                     test_output.extend(clinical_checks())
                     test_output.extend(sop_checks())
+                    test_output.extend(cognition_checks())
                 if len(test_output) > 0:
                     combined_output_df = pd.DataFrame(test_output)
                     if combined_output_df.shape[0] > 2000000:
                         print(f"output rows is {combined_output_df.shape[0]}")
                         break
                     combined_flags_path = f'{self.output_path}combined_outputs'
-                    if not os.path.exists(combined_flags_path):
-                        os.makedirs(combined_flags_path)  # Creates the folder and any necessary parent directories
-                    combined_output_df.to_csv(
-                    f'{combined_flags_path}/new_output/combined_qc_flags.csv',
-                    index = False)
-
+                    os.makedirs(combined_flags_path,exist_ok=True)  # Creates the folder and any necessary parent directories
+                    new_out_path =f'{combined_flags_path}/new_output/'
+                    os.makedirs(new_out_path,exist_ok=True)
+                    if os.path.exists( f'{new_out_path}combined_qc_flags.csv'):
+                        os.remove( f'{new_out_path}combined_qc_flags.csv')
+                    """
+                    print(f"Saving to: {os.path.abspath(f'{new_out_path}')}")
+                    print("Directory exists:", os.path.isdir(f'{new_out_path}'))
+                    print("Listing contents:", os.listdir(f'{new_out_path}'))
+                    print("Writable?", os.access(new_out_path, os.W_OK))
+                    """
+                    try:
+                        combined_output_df.to_csv(
+                        f'{new_out_path}combined_qc_flags.csv',
+                        index = False)
+                    except Exception as e:
+                        print(e)

@@ -35,7 +35,6 @@ class CognitionChecks(FormCheck):
         ['chriq_fsiq'], reports)"""
         forms =  ['iq_assessment_wasiii_wiscv_waisiv']
         reports = ['Main Report', 'Cognition Report']
-        
         if self.timepoint in ["baseline","month24"]:
             if ('age' in self.subject_info[row.subjectid].keys() and
             'demographics_date' in self.subject_info[row.subjectid].keys()):
@@ -56,6 +55,11 @@ class CognitionChecks(FormCheck):
                                 ['chriq_fsiq'], {"reports" : ['Main Report']},
                                 bl_filtered_vars = [], filter_excl_vars = False,
                                 assessment = assessment, iq_age = iq_age)
+                            self.standardized_score_check(row, forms,
+                            ['chriq_fsiq'], {"reports" : ['Main Report']},
+                            bl_filtered_vars = [], filter_excl_vars = False,
+                            assessment = assessment, iq_age = iq_age)
+
 
     @FormCheck.standard_qc_check_filter 
     def fsiq_conversion_check(self, row, filtered_forms,
@@ -78,7 +82,7 @@ class CognitionChecks(FormCheck):
                         python_fsiq = float(getattr(iq_row, 'chriq_fsiq'))
                         if python_fsiq != float(redcap_fsiq):
                             return (f"FSIQ Miscalculated" 
-                            f"( Recorded as {redcap_fsiq}, but should be {python_fsiq})")
+                            f" (Recorded as {redcap_fsiq}, but should be {python_fsiq})")
                         
     def standardized_score_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -86,15 +90,48 @@ class CognitionChecks(FormCheck):
     ):
         conversion_vars = {'wasi' : 'chriq_tscore_sum',
         'wais': 'chriq_scaled_sum'}
+        reports = {'reports' : ['Main Report', 'Cognition Report']}
         var_to_convert = conversion_vars[assessment]
         standardized_score_table = self.cognition_csvs[f'iq_raw_conversion_{assessment}'] 
-        unique_ranges = df.iloc[1].unique().tolist()
+        unique_ranges = standardized_score_table.iloc[0].unique().tolist()
         range_to_use = ''
+        iq_age_mos = int(round(float(iq_age),0)) * 12
         for range_str in unique_ranges:
-            if iq_age in self.utils.convert_range_to_list(range_str):
+            if iq_age_mos in self.utils.convert_range_to_list(str(range_str)):
                 range_to_use = range_str
         if range_to_use != '':
-            filtered_Table = df.loc[:, df.iloc[1] == range_to_use]
+            filtered_table = standardized_score_table.loc[:,
+            standardized_score_table.iloc[0] == range_to_use]
+            filtered_table = filtered_table.iloc[1:]
+            filtered_table.columns = filtered_table.iloc[0]  # first row becomes column names
+
+            score_dict = {'vocab':{'raw':'chriq_vocab_raw',
+            'scaled':'chriq_scaled_vocab','col_name':'vc'},
+            'matrix':{'raw':'chriq_matrix_raw',
+            'scaled':'chriq_scaled_matrix','col_name':'mr'}}
+            vocab_raw = getattr(row,'chriq_vocab_raw')
+            matrix_raw = getattr(row, 'chriq_matrix_raw')
+            for iq_row in filtered_table.itertuples():
+                for test_type, scores in score_dict.items():
+                    if scores['raw'] == getattr(iq_row, scores['col_name']):
+                        redcap_scaled = getattr(row,scores['scaled'])
+                        qc_scaled = getattr(iq_row,'scaled_score')
+                        print(redcap_scaled)
+                        print(qc_scaled)
+                        if redcap_scaled != qc_scaled:
+                            error_message = (f"Check scaled conversion for {test_type} IQ score."
+                            f" Recorded as {redcap_scaled}, but should potentially be"
+                            f" {qc_scaled} (may be false flag due to age estimates)")
+                            print(error_message)
+                            print(row.subjectid)
+                            error_output = self.create_row_output(
+                            row, filtered_forms, [scores['raw'], scores['scaled']],
+                            error_message, reports)
+                            self.final_output_list.append(error_output)
+
+
+                    
+
 
             
 

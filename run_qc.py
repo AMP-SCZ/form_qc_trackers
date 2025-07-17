@@ -33,8 +33,8 @@ include the main report (for melbourne, non team form report)
 # started at 7:44
 class RunQC():        
     def run_script(self):
-        #self.process_vars = ProcessVariables()
-        #self.process_vars.run_script()
+        self.process_vars = ProcessVariables()
+        self.process_vars.run_script()
         self.qc_forms = QCFormsMain()
         self.qc_forms.run_script()
         self.generate_reports = GenerateReports()

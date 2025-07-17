@@ -555,7 +555,7 @@ class Utils():
             the sprecified category
         """
 
-        variable_type_distributions = self.utils.load_dependency_json(
+        variable_type_distributions = self.load_dependency_json(
         'variable_type_distributions.json')
         all_type_vars = []
         for var, distributions in variable_type_distributions.items():
@@ -581,5 +581,34 @@ class Utils():
         return start1 <= end2 and start2 <= end1
 
 
+        
+    def convert_range_to_list(self, 
+        range_str, str_conv = False
+    ):
+        """
+        Converts string with number range to a list of 
+        the numbers included in that range. Used for IQ age checks.
+
+        Parameters
+        -------------
+        range_str: string of number range
+        str_conv:
+        """
+        
+        range_list = []
+        if '-' not in range_str:
+            if str_conv ==True:
+                return [str(range_str).replace(' ','')]
+            else:
+                return range_str
+        first_item = int(range_str.split('-')[0])
+        last_item = int(range_str.split('-')[1])
+        for x in range(first_item, last_item+1):
+            if str_conv ==True:
+                new_item = str(x).replace(' ','')
+            else:
+                new_item = x
+            range_list.append(new_item)
+        return range_list
 
 

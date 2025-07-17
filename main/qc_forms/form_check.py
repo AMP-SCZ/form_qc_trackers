@@ -32,6 +32,7 @@ class FormCheck():
         self.raw_csv_converters = form_check_info['raw_csv_conversions']
         self.variable_ranges = form_check_info['variable_ranges']
         self.tp_date_ranges = form_check_info['earliest_latest_dates_per_tp']
+        self.cognition_csvs = form_check_info['cognition_csvs']
         self.missing_code_list = self.utils.missing_code_list
         
         self.prescient_forms_no_compl_status = [
@@ -133,6 +134,9 @@ class FormCheck():
         in self.prescient_forms_no_compl_status 
         and self.check_if_next_tp(curr_row) == False):
             completion_filter = False
+
+        if self.network == 'PRESCIENT' and self.timepoint == 'floating':
+            completion_filter = True
         
         if completion_filter == False:
             return False
