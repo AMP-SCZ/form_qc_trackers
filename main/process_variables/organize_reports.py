@@ -118,11 +118,7 @@ class OrganizeReports():
         'chrpsychs_av_dev_desc', 'chrcrit_included',
         'chrchs_timeslept','chrdemo_age_mos_chr',
         'chrdemo_age_mos_hc','chrdemo_age_mos2','chroasis_oasis_1',
-        'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']
-        
-        pharm_vars_df = self.data_dict_df[
-        (self.data_dict_df['Variable / Field Name'].str.contains('chrpharm_med')
-        & self.data_dict_df['Variable / Field Name'].str.contains('name_past'))]
+        'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']        
 
         ap_vars_df = self.data_dict_df[
                 self.data_dict_df['Form Name'].isin(['lifetime_ap_exposure_screen'])]
@@ -132,7 +128,8 @@ class OrganizeReports():
         
         ap_vars = ap_vars_df['Variable / Field Name'].tolist()
 
-        pharm_vars = pharm_vars_df['Variable / Field Name'].tolist()
+        pharm_vars = self.collect_pharm_vars()
+        
         scid_df = self.data_dict_df[
         self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
         all_scid_vars = scid_df['Variable / Field Name'].tolist()
@@ -143,7 +140,30 @@ class OrganizeReports():
         additional_blank_check_vars.extend(ap_vars)
 
         return additional_blank_check_vars
-    
+
+    def collect_pharm_vars(self):
+        """
+        Defines which pharamceutical
+        form variables will be included
+        in the standard blank checks
+        """
+
+        pharm_vars_df = self.data_dict_df[
+        self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
+
+        vars_for_blank_check = [] 
+
+        keywords = ['tp','name','onset','dosage','use',
+        'frequency','datasource','indication','other']
+
+        pharm_vars_df = pharm_vars_df[pharm_vars_df[
+        'Variable / Field Name'].apply(lambda x: any(term in str(x) for term in keywords))]
+
+        vars_for_blank_check = pharm_vars_df['Variable / Field Name'].tolist()
+
+        return vars_for_blank_check
+
+
     def organize_spec_val_check_vars(self):
         specific_value_check_dictionary = {'chrspeech_upload':
             {'correlated_variable':'chrspeech_upload',
