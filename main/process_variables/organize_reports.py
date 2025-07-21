@@ -27,7 +27,8 @@ class OrganizeReports():
 
         self.rel_psychs_vars = self.collect_psychs_variables()
 
-        self.variables_added_later = {'scid5_psychosis_mood_substance_abuse': {'chrscid_missing': '2024-12-25'}}
+        self.variables_added_later = {'scid5_psychosis_mood_substance_abuse':
+        {'chrscid_missing': '2024-12-25'}}
 
     def run_script(self):
         self.organize_variable_checks()
@@ -151,8 +152,6 @@ class OrganizeReports():
         pharm_vars_df = self.data_dict_df[
         self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
 
-        vars_for_blank_check = [] 
-
         keywords = ['tp','name','onset','dosage','use',
         'frequency','datasource','indication','other']
 
@@ -162,7 +161,6 @@ class OrganizeReports():
         vars_for_blank_check = pharm_vars_df['Variable / Field Name'].tolist()
 
         return vars_for_blank_check
-
 
     def organize_spec_val_check_vars(self):
         specific_value_check_dictionary = {'chrspeech_upload':
