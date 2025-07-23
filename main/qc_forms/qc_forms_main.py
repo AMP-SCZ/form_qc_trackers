@@ -40,7 +40,6 @@ class QCFormsMain():
         'raw_csv_conversions', 'variable_ranges','earliest_latest_dates_per_tp']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
-        self.auxiliary_files_new_tabs = ['']
 
         self.scid_subs = []
         self.scid_subs_df = []

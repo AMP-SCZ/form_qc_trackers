@@ -18,7 +18,7 @@ from main.qc_forms.qc_forms_main import QCFormsMain
 from main.generate_reports.generate_reports_main import GenerateReports
 
 soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-resource.setrlimit(resource.RLIMIT_AS, (2 * 1024 ** 3, hard))
+resource.setrlimit(resource.RLIMIT_AS, (8 * 1024 ** 3, hard)) 
 
 soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
 resource.setrlimit(resource.RLIMIT_FSIZE, (500 * 1024 ** 2, hard))
