@@ -134,6 +134,9 @@ class FormCheck():
         and self.check_if_next_tp(curr_row) == False):
             completion_filter = False
         
+        if self.timepoint == 'floating':
+            completion_filter = True
+        
         if completion_filter == False:
             return False
 
