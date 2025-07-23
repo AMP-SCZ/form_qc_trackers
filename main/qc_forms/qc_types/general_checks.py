@@ -191,7 +191,9 @@ class GeneralChecks(FormCheck):
     def range_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True, range_var = '', lower = 0, upper = 100
-    ):
+    ):  
+        if not hasattr(row, range_var):
+            return
         var_val = getattr(row, range_var)
         if (self.utils.can_be_float(var_val) and
         var_val not in self.utils.missing_code_list):
