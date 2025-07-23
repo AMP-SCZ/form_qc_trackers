@@ -51,7 +51,6 @@ class OrganizeReports():
         self.variables_added_later, 'variables_added_later.json')
         
     def organize_blank_check_vars(self):
-
         # applies filters that are relevant to both reports
         filtered_df = self.filter_blank_check_df()
         

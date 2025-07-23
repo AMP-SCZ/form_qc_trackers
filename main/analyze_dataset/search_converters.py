@@ -18,7 +18,9 @@ class ConversionSearcher():
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         self.depend_path = self.config_info['paths']['dependencies_path']
         self.output_path = self.config_info['paths']['output_path']
-        
+        data_dict_df = self.utils.read_data_dictionary()
+        data_dict_df = data_dict_df[data_dict_df['Choices, Calculations, OR Slider Labels'].str.contains('Psychotic and Very Severe')]
+        data_dict_df = data_dict_df[data_dict_df['Variable / Field Name'].str.contains('chrpsychs')]
         
         self.var_list = ['chrbprs_bprs_somc',
         'chrbprs_bprs_guil', 'chrbprs_bprs_gran',
@@ -39,6 +41,34 @@ class ConversionSearcher():
         'chrscid_c71', 'chrscid_c78', 'chrscid_c11', 'chrscid_c21',
         'chrscid_c47', 'chrscid_c28', 'chrscid_c50', 'chrscid_c51']
 
+        psychs_vars = ['chrpsychs_scr_1a0', 'chrpsychs_scr_1b0',
+        'chrpsychs_scr_1d0', 'chrpsychs_scr_2a0', 'chrpsychs_scr_2b0',
+        'chrpsychs_scr_2d0', 'chrpsychs_scr_3a0', 'chrpsychs_scr_3b0',
+        'chrpsychs_scr_3d0', 'chrpsychs_scr_4a0', 'chrpsychs_scr_4b0',
+        'chrpsychs_scr_4d0', 'chrpsychs_scr_5a0', 'chrpsychs_scr_5b0', 'chrpsychs_scr_5d0',
+        'chrpsychs_scr_6a0', 'chrpsychs_scr_6b0', 'chrpsychs_scr_6d0', 'chrpsychs_scr_7a0',
+        'chrpsychs_scr_7b0', 'chrpsychs_scr_7d0', 'chrpsychs_scr_8a0', 'chrpsychs_scr_8b0',
+        'chrpsychs_scr_8d0', 'chrpsychs_scr_9a0', 'chrpsychs_scr_9b0', 'chrpsychs_scr_9d0',
+        'chrpsychs_scr_10a0', 'chrpsychs_scr_10b0', 'chrpsychs_scr_10d0',
+        'chrpsychs_scr_11a0', 'chrpsychs_scr_11b0', 'chrpsychs_scr_11d0',
+        'chrpsychs_scr_12a0', 'chrpsychs_scr_12b0', 'chrpsychs_scr_12d0',
+        'chrpsychs_scr_13a0', 'chrpsychs_scr_13b0', 'chrpsychs_scr_13d0',
+        'chrpsychs_scr_14a0', 'chrpsychs_scr_14b0', 'chrpsychs_scr_14d0',
+        'chrpsychs_scr_15a0', 'chrpsychs_scr_15b0', 'chrpsychs_scr_15d0',
+        'chrpsychs_fu_1c0', 'chrpsychs_fu_1d0', 'chrpsychs_fu_2c0', 'chrpsychs_fu_2d0',
+        'chrpsychs_fu_3c0', 'chrpsychs_fu_3d0', 'chrpsychs_fu_4c0', 'chrpsychs_fu_4d0',
+        'chrpsychs_fu_5c0', 'chrpsychs_fu_5d0', 'chrpsychs_fu_6c0', 'chrpsychs_fu_6d0',
+        'chrpsychs_fu_7c0', 'chrpsychs_fu_7d0', 'chrpsychs_fu_8c0', 'chrpsychs_fu_8d0', 
+        'chrpsychs_fu_9c0', 'chrpsychs_fu_9d0', 'chrpsychs_fu_10c0', 'chrpsychs_fu_10d0',
+        'chrpsychs_fu_11c0', 'chrpsychs_fu_11d0', 'chrpsychs_fu_12c0', 'chrpsychs_fu_12d0',
+        'chrpsychs_fu_13c0', 'chrpsychs_fu_13d0', 'chrpsychs_fu_14c0', 'chrpsychs_fu_14d0',
+         'chrpsychs_fu_15c0', 'chrpsychs_fu_15d0']
+
+        new_vars = [var for var in psychs_vars if var not in self.var_list]
+        print('----')
+        print(new_vars)
+
+
         self.all_results = []
     
     def run_script(self):
@@ -46,6 +76,8 @@ class ConversionSearcher():
 
     def find_relevant_vars(self):
         data_dict_df = self.utils.read_data_dictionary()
+        data_dict_df = data_dict_df[data_dict_df['Variable / Field Name'].str.contains('Psychotic and Very Severe')]
+
         text_num_df = data_dict_df[
         data_dict_df['Field Type'].isin(['calc','text'])]
         text_num_vars = text_num_df['Variable / Field Name'].tolist()
@@ -77,8 +109,6 @@ class ConversionSearcher():
         print(len(conv_df), "rows in conv_df")
         print(len(merged),  "rows after merge") 
 
-
-
     def loop_timepoints(self):
         tp_list = self.utils.create_timepoint_list()
         vars_to_compare = self.find_relevant_vars()
@@ -97,15 +127,12 @@ class ConversionSearcher():
         results = {}
         df_numeric = df.select_dtypes(include=[np.number])
         print('-------')
-        print(df_numeric)
-        # Drop rows with missing values (optional, or use pairwise correlations)
-        
+        print(df_numeric)        
         for target in target_vars:
             if target not in df_numeric.columns:
                 print(f"Skipping {target}: not found or not numeric.")
                 continue
 
-            # Pairwise correlations using pandas corr() (automatically handles NaNs pairwise)
             corrs = df_numeric.corr()[target].drop(target).dropna()
 
             for var, r in corrs.items():
@@ -122,7 +149,48 @@ class ConversionSearcher():
             summary_df = pd.DataFrame(self.all_results).sort_values(by='AbsR', ascending=False)
             summary_df = summary_df[['Target', 'Variable', 'R']]
             print(summary_df)
-            summary_df.to_csv(f'{self.output_path}conv_corr.csv', index = False)
+            summary_df.to_csv(f'{self.output_path}conv_corr.csv',
+            index = False)
+
+class AnalyzeConverters():
+    def __init__(self):
+        self.conv_df_path = ''
+        self.conv_df = pd.read_csv(self.conv_df_path,
+        keep_default_na = False) 
+        self.keywords_to_filter = ['scid','psychs','bprs']
+        self.ranges_per_var = {}
+
+    def run_script(self):
+        self.loop_timepoints()
+
+    def filter_variables(self):
+        filtered_df = self.conv_df
+        for keyword in self.keywords_to_filter:
+            filtered_df = filtered_df[~filtered_df[
+            'variable'].str.contains(keyword)]
+        all_vars = filtered_df['variable'].tolist()
+        return all_vars
+
+    def loop_timepoints(self):
+        vars_to_check = self.filter_variables()
+        tp_list = self.utils.create_timepoint_list()
+        vars_to_compare = self.find_relevant_vars()
+        tp_list.extend(['floating','conversion'])
+        for network in ['PRONET','PRESCIENT']:
+            for tp in tp_list:
+                combined_df = pd.read_csv(
+                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv')
+                if any(var in combined_df.columns for var in self.var_list):
+                    com_vars = [var for var in self.var_list if var in combined_df.columns]
+                    #print(com_vars)
+                    self.collect_subjects_with_rel_vars(combined_df, vars_to_check)
+    
+    """def set_problematic_ranges(self, vars):
+
+    def collect_subjects_with_rel_vars(self, combined_df, rel_vars):
+        for row in combined_df.itertuples():
+            for var in rel_vars:"""
+       
 
 if __name__ == '__main__':
     ConversionSearcher().run_script()
