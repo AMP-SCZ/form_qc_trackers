@@ -113,9 +113,9 @@ class QCFormsMain():
                     test_output.extend(sop_checks())
                 if len(test_output) > 0:
                     combined_output_df = pd.DataFrame(test_output)
-                    if combined_output_df.shape[0] > 2000000:
+                    if combined_output_df.shape[0] > 1000000:
                         print(f"output rows is {combined_output_df.shape[0]}")
-                        break
+                        sys.exit()
                     combined_flags_path = f'{self.output_path}combined_outputs'
                     if not os.path.exists(combined_flags_path):
                         os.makedirs(combined_flags_path)  # Creates the folder and any necessary parent directories

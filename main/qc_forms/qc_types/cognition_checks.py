@@ -60,7 +60,6 @@ class CognitionChecks(FormCheck):
                             bl_filtered_vars = [], filter_excl_vars = False,
                             assessment = assessment, iq_age = iq_age)
 
-
     @FormCheck.standard_qc_check_filter 
     def fsiq_conversion_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -116,8 +115,6 @@ class CognitionChecks(FormCheck):
                     if scores['raw'] == getattr(iq_row, scores['col_name']):
                         redcap_scaled = getattr(row,scores['scaled'])
                         qc_scaled = getattr(iq_row,'scaled_score')
-                        print(redcap_scaled)
-                        print(qc_scaled)
                         if redcap_scaled != qc_scaled:
                             error_message = (f"Check scaled conversion for {test_type} IQ score."
                             f" Recorded as {redcap_scaled}, but should potentially be"
