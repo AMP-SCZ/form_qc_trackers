@@ -77,7 +77,7 @@ class QCFormsMain():
         # if a form in compl and no
         # t missing and ones 
         # that will be checked regardless
-        test_output=[]
+        final_output=[]
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
@@ -88,7 +88,7 @@ class QCFormsMain():
                 multi_tp_checks = MultiTPChecks(row,
                 'multiple_timepoints', network, 
                 self.form_check_info)
-                test_output.extend(multi_tp_checks())
+                final_output.extend(multi_tp_checks())
             for tp in tp_list:
                 print(tp)
                 print('-------')
@@ -116,16 +116,16 @@ class QCFormsMain():
                     tp, network, self.form_check_info)
                     sop_checks = SOPChecks(row,
                     tp, network, self.form_check_info)
-                    test_output.extend(gen_checks())
-                    test_output.extend(fluid_checks())
-                    test_output.extend(clinical_checks())
-                    test_output.extend(sop_checks())
-                    test_output.extend(cognition_checks())
-                if len(test_output) > 0:
-                    combined_output_df = pd.DataFrame(test_output)
-                    if combined_output_df.shape[0] > 2000000:
+                    final_output.extend(gen_checks())
+                    final_output.extend(fluid_checks())
+                    final_output.extend(clinical_checks())
+                    final_output.extend(sop_checks())
+                    final_output.extend(cognition_checks())
+                if len(final_output) > 0:
+                    combined_output_df = pd.DataFrame(final_output)
+                    if combined_output_df.shape[0] > 1000000:
                         print(f"output rows is {combined_output_df.shape[0]}")
-                        break
+                        sys.exit()
                     combined_flags_path = f'{self.output_path}combined_outputs'
                     os.makedirs(combined_flags_path,exist_ok=True)  # Creates the folder and any necessary parent directories
                     new_out_path =f'{combined_flags_path}/new_output/'

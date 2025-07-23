@@ -14,7 +14,7 @@ import random
 from main.process_variables.process_variables_main import ProcessVariables
 from main.qc_forms.qc_forms_main import QCFormsMain
 from main.generate_reports.generate_reports_main import GenerateReports
-
+import resource
 """
 QC ORDER
 1. move combined output from new to old output folder
@@ -29,8 +29,11 @@ formatted outputs for each. for the sites only
 include the main report (for melbourne, non team form report)
 7. save all formatted outputs to folder and upload them to dropbox
 """
+soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+resource.setrlimit(resource.RLIMIT_AS, (8 * 1024 ** 3, hard))  
 
-# started at 7:44
+soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
+resource.setrlimit(resource.RLIMIT_FSIZE, (500 * 1024 ** 2, hard))  
 class RunQC():        
     def run_script(self):
         self.process_vars = ProcessVariables()

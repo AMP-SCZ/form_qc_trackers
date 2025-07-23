@@ -56,12 +56,9 @@ class RangeDefiner():
                 self.ranges_dict["PRONET"][row.variable] = {
                 'min':float(row.min),'max':float(row.max),'form':row.form}
                 # modify prescient values
-                if 'saliva' in var and 'vol' in var:
-                    prescient_val = 2.0
-                presc_min, presc_max = self.modify_prescient_vals(var, row.min, row.max)
+                presc_min, presc_max = self.modify_prescient_vals(row.variable, row.min, row.max)
                 self.ranges_dict["PRESCIENT"][row.variable] = {
                 'min':float(presc_min),'max':float(presc_max),'form':row.form}
-
 
     def modify_prescient_vals(self, var, orig_min, orig_max):
         mod_min = orig_min

@@ -150,7 +150,6 @@ class GeneralChecks(FormCheck):
         if cohort.lower() not in ["hc", "chr"]:
             return
         curr_tp_forms = self.forms_per_tp[cohort][self.timepoint]
-
         if (self.check_if_next_tp(row) == True ):
             for form in curr_tp_forms:
                 if form in self.prescient_forms_no_compl_status:
@@ -174,29 +173,38 @@ class GeneralChecks(FormCheck):
 
                     self.final_output_list.append(error_output)
 
-    @FormCheck.standard_qc_check_filter
     def guid_format_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True, checked_guid_var = 'chrguid_guid'
     ):
         """Checks if GUID is in proper format"""
-        guid = str(getattr(row,'chrguid_guid'))
+        if not hasattr(row,checked_guid_var):
+            retr
+        guid = str(getattr(row,checked_guid_var))
         if guid == '':
             return
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
-            return f'GUID in incorrect format. GUID was reported to be {guid}.'
+            error_message = f"GUID in incorrect format. GUID was reported to be {guid}."
+            error_output = self.create_row_output(
+            row,filtered_forms,[checked_guid_var], error_message,
+            changed_output_vals)
+            self.final_output_list.append(error_output)
 
-    @FormCheck.standard_qc_check_filter
     def range_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True, range_var = '', lower = 0, upper = 100
-    ):
+    ):  
+        if not hasattr(row, range_var):
+            return
         var_val = getattr(row, range_var)
         if (self.utils.can_be_float(var_val) and
         var_val not in self.utils.missing_code_list):
             if float(var_val) < lower or float(var_val) > upper:
-                return f'{range_var} value ({var_val}) is out of range'
-
+                error_message = f'{range_var} value ({var_val}) is out of range'
+                error_output = self.create_row_output(
+                row, filtered_forms, ['chrguid_guid'], error_message, 
+                changed_output_vals)
+                self.final_output_list.append(error_output)
 
     def age_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
