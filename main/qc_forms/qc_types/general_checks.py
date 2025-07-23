@@ -179,9 +179,9 @@ class GeneralChecks(FormCheck):
     ):
         """Checks if GUID is in proper format"""
         if not hasattr(row,checked_guid_var):
-            retr
+            return
         guid = str(getattr(row,checked_guid_var))
-        if guid == '':
+        if guid == '' or guid in self.utils.missing_code_list:
             return
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
             error_message = f"GUID in incorrect format. GUID was reported to be {guid}."
@@ -226,7 +226,9 @@ class GeneralChecks(FormCheck):
                 if (hasattr(row, vars['missing_spec_var'])
                 and getattr(row, vars['missing_var']) in self.utils.all_dtype([1])
                 and getattr(row, vars['missing_spec_var']) == ''):
-                    continue
-
-
-
+                    form = self.grouped_vars['var_forms'][vars['missing_spec_var']]
+                    error_message = f'Missing data button clicked, but reason not specified.'
+                    error_output = self.create_row_output(
+                    row, [form], [vars['missing_spec_var'],vars['missing_var']], error_message, 
+                     {"reports" : ['Main Report']})
+                    self.final_output_list.append(error_output)

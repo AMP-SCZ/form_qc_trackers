@@ -591,8 +591,11 @@ class Utils():
 
         Parameters
         -------------
-        range_str: string of number range
-        str_conv:
+        range_str: str
+            string of number range
+        str_conv: bool
+            whether or not input needs
+            to be converted to a string first
         """
         
         range_list = []

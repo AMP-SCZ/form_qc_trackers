@@ -299,11 +299,11 @@ class ClinicalChecksMain(FormCheck):
         'chrtbi_subject_head_injury','chrtbi_sourceinfo'],
         {'reports': ['Main Report','Non Team Forms']})
 
-        tbi_info_source_reports = {'PRONET':'reports': ['Secondary Report'],
+        tbi_info_source_reports = {'PRONET':{'reports': ['Secondary Report']},
         'PRESCIENT': {'reports': ['Main Report','Non Team Forms','Secondary Report']}}
         self.tbi_info_source_check(row, forms, ['chrtbi_parent_headinjury',
         'chrtbi_subject_head_injury','chrtbi_sourceinfo'],
-        {tbi_info_source_reports[self.network]})
+        tbi_info_source_reports[self.network])
 
     @FormCheck.standard_qc_check_filter 
     def tbi_inj_mismatch_check(self, row, filtered_forms,

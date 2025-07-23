@@ -50,4 +50,7 @@ class MultiTPChecks(FormCheck):
         if float(getattr(row,pps_age_var)) != float(getattr(row, figs_age_var)):
             return f"{pps_age_var} is equal to {getattr(row,pps_age_var)},"
             f" but {figs_age_var} is equal to {float(getattr(row, figs_age_var))}"
+
+    def check_blood_duplicates(self):
+        pass
         

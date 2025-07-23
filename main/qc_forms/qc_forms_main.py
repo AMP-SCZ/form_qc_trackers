@@ -2,6 +2,8 @@ import pandas as pd
 import os
 import sys
 import json
+import traceback
+
 import random
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
@@ -13,7 +15,6 @@ from qc_forms.qc_types.cognition_checks import CognitionChecks
 
 from qc_forms.qc_types.SOP_checks import SOPChecks
 from qc_forms.qc_types.multi_tp_checks import MultiTPChecks
-
 class QCFormsMain():
     def __init__(self):
         self.utils = Utils()
@@ -80,7 +81,7 @@ class QCFormsMain():
         final_output=[]
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRONET','PRESCIENT']:
+        for network in ['PRESCIENT']:
             multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
             multi_tp_df = pd.read_csv(multi_tp_path,
             keep_default_na = False)
@@ -100,7 +101,7 @@ class QCFormsMain():
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 for row in combined_df.itertuples(): 
                     #print(tp)
-                    #print(row.Index)
+                    print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
                     if (row.subjectid not
                     in self.form_check_info['subject_info']):
@@ -130,17 +131,11 @@ class QCFormsMain():
                     os.makedirs(combined_flags_path,exist_ok=True)  # Creates the folder and any necessary parent directories
                     new_out_path =f'{combined_flags_path}/new_output/'
                     os.makedirs(new_out_path,exist_ok=True)
-                    if os.path.exists( f'{new_out_path}combined_qc_flags.csv'):
-                        os.remove( f'{new_out_path}combined_qc_flags.csv')
-                    """
-                    print(f"Saving to: {os.path.abspath(f'{new_out_path}')}")
-                    print("Directory exists:", os.path.isdir(f'{new_out_path}'))
-                    print("Listing contents:", os.listdir(f'{new_out_path}'))
-                    print("Writable?", os.access(new_out_path, os.W_OK))
-                    """
                     try:
-                        combined_output_df.to_csv(
-                        f'{new_out_path}combined_qc_flags.csv',
-                        index = False)
+                        print(combined_output_df.shape[0])
+                        print(f'{new_out_path}combined_qc_flags.csv')
+                        combined_output_df.to_csv(f'{new_out_path}combined_qc_flags.csv', index=False)
                     except Exception as e:
                         print(e)
+                        traceback.print_exc()
+                        sys.exit()
