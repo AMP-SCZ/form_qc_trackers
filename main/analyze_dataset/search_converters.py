@@ -77,8 +77,6 @@ class ConversionSearcher():
         print(len(conv_df), "rows in conv_df")
         print(len(merged),  "rows after merge") 
 
-
-
     def loop_timepoints(self):
         tp_list = self.utils.create_timepoint_list()
         vars_to_compare = self.find_relevant_vars()

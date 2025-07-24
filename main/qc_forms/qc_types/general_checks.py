@@ -202,7 +202,7 @@ class GeneralChecks(FormCheck):
             if float(var_val) < lower or float(var_val) > upper:
                 error_message = f'{range_var} value ({var_val}) is out of range'
                 error_output = self.create_row_output(
-                row, filtered_forms, ['chrguid_guid'], error_message, 
+                row, filtered_forms, [range_var], error_message, 
                 changed_output_vals)
                 self.final_output_list.append(error_output)
 

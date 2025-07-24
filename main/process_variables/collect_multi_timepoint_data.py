@@ -37,7 +37,7 @@ class MultiTPDataCollector():
         'chrpps_fage','chrfigs_father_age',
         'chrpps_mage','chrfigs_mother_age',
         'chrblood_wb1id','chrblood_wb2id',
-        'chrblood_se3id'
+        'chrblood_se3id', 'visit_status','subjectid'
         ]
         for variable_grp, var_list in self.grouped_vars['blood_vars'].items():
             self.multi_tp_vars.extend(var_list)

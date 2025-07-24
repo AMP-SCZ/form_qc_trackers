@@ -36,12 +36,12 @@ soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
 resource.setrlimit(resource.RLIMIT_FSIZE, (500 * 1024 ** 2, hard))  
 class RunQC():        
     def run_script(self):
-        #self.process_vars = ProcessVariables()
-        #self.process_vars.run_script()
+        self.process_vars = ProcessVariables()
+        self.process_vars.run_script()
         self.qc_forms = QCFormsMain()
         self.qc_forms.run_script()
-        self.generate_reports = GenerateReports()
-        self.generate_reports.run_script()
+        #self.generate_reports = GenerateReports()
+        #self.generate_reports.run_script()
 
 if __name__ == '__main__':
     RunQC().run_script()

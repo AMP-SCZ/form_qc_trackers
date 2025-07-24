@@ -27,7 +27,8 @@ class OrganizeReports():
 
         self.rel_psychs_vars = self.collect_psychs_variables()
 
-        self.variables_added_later = {'scid5_psychosis_mood_substance_abuse': {'chrscid_missing': '2024-12-25'}}
+        self.variables_added_later = {'scid5_psychosis_mood_substance_abuse':
+        {'chrscid_missing': '2024-12-25'}}
 
     def run_script(self):
         self.organize_variable_checks()

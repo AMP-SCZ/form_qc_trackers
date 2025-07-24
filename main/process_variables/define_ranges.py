@@ -64,8 +64,8 @@ class RangeDefiner():
         mod_min = orig_min
         mod_max = orig_max
         if 'saliva' in var and 'vol' in var:
-            mod_min = orig_max
-            mod_max = 2.0
+            mod_min = orig_min
+            mod_max = 2.1
 
         return mod_min, mod_max
 

@@ -180,7 +180,7 @@ class FluidChecks(FormCheck):
         for barcode_var in barcode_vars:
             if (hasattr(row, barcode_var) 
             and getattr(row, barcode_var) not in
-            (self.utils.missing_code_list + [''])):
+            (self.utils.missing_code_list + ['','NA'])):
                 barcode_val = str(getattr(row,barcode_var))
                 # blood team said to ignore these 
                 if 'pronet' in barcode_val.lower():

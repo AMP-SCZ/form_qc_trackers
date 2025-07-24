@@ -60,9 +60,10 @@ class FormCheck():
             if cohort.lower() not in ["hc", "chr"]:
                 return
             # excludes forms not in timepoint
-            curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
-            if not (all(form in curr_tp_forms for form in filtered_forms)):
-                return
+            if instance.timepoint != 'multiple_timepoints':
+                curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
+                if not (all(form in curr_tp_forms for form in filtered_forms)):
+                    return
 
             # filters out forms with standard_form_filter function
             if not (all(instance.standard_form_filter(

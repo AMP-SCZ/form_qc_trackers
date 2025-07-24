@@ -86,13 +86,12 @@ class QCFormsMain():
             multi_tp_df = pd.read_csv(multi_tp_path,
             keep_default_na = False)
             for row in multi_tp_df.itertuples():
+                multi_tp_vars = multi_tp_df.columns
                 multi_tp_checks = MultiTPChecks(row,
                 'multiple_timepoints', network, 
-                self.form_check_info)
+                self.form_check_info,multi_tp_vars)
                 final_output.extend(multi_tp_checks())
             for tp in tp_list:
-                print(tp)
-                print('-------')
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
@@ -107,7 +106,7 @@ class QCFormsMain():
                     in self.form_check_info['subject_info']):
                         continue
                     #print(row.Index)
-                    gen_checks = GeneralChecks(row, tp,
+                    """gen_checks = GeneralChecks(row, tp,
                     network, self.form_check_info)
                     fluid_checks = FluidChecks(row, tp,
                     network, self.form_check_info)
@@ -121,7 +120,7 @@ class QCFormsMain():
                     final_output.extend(fluid_checks())
                     final_output.extend(clinical_checks())
                     final_output.extend(sop_checks())
-                    final_output.extend(cognition_checks())
+                    final_output.extend(cognition_checks())"""
                 if len(final_output) > 0:
                     combined_output_df = pd.DataFrame(final_output)
                     if combined_output_df.shape[0] > 1000000:

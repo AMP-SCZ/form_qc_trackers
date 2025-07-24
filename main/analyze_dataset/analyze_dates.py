@@ -62,7 +62,7 @@ class AnalyzeDates():
                                         getattr(row, secondary_var)).split(' ')[0]
                                         if self.utils.check_if_val_date_format(secondary_date_val):
                                             self.date_gt_comparisons.setdefault(initial_var + '_' + secondary_var,
-                                            {'earlier_date': initial_var,'later_date':secondary_date_val,'gt' : 0, 'total' : 0})
+                                            {'earlier_date': initial_var,'later_date':secondary_var,'gt' : 0, 'total' : 0})
                                             self.date_gt_comparisons[initial_var + '_' + secondary_var]['total'] += 1
                                             if initial_date_val < secondary_date_val:
                                                 self.date_gt_comparisons[initial_var + '_' + secondary_var]['gt'] += 1
