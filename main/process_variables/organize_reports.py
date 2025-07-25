@@ -130,6 +130,7 @@ class OrganizeReports():
         ap_vars = ap_vars_df['Variable / Field Name'].tolist()
 
         pharm_vars = self.collect_pharm_vars()
+        print(pharm_vars)
         
         scid_df = self.data_dict_df[
         self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']

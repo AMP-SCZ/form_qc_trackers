@@ -111,6 +111,7 @@ class QCFormsMain():
                     final_output.extend(clinical_checks())
                     final_output.extend(sop_checks())
                 if len(final_output) > 0:
+                    print(len(final_output))
                     combined_output_df = pd.DataFrame(final_output)
                     if combined_output_df.shape[0] > 1000000:
                         print(f"output rows is {combined_output_df.shape[0]}")

@@ -61,6 +61,8 @@ class GeneralChecks(FormCheck):
                         report_list.append(team)
                 if self.standard_form_filter(row, form):
                     for var in blank_check_forms[form]:
+                        #if ('pharm' in var and 'past' not in var):
+                        #    print(var)
                         if self.prescient_scid_filter(var, row) == True:
                             continue
                         self.check_if_blank(row, [form], [var],
@@ -106,7 +108,11 @@ class GeneralChecks(FormCheck):
         Standard check applied across all
         forms to see if form is blank
         """
-        if getattr(row, all_vars[0]) == '':
+        if hasattr(row,all_vars[0]) and getattr(row, all_vars[0]) == '':
+            if ('pharm' in all_vars[0] and 'past' not in all_vars[0]):
+                print('--------')
+                print(all_vars)
+
             return "Variable is blank."
         
         return 
@@ -179,13 +185,15 @@ class GeneralChecks(FormCheck):
         filter_excl_vars=True, checked_guid_var = 'chrguid_guid'
     ):
         """Checks if GUID is in proper format"""
-        guid = str(getattr(row,'chrguid_guid'))
+        if not hasattr(row,checked_guid_var):
+            return 
+        guid = str(getattr(row, checked_guid_var))
         if guid == '':
             return
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
             error_message = f"GUID in incorrect format. GUID was reported to be {guid}."
             error_output = self.create_row_output(
-            row,filtered_forms,['chrguid_guid'], error_message, output_changes)
+            row,filtered_forms,[checked_guid_var], error_message, output_changes)
             self.final_output_list.append(error_output)
 
     def range_check(self, row, filtered_forms,

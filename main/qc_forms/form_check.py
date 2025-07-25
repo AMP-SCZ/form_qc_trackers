@@ -54,6 +54,9 @@ class FormCheck():
         all_vars,changed_output_vals={}, bl_filtered_vars=[],
         filter_excl_vars=True, *args, **kwargs
     ):
+            if 'current_pharm' in filtered_forms[0]:
+                print(filtered_forms)
+
             cohort = instance.subject_info[curr_row.subjectid]['cohort']
             # excludes subjects with no cohort
             if cohort.lower() not in ["hc", "chr"]:
@@ -62,16 +65,18 @@ class FormCheck():
             curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
             if not (all(form in curr_tp_forms for form in filtered_forms)):
                 return
-
             # filters out forms with standard_form_filter function
             if not (all(instance.standard_form_filter(
             curr_row, form) for form in filtered_forms)):
                 return
 
+            if 'pharm' in all_vars[0]:
+                print(all_vars)
+
+
             # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
-
             # filters out form if variables in excluded variables 
             if filter_excl_vars:
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
@@ -121,19 +126,26 @@ class FormCheck():
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         formatted_visit_status = (curr_row.visit_status).replace('_','')
         completion_filter = False
+
+
         if (compl_var == "" or not hasattr(curr_row, compl_var)):
-            return False
+            completion_filter = False
+
+
 
         # will not check the form if it is not marked as complete
         # or the subject has not moved onto the next timepoint (prescient only)        
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
-        or getattr(curr_row, compl_var) in self.utils.all_dtype([2])):
+        or (hasattr(curr_row, compl_var) and
+        getattr(curr_row, compl_var) in self.utils.all_dtype([2]))):
             completion_filter = True
+
+
         if (self.network == 'PRESCIENT' and form
         in self.prescient_forms_no_compl_status 
         and self.check_if_next_tp(curr_row) == False):
             completion_filter = False
-        
+
         if 'pharmaceutical' in form:
             completion_filter = True
         
@@ -143,9 +155,10 @@ class FormCheck():
         if self.check_if_missing(curr_row, form) == True:
             return False
 
+
         if self.extra_form_conditions(curr_row, form) == False:
             return False
-                   
+     
         return True
 
     def extra_form_conditions(
