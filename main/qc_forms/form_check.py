@@ -70,10 +70,6 @@ class FormCheck():
             curr_row, form) for form in filtered_forms)):
                 return
 
-            if 'pharm' in all_vars[0]:
-                print(all_vars)
-
-
             # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
@@ -130,7 +126,6 @@ class FormCheck():
 
         if (compl_var == "" or not hasattr(curr_row, compl_var)):
             completion_filter = False
-
 
 
         # will not check the form if it is not marked as complete
