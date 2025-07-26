@@ -40,11 +40,13 @@ class CognitionChecks(FormCheck):
             'demographics_date' in self.subject_info[row.subjectid].keys()):
                 self.age = self.subject_info[row.subjectid]['age']
                 self.demo_date = self.subject_info[row.subjectid]['demographics_date']
+                print(demo_date)
                 if all(self.utils.check_if_val_date_format(str(date_val)) for
                 date_val in [self.demo_date, row.chriq_interview_date]):
                     iq_age_diff = self.utils.find_days_between(self.demo_date, row.chriq_interview_date)
                     if all(self.utils.can_be_float(age_val) for age_val in [iq_age_diff,self.age]):
                         iq_age = float(self.age) + (float(iq_age_diff) / 365)
+                        print(iq_age)
                         if (hasattr(row, 'chriq_assessment') and 
                         row.chriq_assessment not in (self.utils.missing_code_list + ['']) and
                         self.utils.can_be_float(row.chriq_assessment) and
@@ -59,7 +61,6 @@ class CognitionChecks(FormCheck):
                             ['chriq_fsiq'], {"reports" : ['Main Report']},
                             bl_filtered_vars = [], filter_excl_vars = False,
                             assessment = assessment, iq_age = iq_age)
-
 
     @FormCheck.standard_qc_check_filter 
     def fsiq_conversion_check(self, row, filtered_forms,
@@ -111,40 +112,23 @@ class CognitionChecks(FormCheck):
             'scaled':'chriq_scaled_matrix','col_name':'mr'}}
             vocab_raw = getattr(row,'chriq_vocab_raw')
             matrix_raw = getattr(row, 'chriq_matrix_raw')
-            converted_names = {'wasi':'t_score','wais':'scaled_score'}
-            scaled_name = converted_names[assessment]
-
             for iq_row in filtered_table.itertuples():
                 for test_type, scores in score_dict.items():
-                    if not hasattr(row, scores['raw']):
-                        continue
-                    redcap_raw = getattr(row,scores['raw'])
-                    table_raw = getattr(iq_row, scores['col_name'])
-                    if (self.utils.can_be_float(redcap_raw) and redcap_raw
-                    not in self.utils.missing_code_list):
-                        if redcap_raw in self.utils.convert_range_to_list(str(table_raw)):
-                            redcap_scaled = getattr(row, scores['scaled'])
-                            qc_scaled = getattr(iq_row, scaled_name)
-                            if (redcap_scaled != qc_scaled and not any(score in
-                            self.utils.missing_code_list for score in [redcap_scaled,qc_scaled])):
-                                print('----------=---------------------------------')
-                                print(assessment)
-                                print(redcap_raw)
-                                print(table_raw)
-                                print(scores['raw'])
-                                print(scores['col_name'])
-                                print(test_type)
-                                print(redcap_scaled)
-                                print(qc_scaled)
-                                error_message = (f"Check scaled conversion for {test_type} IQ score."
-                                f" Recorded as {redcap_scaled}, but should potentially be"
-                                f" {qc_scaled} (may be false flag due to age estimates)")
-                                print(error_message)
-                                print(row.subjectid)
-                                error_output = self.create_row_output(
-                                row, filtered_forms, [scores['raw'], scores['scaled']],
-                                error_message, reports)
-                                self.final_output_list.append(error_output)
+                    if scores['raw'] == getattr(iq_row, scores['col_name']):
+                        redcap_scaled = getattr(row,scores['scaled'])
+                        qc_scaled = getattr(iq_row,'scaled_score')
+                        print(redcap_scaled)
+                        print(qc_scaled)
+                        if redcap_scaled != qc_scaled:
+                            error_message = (f"Check scaled conversion for {test_type} IQ score."
+                            f" Recorded as {redcap_scaled}, but should potentially be"
+                            f" {qc_scaled} (may be false flag due to age estimates)")
+                            print(error_message)
+                            print(row.subjectid)
+                            error_output = self.create_row_output(
+                            row, filtered_forms, [scores['raw'], scores['scaled']],
+                            error_message, reports)
+                            self.final_output_list.append(error_output)
 
 
                     
@@ -166,7 +150,3 @@ class CognitionChecks(FormCheck):
 
 
         
-
-
-
-

@@ -57,10 +57,26 @@ class MultiTPChecks(FormCheck):
             f" but {figs_age_var} is equal to {float(getattr(row, figs_age_var))}"
 
     def check_blood_id_duplicates(self, row):
+        all_id_vals = {}
         for var in self.blood_vars['id_variables']:
             for col in self.all_col_names:
                 if var in col:
-                    print(var)
+                    all_id_vals[col] = getattr(row,col)
+
+        for init_var, init_val in all_id_vals.items():
+            for second_var, second_val in all_id_vals.items():
+                if init_var != second_var:
+                    if init_val == second_val:
+                        error_message = (f"Duplicate IDs found between different"
+                        f" variables ({init_var} = {init_val} / {second_var} = {second_val})")
+                        error_output = self.create_row_output(
+                        row, filtered_forms, [scores['raw'], scores['scaled']],
+                        error_message, reports)
+                        self.final_output_list.append(error_output)
+
+
+
+                    
 
         
         

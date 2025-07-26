@@ -302,7 +302,6 @@ class MultiTPDataCollector():
             current combined dataframe
             being looped through
         """
-
         for row in combined_df.itertuples():
             for var in combined_df.columns:
                 var_val = getattr(row,var)
