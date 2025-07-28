@@ -40,7 +40,7 @@ class CognitionChecks(FormCheck):
             'demographics_date' in self.subject_info[row.subjectid].keys()):
                 self.age = self.subject_info[row.subjectid]['age']
                 self.demo_date = self.subject_info[row.subjectid]['demographics_date']
-                print(demo_date)
+                print(self.demo_date)
                 if all(self.utils.check_if_val_date_format(str(date_val)) for
                 date_val in [self.demo_date, row.chriq_interview_date]):
                     iq_age_diff = self.utils.find_days_between(self.demo_date, row.chriq_interview_date)

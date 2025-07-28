@@ -62,7 +62,6 @@ class MultiTPChecks(FormCheck):
             for col in self.all_col_names:
                 if var in col:
                     all_id_vals[col] = getattr(row,col)
-
         for init_var, init_val in all_id_vals.items():
             for second_var, second_val in all_id_vals.items():
                 if init_var != second_var:

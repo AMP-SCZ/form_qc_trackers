@@ -15,6 +15,7 @@ from qc_forms.qc_types.cognition_checks import CognitionChecks
 
 from qc_forms.qc_types.SOP_checks import SOPChecks
 from qc_forms.qc_types.multi_tp_checks import MultiTPChecks
+
 class QCFormsMain():
     def __init__(self):
         self.utils = Utils()
@@ -83,7 +84,8 @@ class QCFormsMain():
         tp_list.extend(['floating','conversion'])
         for network in ['PRESCIENT']:
             multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
-            """multi_tp_df = pd.read_csv(multi_tp_path,
+            """
+            multi_tp_df = pd.read_csv(multi_tp_path,
             keep_default_na = False)
             for row in multi_tp_df.itertuples():
                 multi_tp_vars = multi_tp_df.columns
@@ -93,7 +95,8 @@ class QCFormsMain():
                 final_output.extend(multi_tp_checks())"""
             for tp in tp_list:
                 combined_df = pd.read_csv(
-                f'{self.comb_csv_path}AMPSCZ-combined-redcap_{tp}_{network}-day1to1.csv',
+                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
                 keep_default_na = False)
                 #combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=20)

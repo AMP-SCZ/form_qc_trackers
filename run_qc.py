@@ -29,6 +29,7 @@ formatted outputs for each. for the sites only
 include the main report (for melbourne, non team form report)
 7. save all formatted outputs to folder and upload them to dropbox
 """
+
 soft, hard = resource.getrlimit(resource.RLIMIT_AS)
 resource.setrlimit(resource.RLIMIT_AS, (8 * 1024 ** 3, hard))  
 
@@ -38,10 +39,10 @@ class RunQC():
     def run_script(self):
         self.process_vars = ProcessVariables()
         self.process_vars.run_script()
-        self.qc_forms = QCFormsMain()
-        self.qc_forms.run_script()
-        self.generate_reports = GenerateReports()
-        self.generate_reports.run_script()
+        #self.qc_forms = QCFormsMain()
+        #self.qc_forms.run_script()
+        #self.generate_reports = GenerateReports()
+        #self.generate_reports.run_script()
 
 if __name__ == '__main__':
     RunQC().run_script()
