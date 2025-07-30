@@ -54,8 +54,6 @@ class FormCheck():
         all_vars,changed_output_vals={}, bl_filtered_vars=[],
         filter_excl_vars=True, *args, **kwargs
     ):
-            if 'current_pharm' in filtered_forms[0]:
-                print(filtered_forms)
 
             cohort = instance.subject_info[curr_row.subjectid]['cohort']
             # excludes subjects with no cohort
@@ -70,6 +68,8 @@ class FormCheck():
             curr_row, form) for form in filtered_forms)):
                 return
 
+
+
             # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
@@ -78,6 +78,9 @@ class FormCheck():
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
                 if any(var in excl_vars for var in all_vars):
                     return
+            if 'current_pharm' in filtered_forms[0]:
+                print(filtered_forms)
+                print(all_vars)
 
             # error message set to what the QC function returns
             error_message = func(instance, curr_row,

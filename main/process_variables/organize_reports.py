@@ -130,7 +130,6 @@ class OrganizeReports():
         ap_vars = ap_vars_df['Variable / Field Name'].tolist()
 
         pharm_vars = self.collect_pharm_vars()
-        print(pharm_vars)
         
         scid_df = self.data_dict_df[
         self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
@@ -236,7 +235,6 @@ class OrganizeReports():
             filtered_df = self.utils.apply_df_str_filter(
             self.data_dict_df, excluded_strings[network], 'Variable / Field Name')
             excluded_vars[network] = filtered_df['Variable / Field Name'].tolist()
-                
         return excluded_vars
     
     def collect_excluded_floating_vars(self):
@@ -250,8 +248,9 @@ class OrganizeReports():
         'psychosocial_treatment_form',
         'resource_use_log'])]
 
-        vars = self.data_dict_df[
+        vars = filtered_df[
         'Variable / Field Name'].tolist()
+        
 
         return vars
         

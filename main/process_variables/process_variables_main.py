@@ -41,8 +41,8 @@ class ProcessVariables():
             self.config_info = json.load(file)
 
     def run_script(self):
-        """data_dict_df = self.utils.read_data_dictionary()
-        grouped_variables = CollectMiscVariables(data_dict_df)
+        data_dict_df = self.utils.read_data_dictionary()
+        """grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
         important_form_vars = DefineEssentialFormVars(data_dict_df)
         self.identifier_effects = AnalyzeIdentifiers()
