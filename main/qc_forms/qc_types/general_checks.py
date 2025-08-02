@@ -109,12 +109,11 @@ class GeneralChecks(FormCheck):
         forms to see if form is blank
         """
         if hasattr(row,all_vars[0]) and getattr(row, all_vars[0]) == '':
-            if ('pharm' in all_vars[0] and 'past' not in all_vars[0]):
-                print('--------')
-                print(all_vars)
+            #if ('pharm' in all_vars[0] and 'past' not in all_vars[0]):
+            #    print('--------')
+            #    print(all_vars)
 
             return "Variable is blank."
-        
         return 
 
     @FormCheck.standard_qc_check_filter
@@ -122,7 +121,6 @@ class GeneralChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):  
-        
         if  (getattr(row, all_vars[0]) 
         in self.utils.missing_code_list or
         str(getattr(row, all_vars[0])).replace(' ','') == 'NaN'):
@@ -192,6 +190,7 @@ class GeneralChecks(FormCheck):
             return
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
             error_message = f"GUID in incorrect format. GUID was reported to be {guid}."
+            print(error_message)
             error_output = self.create_row_output(
             row,filtered_forms,[checked_guid_var], error_message, output_changes)
             self.final_output_list.append(error_output)

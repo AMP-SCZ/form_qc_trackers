@@ -277,7 +277,8 @@ class TransformBranchingLogic():
         index = False)
 
     def edit_tbi_branch_logic(self,variable, orig_bl):
-        """Modifies branching logic for 
+        """
+        Modifies branching logic for 
         TBI form to only check the variables 
         that correspond to the number of injuries.
 

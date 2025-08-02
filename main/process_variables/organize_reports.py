@@ -52,7 +52,6 @@ class OrganizeReports():
         self.variables_added_later, 'variables_added_later.json')
         
     def organize_blank_check_vars(self):
-
         # applies filters that are relevant to both reports
         filtered_df = self.filter_blank_check_df()
         
@@ -235,6 +234,7 @@ class OrganizeReports():
             filtered_df = self.utils.apply_df_str_filter(
             self.data_dict_df, excluded_strings[network], 'Variable / Field Name')
             excluded_vars[network] = filtered_df['Variable / Field Name'].tolist()
+            
         return excluded_vars
     
     def collect_excluded_floating_vars(self):
@@ -250,7 +250,6 @@ class OrganizeReports():
 
         vars = filtered_df[
         'Variable / Field Name'].tolist()
-        
 
         return vars
         
@@ -314,7 +313,7 @@ class OrganizeReports():
         all_team_forms = []
         all_forms  = self.data_dict_df['Form Name'].unique().tolist()
 
-        for key,value in team_reports.items():
+        for key, value in team_reports.items():
             for form in value:
                 if form not in all_team_forms:
                     all_team_forms.append(form)
