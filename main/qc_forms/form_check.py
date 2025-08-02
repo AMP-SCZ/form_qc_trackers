@@ -223,7 +223,6 @@ class FormCheck():
             else:
                 return False
 
-    
     def create_row_output(
         self, curr_row : tuple, forms: list,
         variables : list, error_message : str,
@@ -250,6 +249,7 @@ class FormCheck():
             dictionary of current row in
             output
         """
+        
         subject = curr_row.subjectid
         if curr_row.visit_status_string == 'removed':
             removed_status = True

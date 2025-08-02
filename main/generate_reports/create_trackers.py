@@ -94,9 +94,9 @@ class CreateTrackers():
                     if not os.path.exists(combined_path):
                         os.makedirs(combined_path)
                     # add new tabs here 
-                    self.format_excl_sheet(report_df,report,
+                    self.format_excl_sheet(report_df, report,
                     combined_path,
-                    f'{network}_combined_Output.xlsx')
+                    f'{network}_Output_V2_test.xlsx')
                     #self.loop_sites(network, report, report_df)
 
     def loop_sites(self, network, report, report_df):

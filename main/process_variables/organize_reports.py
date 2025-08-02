@@ -231,8 +231,9 @@ class OrganizeReports():
         'psychosocial_treatment_form',
         'resource_use_log'])]
 
-        vars = self.data_dict_df[
+        vars = filtered_df[
         'Variable / Field Name'].tolist()
+        print(vars)
 
         return vars
         

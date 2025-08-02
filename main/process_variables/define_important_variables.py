@@ -380,12 +380,9 @@ class CollectMiscVariables():
         pharm_df = self.data_dictionary_df[
         self.data_dictionary_df[
         'Form Name'].str.contains('pharmaceutical')]
-        
         col_renames = {'Variable / Field Name':'var',
         'Form Name':'form'}
-
         pharm_df = pharm_df[list(col_renames.keys())]
-
         pharm_df = pharm_df.rename(columns=col_renames)
 
         pharm_vars_categorized = {

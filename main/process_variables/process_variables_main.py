@@ -43,15 +43,12 @@ class ProcessVariables():
 
     def run_script(self):
         data_dict_df = self.utils.read_data_dictionary()
-        """
         grouped_variables = CollectMiscVariables(data_dict_df)
-
         
         range_definer = RangeDefiner()
         self.utils.save_dependency_json(range_definer(), 'variable_ranges.json')
 
-
-        self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
+        """self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
         important_form_vars = DefineEssentialFormVars(data_dict_df)
         self.identifier_effects = AnalyzeIdentifiers()
         self.identifier_effects.run_script()
@@ -67,25 +64,25 @@ class ProcessVariables():
         subject_info = CollectSubjectInfo()
 
         self.utils.save_dependency_json(subject_info(),
-        'subject_info.json')
+        'subject_info.json')"""
 
         organize_reports = OrganizeReports()
         organize_reports.run_script()
 
-        ra_subs = RaSubjects()
+        """ra_subs = RaSubjects()
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
 
         raw_csv_conversions = RawCSVCollector()
         self.utils.save_dependency_json(raw_csv_conversions(), 'raw_csv_conversions.json')
 
         var_ranges = RangeDefiner()
-        self.utils.save_dependency_json(var_ranges(), 'variable_ranges.json')"""
+        self.utils.save_dependency_json(var_ranges(), 'variable_ranges.json')
 
         # must be called last as it uses dependencies 
         # from preceding classes
         self.multi_tp_data = MultiTPDataCollector()
         
-        self.duplicate_finder = DuplicateFinder()
+        self.duplicate_finder = DuplicateFinder()"""
 
 
 

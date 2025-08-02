@@ -43,7 +43,6 @@ class MultiTPDataCollector():
             self.multi_tp_vars.extend(var_list)
         print(self.multi_tp_vars)
 
-
         self.loop_csvs()
 
     def __call__(self):
@@ -67,6 +66,7 @@ class MultiTPDataCollector():
                 self.collect_variable_type_distributions(combined_df)
                 modified_df = self.utils.append_suffix_to_cols(combined_df,
                 tp, self.multi_tp_vars)
+                print(modified_df.columns)
                 if multi_tp_df.empty:
                     multi_tp_df = modified_df
                 else:
@@ -288,6 +288,7 @@ class MultiTPDataCollector():
         pos_df = pos_df[~pos_df['barc_pos_val'].isin(excluded_val_list)]
         pos_df = pos_df[pos_df.duplicated(subset=['barc_pos_val'], keep=False) & 
         (pos_df.duplicated(subset=['barc_pos_val', 'subjectid'], keep=False) == False)]
+        pos_df.to_csv('duplicate_blood.csv',index = False)
 
     def collect_variable_type_distributions(self, 
         combined_df : pd.DataFrame

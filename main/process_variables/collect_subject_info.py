@@ -126,7 +126,6 @@ class CollectSubjectInfo():
                 'screenfail'] = self.translate_var_vals(
                 self.var_translations['chr_statusform_screenfail'], 
                 row.chr_statusform_screenfail)
-
                 self.subject_info[sub][
                 'completed_study'] = self.translate_var_vals(
                 self.var_translations['chr_subject_eos'], 

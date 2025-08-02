@@ -51,8 +51,6 @@ class QCFormsMain():
                 f'{self.depen_path}cognition/{conv_type}_conversion_{iq_type}.csv',
                 keep_default_na = False) 
 
-        self.auxiliary_files_new_tabs = ['']
-
         self.scid_subs = []
         self.scid_subs_df = []
 
@@ -92,8 +90,11 @@ class QCFormsMain():
                 multi_tp_checks = MultiTPChecks(row,
                 'multiple_timepoints', network, 
                 self.form_check_info,multi_tp_vars)
-                final_output.extend(multi_tp_checks())"""
+                final_output.extend(multi_tp_checks())
+            """
             for tp in tp_list:
+                print(tp)
+                print('---------')
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
@@ -103,7 +104,7 @@ class QCFormsMain():
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 for row in combined_df.itertuples(): 
                     #print(tp)
-                    print(row.Index)
+                    #print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
                     if (row.subjectid not
                     in self.form_check_info['subject_info']):
@@ -134,8 +135,6 @@ class QCFormsMain():
                     new_out_path =f'{combined_flags_path}/new_output/'
                     os.makedirs(new_out_path,exist_ok=True)
                     try:
-                        print(combined_output_df.shape[0])
-                        print(f'{new_out_path}combined_qc_flags.csv')
                         combined_output_df.to_csv(f'{new_out_path}combined_qc_flags.csv', index=False)
                     except Exception as e:
                         print(e)

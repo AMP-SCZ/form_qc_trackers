@@ -23,6 +23,7 @@ class CognitionChecks(FormCheck):
         self.call_checks(row)
         
     def call_checks(self, row):
+        pass
         self.call_cognition_checks(row)
 
     def __call__(self):
@@ -105,7 +106,6 @@ class CognitionChecks(FormCheck):
             standardized_score_table.iloc[0] == range_to_use]
             filtered_table = filtered_table.iloc[1:]
             filtered_table.columns = filtered_table.iloc[0]  # first row becomes column names
-
             score_dict = {'vocab':{'raw':'chriq_vocab_raw',
             'scaled':'chriq_scaled_vocab','col_name':'vc'},
             'matrix':{'raw':'chriq_matrix_raw',
@@ -115,7 +115,7 @@ class CognitionChecks(FormCheck):
             for iq_row in filtered_table.itertuples():
                 for test_type, scores in score_dict.items():
                     if scores['raw'] == getattr(iq_row, scores['col_name']):
-                        redcap_scaled = getattr(row,scores['scaled'])
+                        redcap_scaled = getattr(row, scores['scaled'])
                         qc_scaled = getattr(iq_row,'scaled_score')
                         print(redcap_scaled)
                         print(qc_scaled)
