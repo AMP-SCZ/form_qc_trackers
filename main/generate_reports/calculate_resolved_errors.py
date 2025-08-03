@@ -52,7 +52,6 @@ class CalculateResolvedErrors():
             self.out_paths[path_pref] = f"{self.output_path}combined_outputs/{path_pref}_output/combined_qc_flags.csv"
         self.new_output = []
         
-    
         self.old_output_csv_path = f'{self.output_path}combined_outputs/old_output/combined_qc_flags.csv'
         self.new_output_csv_path = f'{self.output_path}combined_outputs/new_output/combined_qc_flags.csv'
         self.dropbox_data_folder = f'{self.output_path}formatted_outputs/dropbox_files/'

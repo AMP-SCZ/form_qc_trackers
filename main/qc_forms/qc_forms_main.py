@@ -93,6 +93,10 @@ class QCFormsMain():
                 final_output.extend(multi_tp_checks())
             """
             for tp in tp_list:
+                self.form_check_info)
+                final_output.extend(multi_tp_checks())
+            for tp in tp_list:
+                #if 'float' not in tp:
                 print(tp)
                 print('---------')
                 combined_df = pd.read_csv(
@@ -126,6 +130,7 @@ class QCFormsMain():
                     final_output.extend(sop_checks())
                     final_output.extend(cognition_checks())
                 if len(final_output) > 0:
+                    print(len(final_output))
                     combined_output_df = pd.DataFrame(final_output)
                     if combined_output_df.shape[0] > 1000000:
                         print(f"output rows is {combined_output_df.shape[0]}")

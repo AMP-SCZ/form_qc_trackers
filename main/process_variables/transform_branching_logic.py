@@ -277,7 +277,8 @@ class TransformBranchingLogic():
         index = False)
 
     def edit_tbi_branch_logic(self,variable, orig_bl):
-        """Modifies branching logic for 
+        """
+        Modifies branching logic for 
         TBI form to only check the variables 
         that correspond to the number of injuries.
 
@@ -329,19 +330,21 @@ class TransformBranchingLogic():
         """
 
         if 'chrpharm_med' in variable:
-            number = self.utils.collect_digit(variable)
-            if number not in ['1','']:
-                new_branching_logic = \
-                (f"[chrpharm_med{number}_name_past] <> '999' and"\
-                f" [chrpharm_med{int(number)-1}_add_past] = '1'")
-            else:
-                new_branching_logic = \
-                (f"[chrpharm_med{number}_name_past] <> '999'"
-                " and [chrpharm_med_past] = '1'")
-            if 'onset_past' in variable:
+            for suffix in ['_past','']:
+                number = self.utils.collect_digit(variable)
+                if number not in ['1','']:
+                    new_branching_logic = \
+                    (f"[chrpharm_med{number}_name{suffix}] <> '999' and"\
+                    f" [chrpharm_med{int(number)-1}_add{suffix}] = '1'")
+                else:
+                    new_branching_logic = \
+                    (f"[chrpharm_med{number}_name{suffix}] <> '999'"
+                    f" and [chrpharm_med{suffix}] = '1'")
                 return new_branching_logic
-            elif 'offset_past' in variable:
-                return new_branching_logic
+                """if 'onset_past' in variable:
+                    return new_branching_logic
+                elif 'offset_past' in variable:
+                    return new_branching_logic"""
 
         return orig_bl
     

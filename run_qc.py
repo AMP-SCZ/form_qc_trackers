@@ -4,6 +4,8 @@ import pandas as pd
 
 import pandas as pd
 
+import resource
+
 import os
 import sys
 import json
@@ -15,6 +17,12 @@ from main.process_variables.process_variables_main import ProcessVariables
 from main.qc_forms.qc_forms_main import QCFormsMain
 from main.generate_reports.generate_reports_main import GenerateReports
 import resource
+
+soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+resource.setrlimit(resource.RLIMIT_AS, (8 * 1024 ** 3, hard)) 
+
+soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
+resource.setrlimit(resource.RLIMIT_FSIZE, (500 * 1024 ** 2, hard))
 
 """
 QC ORDER

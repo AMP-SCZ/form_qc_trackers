@@ -56,7 +56,6 @@ class GenerateReports():
         self.formatted_column_names['PRONET']['sites'] = self.formatted_column_names['PRONET']['combined']
         self.formatted_column_names['PRESCIENT']['sites'] = self.formatted_column_names['PRESCIENT']['combined']
 
-
         if not os.path.exists(col_names_json):
             self.utils.save_dependency_json(self.formatted_column_names, col_names_json)
 
@@ -76,13 +75,13 @@ class GenerateReports():
                 self.formatted_column_names['sites'][network][orig] = trans
 
             self.formatted_column_names['sites'][network] = self.formatted_column_names[network]
-            self.formatted_column_names['sites'][network][] """
+            self.formatted_column_names['sites'][network][]"""
 
         self.utils = Utils()
-        self.calc_resolved = CalculateResolvedErrors(dbx_col_names)
+        #self.calc_resolved = CalculateResolvedErrors(dbx_col_names)
         self.create_trackers = CreateTrackers(self.formatted_column_names)
 
     def run_script(self):
-        self.calc_resolved.run_script()
+        #self.calc_resolved.run_script()
         self.create_trackers.run_script()
    

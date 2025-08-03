@@ -61,6 +61,8 @@ class GeneralChecks(FormCheck):
                         report_list.append(team)
                 if self.standard_form_filter(row, form):
                     for var in blank_check_forms[form]:
+                        #if ('pharm' in var and 'past' not in var):
+                        #    print(var)
                         if self.prescient_scid_filter(var, row) == True:
                             continue
                         self.check_if_blank(row, [form], [var],
@@ -106,9 +108,12 @@ class GeneralChecks(FormCheck):
         Standard check applied across all
         forms to see if form is blank
         """
-        if getattr(row, all_vars[0]) == '':
+        if hasattr(row,all_vars[0]) and getattr(row, all_vars[0]) == '':
+            #if ('pharm' in all_vars[0] and 'past' not in all_vars[0]):
+            #    print('--------')
+            #    print(all_vars)
+
             return "Variable is blank."
-        
         return 
 
     @FormCheck.standard_qc_check_filter
@@ -116,7 +121,6 @@ class GeneralChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):  
-        
         if  (getattr(row, all_vars[0]) 
         in self.utils.missing_code_list or
         str(getattr(row, all_vars[0])).replace(' ','') == 'NaN'):

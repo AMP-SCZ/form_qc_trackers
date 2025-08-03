@@ -52,7 +52,6 @@ class OrganizeReports():
         self.variables_added_later, 'variables_added_later.json')
         
     def organize_blank_check_vars(self):
-
         # applies filters that are relevant to both reports
         filtered_df = self.filter_blank_check_df()
         
@@ -123,7 +122,6 @@ class OrganizeReports():
         
         pharm_vars_df = self.data_dict_df[
         self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
-
         ap_vars_df = self.data_dict_df[
                 self.data_dict_df['Form Name'].isin(['lifetime_ap_exposure_screen'])]
         
@@ -132,7 +130,8 @@ class OrganizeReports():
         
         ap_vars = ap_vars_df['Variable / Field Name'].tolist()
 
-        pharm_vars = pharm_vars_df['Variable / Field Name'].tolist()
+        pharm_vars = self.collect_pharm_vars()
+        
         scid_df = self.data_dict_df[
         self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
         all_scid_vars = scid_df['Variable / Field Name'].tolist()
@@ -143,7 +142,27 @@ class OrganizeReports():
         additional_blank_check_vars.extend(ap_vars)
 
         return additional_blank_check_vars
-    
+
+    def collect_pharm_vars(self):
+        """
+        Defines which pharamceutical
+        form variables will be included
+        in the standard blank checks
+        """
+
+        pharm_vars_df = self.data_dict_df[
+        self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
+
+        keywords = ['tp','name','onset','dosage','use',
+        'frequency','datasource','indication','other']
+
+        pharm_vars_df = pharm_vars_df[pharm_vars_df[
+        'Variable / Field Name'].apply(lambda x: any(term in str(x) for term in keywords))]
+
+        vars_for_blank_check = pharm_vars_df['Variable / Field Name'].tolist()
+
+        return vars_for_blank_check
+
     def organize_spec_val_check_vars(self):
         specific_value_check_dictionary = {'chrspeech_upload':
             {'correlated_variable':'chrspeech_upload',
@@ -217,7 +236,7 @@ class OrganizeReports():
             filtered_df = self.utils.apply_df_str_filter(
             self.data_dict_df, excluded_strings[network], 'Variable / Field Name')
             excluded_vars[network] = filtered_df['Variable / Field Name'].tolist()
-                
+            
         return excluded_vars
     
     def collect_excluded_floating_vars(self):
@@ -297,7 +316,7 @@ class OrganizeReports():
         all_team_forms = []
         all_forms  = self.data_dict_df['Form Name'].unique().tolist()
 
-        for key,value in team_reports.items():
+        for key, value in team_reports.items():
             for form in value:
                 if form not in all_team_forms:
                     all_team_forms.append(form)

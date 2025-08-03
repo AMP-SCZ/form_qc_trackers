@@ -49,6 +49,8 @@ class ProcessVariables():
         self.utils.save_dependency_json(range_definer(), 'variable_ranges.json')
 
         """self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
+        """grouped_variables = CollectMiscVariables(data_dict_df)
+        self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
         important_form_vars = DefineEssentialFormVars(data_dict_df)
         self.identifier_effects = AnalyzeIdentifiers()
         self.identifier_effects.run_script()

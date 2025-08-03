@@ -117,8 +117,6 @@ class CognitionChecks(FormCheck):
                     if scores['raw'] == getattr(iq_row, scores['col_name']):
                         redcap_scaled = getattr(row, scores['scaled'])
                         qc_scaled = getattr(iq_row,'scaled_score')
-                        print(redcap_scaled)
-                        print(qc_scaled)
                         if redcap_scaled != qc_scaled:
                             error_message = (f"Check scaled conversion for {test_type} IQ score."
                             f" Recorded as {redcap_scaled}, but should potentially be"
@@ -130,23 +128,3 @@ class CognitionChecks(FormCheck):
                             error_message, reports)
                             self.final_output_list.append(error_output)
 
-
-                    
-
-
-            
-
-
-
-
-        
-    
-
-        
-        
-
-
-
-
-
-        

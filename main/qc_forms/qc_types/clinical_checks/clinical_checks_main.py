@@ -531,7 +531,6 @@ class ClinicalChecksMain(FormCheck):
         for var in all_vars:
             if not hasattr(row, var):
                 return
-                
         if (str(row.chrpharm_med1_onset).split(' ')[0]
         not in (self.utils.missing_code_list + [''])
         and str(row.chrpharm_firstdose_med1).split(' ')[0]
@@ -628,6 +627,38 @@ class ClinicalChecksMain(FormCheck):
             error_message, changed_output_vals)
             self.final_output_list.append(error_output)
 
+    def check_missing_pharm_overlapping_dates(self,
+        row, filtered_forms,all_vars, 
+        changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):
+        pharm_name_vars = self.grouped_vars['pharm_vars']['name_vars'] 
+        if past == True:
+            pharm_name_vars = [name_var for name_var in
+            pharm_name_vars if 'past' in name_var]
+        else:
+            pharm_name_vars = [name_var for name_var in
+            pharm_name_vars if 'past' not in name_var]
+        for name_var in pharm_name_vars:
+            if (hasattr(row, name_var) and
+            getattr(row, name_var) in self.utils.all_dtype([999])):
+                name_dig = self.utils.collect_digit(name_var)
+                missing_val_dates = {'onset':f'chrpharm_med{name_dig}_onset',
+                'offset':f'chrpharm_med{name_dig}_offset'}
+                for date_num in range(1, 51):
+                    if date_num != name_dig:
+                        compared_dates = {'onset':f'chrpharm_med{date_num}_onset',
+                        'offset':f'chrpharm_med{date_num}_offset'}
+                        if self.utils.date_ranges_overlap(missing_val_dates['onset'],
+                        missing_val_dates['offset'], compared_dates['onset'],
+                        compared_dates['offset']):
+                            error_message =  (f"{name_var} is missing, but dates are overlapping"
+                            f" with chrpharm_med{date_num}_onset and chrpharm_med{date_num}_offset") 
+                            error_output = self.create_row_output(
+                            row, filtered_forms, all_vars,
+                            error_message, changed_output_vals)
+                            self.final_output_list.append(error_output)
+
     #@FormCheck.standard_qc_check_filter
     def pharm_overlapping_days(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
@@ -673,7 +704,7 @@ class ClinicalChecksMain(FormCheck):
                     if lower_name == upper_name:
                         error_message = f"Medications have the same names and overlapping dates"
                         f" (chrpharm_med{lower_num}_name = {lower_name} and"
-                        f" chrpharm_med{upper_num}_name = {upper_name} )"
+                        f" chrpharm_med{upper_num}_name = {upper_name})"
                         error_output = self.create_row_output(
                         row, filtered_forms, all_vars,
                         error_message, changed_output_vals)
@@ -788,7 +819,7 @@ class ClinicalChecksMain(FormCheck):
                 ranges_iterated_daily.append(onset_val)
                 continue
             if onset_val > lastuse_val:
-                return False
+                return Falseo
             add_days = True
             while add_days:
                 ranges_iterated_daily.append(onset_val)
