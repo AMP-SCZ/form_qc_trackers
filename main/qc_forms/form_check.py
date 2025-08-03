@@ -32,6 +32,7 @@ class FormCheck():
         self.raw_csv_converters = form_check_info['raw_csv_conversions']
         self.variable_ranges = form_check_info['variable_ranges']
         self.tp_date_ranges = form_check_info['earliest_latest_dates_per_tp']
+        self.cognition_csvs = form_check_info['cognition_csvs']
         self.missing_code_list = self.utils.missing_code_list
         
         self.prescient_forms_no_compl_status = [
@@ -59,9 +60,11 @@ class FormCheck():
             if cohort.lower() not in ["hc", "chr"]:
                 return
             # excludes forms not in timepoint
-            curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
-            if not (all(form in curr_tp_forms for form in filtered_forms)):
-                return
+            if instance.timepoint != 'multiple_timepoints':
+                curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
+                if not (all(form in curr_tp_forms for form in filtered_forms)):
+                    return
+
             # filters out forms with standard_form_filter function
             if not (all(instance.standard_form_filter(
             curr_row, form) for form in filtered_forms)):
@@ -142,7 +145,7 @@ class FormCheck():
         and self.check_if_next_tp(curr_row) == False):
             completion_filter = False
 
-        if 'pharmaceutical' in form:
+        if self.network == 'PRESCIENT' and self.timepoint == 'floating':
             completion_filter = True
         
         if completion_filter == False:
@@ -228,7 +231,7 @@ class FormCheck():
                 return True
             else:
                 return False
-                
+              
     def create_row_output(
         self, curr_row : tuple, forms: list,
         variables : list, error_message : str,
@@ -255,6 +258,7 @@ class FormCheck():
             dictionary of current row in
             output
         """
+        
         subject = curr_row.subjectid
         if curr_row.visit_status_string == 'removed':
             removed_status = True

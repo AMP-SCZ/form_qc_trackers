@@ -23,6 +23,7 @@ class CognitionChecks(FormCheck):
         self.call_checks(row)
         
     def call_checks(self, row):
+        pass
         self.call_cognition_checks(row)
 
     def __call__(self):
@@ -40,11 +41,13 @@ class CognitionChecks(FormCheck):
             'demographics_date' in self.subject_info[row.subjectid].keys()):
                 self.age = self.subject_info[row.subjectid]['age']
                 self.demo_date = self.subject_info[row.subjectid]['demographics_date']
+                print(self.demo_date)
                 if all(self.utils.check_if_val_date_format(str(date_val)) for
                 date_val in [self.demo_date, row.chriq_interview_date]):
                     iq_age_diff = self.utils.find_days_between(self.demo_date, row.chriq_interview_date)
                     if all(self.utils.can_be_float(age_val) for age_val in [iq_age_diff,self.age]):
                         iq_age = float(self.age) + (float(iq_age_diff) / 365)
+                        print(iq_age)
                         if (hasattr(row, 'chriq_assessment') and 
                         row.chriq_assessment not in (self.utils.missing_code_list + ['']) and
                         self.utils.can_be_float(row.chriq_assessment) and
@@ -103,7 +106,6 @@ class CognitionChecks(FormCheck):
             standardized_score_table.iloc[0] == range_to_use]
             filtered_table = filtered_table.iloc[1:]
             filtered_table.columns = filtered_table.iloc[0]  # first row becomes column names
-
             score_dict = {'vocab':{'raw':'chriq_vocab_raw',
             'scaled':'chriq_scaled_vocab','col_name':'vc'},
             'matrix':{'raw':'chriq_matrix_raw',
@@ -113,7 +115,7 @@ class CognitionChecks(FormCheck):
             for iq_row in filtered_table.itertuples():
                 for test_type, scores in score_dict.items():
                     if scores['raw'] == getattr(iq_row, scores['col_name']):
-                        redcap_scaled = getattr(row,scores['scaled'])
+                        redcap_scaled = getattr(row, scores['scaled'])
                         qc_scaled = getattr(iq_row,'scaled_score')
                         if redcap_scaled != qc_scaled:
                             error_message = (f"Check scaled conversion for {test_type} IQ score."

@@ -180,13 +180,13 @@ class FluidChecks(FormCheck):
         for barcode_var in barcode_vars:
             if (hasattr(row, barcode_var) 
             and getattr(row, barcode_var) not in
-            (self.utils.missing_code_list + [''])):
+            (self.utils.missing_code_list + ['','NA'])):
                 barcode_val = str(getattr(row,barcode_var))
                 # blood team said to ignore these 
                 if 'pronet' in barcode_val.lower():
-                    continue
-                if len(barcode_val) < 10:
-                    error_message = f"Barcode ({barcode_val}) length is less than 10 characters."
+                    continue    
+                if len(barcode_val) != 10:
+                    error_message = f"Barcode ({barcode_val}) length is not 10 characters."
                     error_output = self.create_row_output(
                     row,forms,[barcode_var], error_message, output_changes)
                     self.final_output_list.append(error_output)

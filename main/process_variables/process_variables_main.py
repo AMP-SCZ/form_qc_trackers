@@ -20,6 +20,7 @@ from main.process_variables.collect_multi_timepoint_data import MultiTPDataColle
 from main.process_variables.collect_raw_csv_info import RawCSVCollector
 
 from main.process_variables.define_ranges import RangeDefiner
+from main.process_variables.find_duplicates import DuplicateFinder
 
 
 class ProcessVariables():
@@ -42,6 +43,12 @@ class ProcessVariables():
 
     def run_script(self):
         data_dict_df = self.utils.read_data_dictionary()
+        grouped_variables = CollectMiscVariables(data_dict_df)
+        
+        range_definer = RangeDefiner()
+        self.utils.save_dependency_json(range_definer(), 'variable_ranges.json')
+
+        """self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
         """grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
         important_form_vars = DefineEssentialFormVars(data_dict_df)
@@ -75,7 +82,10 @@ class ProcessVariables():
 
         # must be called last as it uses dependencies 
         # from preceding classes
-        self.multi_tp_data = MultiTPDataCollector()"""
+        self.multi_tp_data = MultiTPDataCollector()
+        
+        self.duplicate_finder = DuplicateFinder()"""
+
 
 
         

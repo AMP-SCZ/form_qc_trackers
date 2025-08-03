@@ -96,7 +96,8 @@ class CollectSubjectInfo():
             combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
             col_list = ['subjectid','chrdemo_age_mos_chr',
-            'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 'chrdemo_sexassigned']
+            'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 
+            'chrdemo_sexassigned','chrdemo_interview_date']
             col_list = [col for col in col_list if col in combined_df.columns]
             combined_df = combined_df[col_list]
             for row in combined_df.itertuples():
@@ -107,6 +108,8 @@ class CollectSubjectInfo():
                 self.var_translations['chrdemo_sexassigned'], row.chrdemo_sexassigned)
                 self.subject_info[sub][
                 'age'] = self.collect_age(row)
+                self.subject_info[sub][
+                'demographics_date'] = getattr(row,'chrdemo_interview_date')
 
     def collect_floating_info(self):
         tp = 'floating'
@@ -123,7 +126,6 @@ class CollectSubjectInfo():
                 'screenfail'] = self.translate_var_vals(
                 self.var_translations['chr_statusform_screenfail'], 
                 row.chr_statusform_screenfail)
-
                 self.subject_info[sub][
                 'completed_study'] = self.translate_var_vals(
                 self.var_translations['chr_subject_eos'], 

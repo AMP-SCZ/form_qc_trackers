@@ -154,7 +154,6 @@ class GeneralChecks(FormCheck):
         if cohort.lower() not in ["hc", "chr"]:
             return
         curr_tp_forms = self.forms_per_tp[cohort][self.timepoint]
-
         if (self.check_if_next_tp(row) == True ):
             for form in curr_tp_forms:
                 if form in self.prescient_forms_no_compl_status:
@@ -184,15 +183,15 @@ class GeneralChecks(FormCheck):
     ):
         """Checks if GUID is in proper format"""
         if not hasattr(row,checked_guid_var):
-            return 
-        guid = str(getattr(row, checked_guid_var))
-        if guid == '':
+            return
+        guid = str(getattr(row,checked_guid_var))
+        if guid == '' or guid in self.utils.missing_code_list:
             return
         if not re.search(r"^NDA[A-Z0-9]+$", guid):
             error_message = f"GUID in incorrect format. GUID was reported to be {guid}."
-            print(error_message)
             error_output = self.create_row_output(
-            row,filtered_forms,[checked_guid_var], error_message, output_changes)
+            row,filtered_forms,[checked_guid_var], error_message,
+            changed_output_vals)
             self.final_output_list.append(error_output)
 
     def range_check(self, row, filtered_forms,
@@ -207,7 +206,8 @@ class GeneralChecks(FormCheck):
             if float(var_val) < lower or float(var_val) > upper:
                 error_message = f'{range_var} value ({var_val}) is out of range'
                 error_output = self.create_row_output(
-                row, filtered_forms, ['chrguid_guid'], error_message, output_changes)
+                row, filtered_forms, [range_var], error_message, 
+                changed_output_vals)
                 self.final_output_list.append(error_output)
 
     def age_check(self, row, filtered_forms,
@@ -230,7 +230,9 @@ class GeneralChecks(FormCheck):
                 if (hasattr(row, vars['missing_spec_var'])
                 and getattr(row, vars['missing_var']) in self.utils.all_dtype([1])
                 and getattr(row, vars['missing_spec_var']) == ''):
-                    continue
-
-
-
+                    form = self.grouped_vars['var_forms'][vars['missing_spec_var']]
+                    error_message = f'Missing data button clicked, but reason not specified.'
+                    error_output = self.create_row_output(
+                    row, [form], [vars['missing_spec_var'],vars['missing_var']], error_message, 
+                     {"reports" : ['Main Report']})
+                    self.final_output_list.append(error_output)

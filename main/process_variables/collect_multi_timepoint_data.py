@@ -23,7 +23,6 @@ class MultiTPDataCollector():
         self.depend_path = self.config_info["paths"]["dependencies_path"]
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
         self.forms_per_var = self.grouped_vars['var_forms']
-        #self.loop_networks()
         self.earliest_date_per_var = {}
         self.important_form_vars = self.utils.load_dependency_json(
         'important_form_vars.json')
@@ -34,13 +33,15 @@ class MultiTPDataCollector():
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         self.multitp_output = pd.DataFrame()
         self.variable_type_distributions = {}
-
         self.multi_tp_vars = [
         'chrpps_fage','chrfigs_father_age',
         'chrpps_mage','chrfigs_mother_age',
         'chrblood_wb1id','chrblood_wb2id',
-        'chrblood_se3id'
+        'chrblood_se3id', 'visit_status','subjectid'
         ]
+        for variable_grp, var_list in self.grouped_vars['blood_vars'].items():
+            self.multi_tp_vars.extend(var_list)
+        print(self.multi_tp_vars)
 
         self.loop_csvs()
 
@@ -65,6 +66,7 @@ class MultiTPDataCollector():
                 self.collect_variable_type_distributions(combined_df)
                 modified_df = self.utils.append_suffix_to_cols(combined_df,
                 tp, self.multi_tp_vars)
+                print(modified_df.columns)
                 if multi_tp_df.empty:
                     multi_tp_df = modified_df
                 else:
@@ -286,6 +288,7 @@ class MultiTPDataCollector():
         pos_df = pos_df[~pos_df['barc_pos_val'].isin(excluded_val_list)]
         pos_df = pos_df[pos_df.duplicated(subset=['barc_pos_val'], keep=False) & 
         (pos_df.duplicated(subset=['barc_pos_val', 'subjectid'], keep=False) == False)]
+        pos_df.to_csv('duplicate_blood.csv',index = False)
 
     def collect_variable_type_distributions(self, 
         combined_df : pd.DataFrame
@@ -300,7 +303,6 @@ class MultiTPDataCollector():
             current combined dataframe
             being looped through
         """
-
         for row in combined_df.itertuples():
             for var in combined_df.columns:
                 var_val = getattr(row,var)

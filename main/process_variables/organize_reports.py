@@ -118,8 +118,10 @@ class OrganizeReports():
         'chrpsychs_av_dev_desc', 'chrcrit_included',
         'chrchs_timeslept','chrdemo_age_mos_chr',
         'chrdemo_age_mos_hc','chrdemo_age_mos2','chroasis_oasis_1',
-        'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']        
-
+        'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']
+        
+        pharm_vars_df = self.data_dict_df[
+        self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
         ap_vars_df = self.data_dict_df[
                 self.data_dict_df['Form Name'].isin(['lifetime_ap_exposure_screen'])]
         
@@ -250,6 +252,7 @@ class OrganizeReports():
 
         vars = filtered_df[
         'Variable / Field Name'].tolist()
+        print(vars)
 
         return vars
         
