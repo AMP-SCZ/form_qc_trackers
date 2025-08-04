@@ -78,10 +78,10 @@ class GenerateReports():
             self.formatted_column_names['sites'][network][]"""
 
         self.utils = Utils()
-        #self.calc_resolved = CalculateResolvedErrors(dbx_col_names)
+        self.calc_resolved = CalculateResolvedErrors(dbx_col_names)
         self.create_trackers = CreateTrackers(self.formatted_column_names)
 
     def run_script(self):
-        #self.calc_resolved.run_script()
+        self.calc_resolved.run_script()
         self.create_trackers.run_script()
    

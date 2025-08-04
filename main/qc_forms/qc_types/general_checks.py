@@ -62,9 +62,10 @@ class GeneralChecks(FormCheck):
                 if self.standard_form_filter(row, form):
                     for var in blank_check_forms[form]:
                         #if ('pharm' in var and 'past' not in var):
-                        #    print(var)
+                        #    print(var)                            
                         if self.prescient_scid_filter(var, row) == True:
                             continue
+
                         self.check_if_blank(row, [form], [var],
                         {"reports" : report_list},[var])
 
@@ -92,9 +93,9 @@ class GeneralChecks(FormCheck):
         """
         if var in self.module_b_vars or var in self.module_c_vars:
             if self.network == 'PRESCIENT':
-                if (row.chrscid_b1 in (
+                if (hasattr(row,'chrscid_b1') and row.chrscid_b1 in (
                 self.utils.missing_code_list + [''])
-                or row.chrscid_b16 in (
+                or hasattr(row,'chrscid_b16') and row.chrscid_b16 in (
                 self.utils.missing_code_list + [''])):
                     return True
         return False
@@ -109,10 +110,6 @@ class GeneralChecks(FormCheck):
         forms to see if form is blank
         """
         if hasattr(row,all_vars[0]) and getattr(row, all_vars[0]) == '':
-            #if ('pharm' in all_vars[0] and 'past' not in all_vars[0]):
-            #    print('--------')
-            #    print(all_vars)
-
             return "Variable is blank."
         return 
 

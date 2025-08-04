@@ -92,10 +92,7 @@ class QCFormsMain():
                 self.form_check_info,multi_tp_vars)
                 final_output.extend(multi_tp_checks())
             """
-            for tp in tp_list:
-                self.form_check_info)
-                final_output.extend(multi_tp_checks())
-            for tp in tp_list:
+            for tp in tp_list[1:]:
                 #if 'float' not in tp:
                 print(tp)
                 print('---------')
@@ -114,20 +111,20 @@ class QCFormsMain():
                     in self.form_check_info['subject_info']):
                         continue
                     #print(row.Index)
-                    gen_checks = GeneralChecks(row, tp,
+                    """gen_checks = GeneralChecks(row, tp,
                     network, self.form_check_info)
                     fluid_checks = FluidChecks(row, tp,
                     network, self.form_check_info)
                     clinical_checks = ClinicalChecksMain(row,
-                    tp, network, self.form_check_info)
+                    tp, network, self.form_check_info)"""
                     cognition_checks = CognitionChecks(row,
                     tp, network, self.form_check_info)
-                    sop_checks = SOPChecks(row,
-                    tp, network, self.form_check_info)
-                    final_output.extend(gen_checks())
+                    """sop_checks = SOPChecks(row,
+                    tp, network, self.form_check_info)"""
+                    """final_output.extend(gen_checks())
                     final_output.extend(fluid_checks())
                     final_output.extend(clinical_checks())
-                    final_output.extend(sop_checks())
+                    final_output.extend(sop_checks())"""
                     final_output.extend(cognition_checks())
                 if len(final_output) > 0:
                     print(len(final_output))

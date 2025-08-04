@@ -59,6 +59,7 @@ class FormCheck():
             # excludes subjects with no cohort
             if cohort.lower() not in ["hc", "chr"]:
                 return
+
             # excludes forms not in timepoint
             if instance.timepoint != 'multiple_timepoints':
                 curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
@@ -85,7 +86,7 @@ class FormCheck():
             bl_filtered_vars=[],filter_excl_vars=True, *args, **kwargs)
             if error_message == None:
                 return
-                
+
             # filtered out variables if branching logic is false
             if bl_filtered_vars != []:
                 for var in bl_filtered_vars:
@@ -98,11 +99,6 @@ class FormCheck():
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)
             instance.final_output_list.append(error_output)
-            if 'current_pharm' in filtered_forms[0]:
-                print('---------')
-                print(filtered_forms)
-                print(all_vars)
-                print(error_output)
 
         return qc_check
 
@@ -132,7 +128,6 @@ class FormCheck():
 
         if (compl_var == "" or not hasattr(curr_row, compl_var)):
             completion_filter = False
-
         # will not check the form if it is not marked as complete
         # or the subject has not moved onto the next timepoint (prescient only)        
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
@@ -147,7 +142,7 @@ class FormCheck():
 
         if self.network == 'PRESCIENT' and self.timepoint == 'floating':
             completion_filter = True
-        
+
         if completion_filter == False:
             return False
 
@@ -162,23 +157,32 @@ class FormCheck():
     def extra_form_conditions(
         self,curr_row : tuple, form : str
     ) -> bool:
-        if form == 'pubertal_developmental_scale':
-            age = self.subject_info[curr_row.subjectid]["age"]
-            if not self.utils.can_be_float(age) or float(age) > 18:
+        if curr_row.subjectid in self.subject_info.keys():
+            sub_info = self.subject_info[curr_row.subjectid]
+            if form == 'pubertal_developmental_scale':
+                if "age" not in sub_info.keys():
+                    return False
+                age = sub_info["age"]
+                if not self.utils.can_be_float(age) or float(age) > 18:
+                    return False
+                return True
+            elif 'axivity' in form:
+                if "axivity_opt" not in sub_info.keys():
+                    return False
+                opt_in = sub_info["axivity_opt"]
+                if opt_in in self.utils.all_dtype([1]):
+                    return True      
                 return False
-            return True
-        elif 'axivity' in form:
-            opt_in = self.subject_info[curr_row.subjectid]["axivity_opt"]
-            if opt_in in self.utils.all_dtype([1]):
-                return True      
-            return False
-        elif 'mindlamp' in form:
-            opt_in = self.subject_info[curr_row.subjectid]["mindlamp_opt"]
-            if opt_in in self.utils.all_dtype([1,2]):
-                return True      
-            return False
-        else: 
-            return True
+            elif 'mindlamp' in form:
+                if "mindlamp_opt" not in sub_info.keys():
+                    return False
+                opt_in = sub_info["mindlamp_opt"]
+                if opt_in in self.utils.all_dtype([1,2]):
+                    return True      
+                return False
+            else: 
+                return True
+        return True
     
     def check_if_missing(self,
         curr_row : tuple, form : str
@@ -213,13 +217,14 @@ class FormCheck():
                 return False
             # prescient missingness can also be indicated by the completion var
             if (self.network == 'PRESCIENT' and
+            hasattr(curr_row, compl_var) and 
             getattr(curr_row, compl_var) in self.utils.all_dtype([3,4])):
                 return True
             if getattr(curr_row, missing_var) not in self.utils.all_dtype([1]):
                 return False
             else:
                 return True
-        
+
         elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
         in self.vars_added_later[form].keys() and
         self.utils.check_if_after_date(curr_row, form, date_var) == False):

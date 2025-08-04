@@ -48,7 +48,8 @@ class CollectSubjectInfo():
         return 'unknown'
     
     def collect_age(self,row):
-        for age_var in ['chrdemo_age_mos_chr','chrdemo_age_mos_hc', 'chrdemo_age_mos2']:
+        for age_var in ['chrdemo_age_mos_chr',
+        'chrdemo_age_mos_hc', 'chrdemo_age_mos2']:
             if not hasattr(row,age_var):
                 continue
             age_val = getattr(row,age_var)

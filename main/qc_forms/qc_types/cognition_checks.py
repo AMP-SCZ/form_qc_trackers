@@ -31,9 +31,11 @@ class CognitionChecks(FormCheck):
 
     def call_cognition_checks(self,row):
         reports = {'reports' : ['Main Report','Cognition Report']}
-        """self.temp_cognition_fix(row, 
+        """
+        self.temp_cognition_fix(row, 
         ['iq_assessment_wasiii_wiscv_waisiv'], 
-        ['chriq_fsiq'], reports)"""
+        ['chriq_fsiq'], reports)
+        """
         forms =  ['iq_assessment_wasiii_wiscv_waisiv']
         reports = ['Main Report', 'Cognition Report']
         if self.timepoint in ["baseline","month24"]:
@@ -41,13 +43,11 @@ class CognitionChecks(FormCheck):
             'demographics_date' in self.subject_info[row.subjectid].keys()):
                 self.age = self.subject_info[row.subjectid]['age']
                 self.demo_date = self.subject_info[row.subjectid]['demographics_date']
-                print(self.demo_date)
                 if all(self.utils.check_if_val_date_format(str(date_val)) for
                 date_val in [self.demo_date, row.chriq_interview_date]):
                     iq_age_diff = self.utils.find_days_between(self.demo_date, row.chriq_interview_date)
-                    if all(self.utils.can_be_float(age_val) for age_val in [iq_age_diff,self.age]):
+                    if all(self.utils.can_be_float(age_val) for age_val in [iq_age_diff, self.age]):
                         iq_age = float(self.age) + (float(iq_age_diff) / 365)
-                        print(iq_age)
                         if (hasattr(row, 'chriq_assessment') and 
                         row.chriq_assessment not in (self.utils.missing_code_list + ['']) and
                         self.utils.can_be_float(row.chriq_assessment) and
@@ -92,12 +92,14 @@ class CognitionChecks(FormCheck):
     ):
         conversion_vars = {'wasi' : 'chriq_tscore_sum',
         'wais': 'chriq_scaled_sum'}
+        iq_col_names =  {'wasi' : 't_score',
+        'wais': 'scaled_score'}
         reports = {'reports' : ['Main Report', 'Cognition Report']}
-        var_to_convert = conversion_vars[assessment]
         standardized_score_table = self.cognition_csvs[f'iq_raw_conversion_{assessment}'] 
         unique_ranges = standardized_score_table.iloc[0].unique().tolist()
+        print(unique_ranges)
         range_to_use = ''
-        iq_age_mos = int(round(float(iq_age),0)) * 12
+        iq_age_mos = int(float(iq_age) * 12)
         for range_str in unique_ranges:
             if iq_age_mos in self.utils.convert_range_to_list(str(range_str)):
                 range_to_use = range_str
@@ -114,10 +116,18 @@ class CognitionChecks(FormCheck):
             matrix_raw = getattr(row, 'chriq_matrix_raw')
             for iq_row in filtered_table.itertuples():
                 for test_type, scores in score_dict.items():
-                    if scores['raw'] == getattr(iq_row, scores['col_name']):
+                    if assessment != 'wais':
+                        continue
+                    conversion_sheet_score = self.utils.convert_range_to_list(
+                    getattr(iq_row, scores['col_name']))
+                    redcap_score = getattr(row, scores['raw'])
+                    print('----------------')
+                    #print(getattr(iq_row, scores['col_name']))
+                    if redcap_score == conversion_sheet_score:
                         redcap_scaled = getattr(row, scores['scaled'])
-                        qc_scaled = getattr(iq_row,'scaled_score')
-                        if redcap_scaled != qc_scaled:
+                        qc_scaled = getattr(iq_row, iq_col_names[assessment])
+                        if (redcap_scaled != qc_scaled and redcap_scaled
+                        not in (self.utils.missing_code_list + [''])):
                             error_message = (f"Check scaled conversion for {test_type} IQ score."
                             f" Recorded as {redcap_scaled}, but should potentially be"
                             f" {qc_scaled} (may be false flag due to age estimates)")
