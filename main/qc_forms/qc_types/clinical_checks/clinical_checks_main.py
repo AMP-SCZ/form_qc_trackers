@@ -390,7 +390,7 @@ class ClinicalChecksMain(FormCheck):
                 return
 
         if float(compared_oasis_val) < 2 and float(lifestyle_var_val) > cutoff:
-            return (f"chroasis_oasis_1 states that lifestyle"
+            return (f"chroasis_oasis_3 states that lifestyle"
             f" was not affected, but {lifestyle_var} is greater than {cutoff}")
         
     @FormCheck.standard_qc_check_filter
@@ -477,6 +477,8 @@ class ClinicalChecksMain(FormCheck):
         reports = ['Main Report', 'Non Team Forms']
         if (hasattr(row, missing_spec_var)
         and str(getattr(row, missing_spec_var)) == 'M6'):
+            error_message = ''
+            flagged_forms = []
             for form in curr_tp_forms:
                 if form in self.excluded_21_day_forms:  
                     continue
@@ -490,14 +492,18 @@ class ClinicalChecksMain(FormCheck):
                         continue
                     days_between = self.utils.find_days_between(int_date, scr_int_date)
                     if days_between > 21:
-                        error_message = ("M6 clicked on baseline psychs,"
-                        " but there are more than 21 days between"
-                        f" {form} (date = {int_date}) and Screening Psychs (date = {scr_int_date})")
-                        output_changes = {'reports' : reports}
-                        error_output = self.create_row_output(
-                        row, [curr_psychs_form], [missing_spec_var],
-                        error_message, output_changes)
-                        self.final_output_list.append(error_output)
+                        flagged_forms.append(f'{form} (date = {int_date})')
+                        if error_message == '':
+                            error_message = ("M6 clicked on baseline psychs,"
+                            " but there are more than 21 days between"
+                            f" Screening Psychs (date = {scr_int_date}) and the following forms : ({flagged_forms})")
+                            
+            if error_message !='':
+                output_changes = {'reports' : reports}
+                error_output = self.create_row_output(
+                row, [curr_psychs_form], [missing_spec_var],
+                error_message, output_changes)
+                self.final_output_list.append(error_output)
 
     @FormCheck.standard_qc_check_filter   
     def conversion_criteria_check(self, row, filtered_forms,

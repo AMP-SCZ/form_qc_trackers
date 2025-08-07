@@ -97,7 +97,6 @@ class CognitionChecks(FormCheck):
         reports = {'reports' : ['Main Report', 'Cognition Report']}
         standardized_score_table = self.cognition_csvs[f'iq_raw_conversion_{assessment}'] 
         unique_ranges = standardized_score_table.iloc[0].unique().tolist()
-        print(unique_ranges)
         range_to_use = ''
         iq_age_mos = int(float(iq_age) * 12)
         for range_str in unique_ranges:
@@ -121,8 +120,6 @@ class CognitionChecks(FormCheck):
                     conversion_sheet_score = self.utils.convert_range_to_list(
                     getattr(iq_row, scores['col_name']))
                     redcap_score = getattr(row, scores['raw'])
-                    print('----------------')
-                    #print(getattr(iq_row, scores['col_name']))
                     if redcap_score == conversion_sheet_score:
                         redcap_scaled = getattr(row, scores['scaled'])
                         qc_scaled = getattr(iq_row, iq_col_names[assessment])

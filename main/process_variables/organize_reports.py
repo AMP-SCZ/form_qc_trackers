@@ -30,6 +30,11 @@ class OrganizeReports():
         self.variables_added_later = {'scid5_psychosis_mood_substance_abuse':
         {'chrscid_missing': '2024-12-25'}}
 
+
+        self.excluded_forms = {"PRESCIENT": ["gcp_current_health_status",
+        "gcp_cbc_with_differential"],
+        "PRONET":[]}
+
     def run_script(self):
         self.organize_variable_checks()
 
@@ -39,7 +44,8 @@ class OrganizeReports():
             "missing_code_vars" : self.organize_missing_code_check_vars(),
             "specific_val_check_vars" : self.organize_spec_val_check_vars(),
             "checkbox_vars" : self.organize_checkbox_vars(),
-            "excluded_vars" : self.define_excluded_variables()
+            "excluded_vars" : self.define_excluded_variables(),
+            "excluded_forms" : self.excluded_forms
         }
 
         self.utils.save_dependency_json(

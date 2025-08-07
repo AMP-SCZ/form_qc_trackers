@@ -70,6 +70,7 @@ class FormCheck():
             if not (all(instance.standard_form_filter(
             curr_row, form) for form in filtered_forms)):
                 return
+                
             # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return

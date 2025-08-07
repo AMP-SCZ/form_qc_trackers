@@ -80,14 +80,13 @@ class CalculateResolvedErrors():
         dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests'
         for network in dbx.files_list_folder(dropbox_path).entries:
             if network.name in ['PRONET','PRESCIENT']:
-                print(network.name)
-                print(dropbox_path + f'/{network.name}')
                 network_dir = dropbox_path + f'/{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_combined_Output.xlsx'
                 self.read_dropbox_data(self.formatted_column_names[network.name]["combined"],
                 ['manually_resolved','comments'], combined_output, dbx, network.name, ['Main Report'])
-                """for site_abr in self.utils.all_sites[network.name]:
+                """
+                for site_abr in self.utils.all_sites[network.name]:
                     site = self.utils.site_full_name_translations[site_abr]
                     site_output = network_dir + f'/{site}/{network.name}_{site_abr}_Output.xlsx'
                     site_cols = self.formatted_column_names[network.name]["sites"]
@@ -109,7 +108,6 @@ class CalculateResolvedErrors():
             return True
         except Exception as e:
             return False
-
         
     def read_dropbox_data(self,
         col_names,columns_to_read,

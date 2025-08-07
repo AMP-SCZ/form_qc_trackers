@@ -153,7 +153,9 @@ class GeneralChecks(FormCheck):
         curr_tp_forms = self.forms_per_tp[cohort][self.timepoint]
         if (self.check_if_next_tp(row) == True ):
             for form in curr_tp_forms:
-                if form in self.prescient_forms_no_compl_status:
+                if (form in self.prescient_forms_no_compl_status
+                or form in self.general_check_vars["excluded_forms"][
+                self.network]):
                     continue
                 compl_var = self.important_form_vars[form]['completion_var']   
                 if self.network == 'PRESCIENT':
