@@ -93,6 +93,7 @@ class TransformBranchingLogic():
             branching_logic = self.edit_past_pharm_branch_logic(var, branching_logic)
             branching_logic = self.edit_av_branch_logic(var, branching_logic)
             branching_logic = self.edit_scid_bl(var, branching_logic)
+            branching_logic = self.edit_figs_bl(var, branching_logic)
             converted_bl = ''
             if branching_logic !='':
                 converted_bl = self.branching_logic_redcap_to_python(branching_logic)
