@@ -19,7 +19,6 @@ class ConversionSearcher():
         self.depend_path = self.config_info['paths']['dependencies_path']
         self.output_path = self.config_info['paths']['output_path']
         
-        
         self.var_list = ['chrbprs_bprs_somc',
         'chrbprs_bprs_guil', 'chrbprs_bprs_gran',
         'chrbprs_bprs_susp', 'chrbprs_bprs_hall',

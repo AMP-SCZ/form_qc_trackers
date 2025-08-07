@@ -42,7 +42,7 @@ class ProcessVariables():
             self.config_info = json.load(file)
 
     def run_script(self):
-        """data_dict_df = self.utils.read_data_dictionary()
+        data_dict_df = self.utils.read_data_dictionary()
         grouped_variables = CollectMiscVariables(data_dict_df)
         
         range_definer = RangeDefiner()
@@ -65,12 +65,12 @@ class ProcessVariables():
         subject_info = CollectSubjectInfo()
 
         self.utils.save_dependency_json(subject_info(),
-        'subject_info.json')"""
+        'subject_info.json')
 
         organize_reports = OrganizeReports()
         organize_reports.run_script()
 
-        """ra_subs = RaSubjects()
+        ra_subs = RaSubjects()
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
 
         raw_csv_conversions = RawCSVCollector()
@@ -80,7 +80,7 @@ class ProcessVariables():
         # from preceding classes
         self.multi_tp_data = MultiTPDataCollector()
         
-        self.duplicate_finder = DuplicateFinder()"""
+        self.duplicate_finder = DuplicateFinder()
 
 
 

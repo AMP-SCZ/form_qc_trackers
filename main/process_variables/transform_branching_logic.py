@@ -58,7 +58,15 @@ class TransformBranchingLogic():
         " and hasattr(curr_row,'chrdig_motivational')"
         " and curr_row.chrdig_motivational != ''"),
 
-        "chreeg_entry_date" : "hasattr(curr_row,'chreeg_interview_date') and curr_row.chreeg_interview_date != ''"
+        "chreeg_entry_date" : "hasattr(curr_row,'chreeg_interview_date') and curr_row.chreeg_interview_date != ''",
+
+        "chrfigs_father_sex" : ("hasattr(curr_row,'chrfigs_father_info')"
+        " and instance.utils.can_be_float(curr_row.chrfigs_father_info)==True and"
+        " (float(curr_row.chrfigs_father_info)==float(1) or float(curr_row.chrfigs_father_info)==float(1))"),
+
+        "chrfigs_mother_sex" : ("hasattr(curr_row,'chrfigs_mother_info')"
+        " and instance.utils.can_be_float(curr_row.chrfigs_mother_info)==True and"
+        " (float(curr_row.chrfigs_mother_info)==float(1) or float(curr_row.chrfigs_mother_info)==float(1))")
         }
 
     def __call__(self):
@@ -364,6 +372,31 @@ class TransformBranchingLogic():
             return new_branching_logic
 
         return orig_bl
+
+    def edit_figs_bl(
+        self, variable : str, orig_bl : str
+    ) -> str:
+        for family_member in ['mother','father']:
+            if variable in  [f'chrfigs_{family_member}_sex',
+            f'chrfigs_{family_member}_age']:
+                new_branching_logic = f'[chrfigs_{family_member}_info] = 1'
+                return new_branching_logic
+        for count in range(1,10):
+            for family_member in ['child','sibling']:
+                if variable in [f'chrfigs_{family_member}{count}_sex',
+                f'chrfigs_{family_member}{count}_age']:
+                    new_branching_logic = f'[chrfigs_{family_member}{count}_info] = 1'
+                    return new_branching_logic
+
+
+                
+                
+
+
+
+
+        
+
 
     def edit_scid_bl(
         self, variable : str, orig_bl : str
