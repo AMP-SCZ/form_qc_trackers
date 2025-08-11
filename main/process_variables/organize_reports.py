@@ -66,8 +66,11 @@ class OrganizeReports():
         ['notes','descriptive'])) | (filtered_df[
         'Variable / Field Name'].isin(self.define_additional_blank_check_vars()))]
 
-        main_report_df = main_report_df[
+        main_reports = {'PRONET':[],'PRESCIENT':[]}
+        main_reports['PRONET'] = main_report_df[
         ~main_report_df['Form Name'].isin(self.self_report_forms)]
+
+        main_reports['PRESCIENT'] = main_report_df
 
         secondary_report_df = filtered_df[(
         filtered_df['Field Type'].isin(
@@ -77,7 +80,7 @@ class OrganizeReports():
         blank_check_vars = {"PRONET" : {}, "PRESCIENT" : {}}
         for network in blank_check_vars.keys():
             blank_check_vars[network] = {
-            'Main Report':main_report_df.groupby(
+            'Main Report':main_reports[network].groupby(
             'Form Name')['Variable / Field Name'].apply(list).to_dict(),
 
             'Secondary Report':secondary_report_df.groupby(
