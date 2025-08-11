@@ -65,7 +65,6 @@ class GeneralChecks(FormCheck):
                         #    print(var)                            
                         if self.prescient_scid_filter(var, row) == True:
                             continue
-
                         self.check_if_blank(row, [form], [var],
                         {"reports" : report_list},[var])
 

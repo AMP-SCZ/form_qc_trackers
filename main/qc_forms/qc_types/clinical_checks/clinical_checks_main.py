@@ -78,7 +78,6 @@ class ClinicalChecksMain(FormCheck):
         self.call_twenty_one_day_check(row)
         self.call_tbi_checks(row)
         self.call_bprs_checks(row)
-        self.call_chrchs_checks(row)
         self.call_conversion_check(row)
         self.call_pharm_checks(row)
         self.call_premorbid_adjustment_checks(row)
@@ -191,12 +190,6 @@ class ClinicalChecksMain(FormCheck):
                 self.conversion_criteria_check(row, [form],
                 [var],{'reports': ['Conversion Report']})
 
-    def call_chrchs_checks(self, row):
-        changed_output = {'reports': ['Main Report']}
-        form = 'bprs'
-        vars = ['chrchs_weightkg']
-        self.chrchs_weight_check(row, [form],
-        vars, changed_output)
         
     def call_bprs_checks(self,row):
         changed_output = {'reports': ['Main Report']}
@@ -233,15 +226,6 @@ class ClinicalChecksMain(FormCheck):
                 f' {getattr(row, all_vars[0])}, but'
                 f' {all_vars[1]} is {getattr(row,all_vars[1])}')
             
-    @FormCheck.standard_qc_check_filter 
-    def chrchs_weight_check(self, row, filtered_forms,
-        all_vars, changed_output_vals, bl_filtered_vars=[],
-        filter_excl_vars=False
-    ):
-        weight = getattr(row, 'chrchs_weightkg')
-        if self.utils.can_be_float(weight) and float(weight) <0:
-            return f'chrchs_weightkg is {weight}'
-
     def call_global_function_checks(self,row):
         """
         Checks for contradictions in the

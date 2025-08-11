@@ -1,8 +1,7 @@
 import datetime
 import pandas as pd
-
-import os
 import sys
+import os
 import json
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 sys.path.insert(1, parent_dir)
@@ -128,8 +127,6 @@ class CognitionChecks(FormCheck):
                             error_message = (f"Check scaled conversion for {test_type} IQ score."
                             f" Recorded as {redcap_scaled}, but should potentially be"
                             f" {qc_scaled} (may be false flag due to age estimates)")
-                            print(error_message)
-                            print(row.subjectid)
                             error_output = self.create_row_output(
                             row, filtered_forms, [scores['raw'], scores['scaled']],
                             error_message, reports)

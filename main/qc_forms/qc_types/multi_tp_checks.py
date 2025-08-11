@@ -28,14 +28,12 @@ class MultiTPChecks(FormCheck):
         return self.final_output_list
 
     def call_checks(self, row):
-        print('RUNNING MULTI TP CHECK')
         self.check_blood_id_duplicates(row)
         figs_pps_ages = {'chrpps_mage_baseline':'chrfigs_mother_age_screening', 
         'chrpps_fage_baseline':'chrfigs_father_age_screening'}
         forms = ['family_interview_for_genetic_studies_figs',
         'psychosis_polyrisk_score']
         reports = {"reports" : ['Main Report']}
-
         for figs_var, pps_var in figs_pps_ages.items():
             self.figs_pps_age_check(curr_row = row, filtered_forms = forms, 
             all_vars = [figs_var, pps_var], changed_output_vals = reports,
@@ -51,7 +49,6 @@ class MultiTPChecks(FormCheck):
         or not self.utils.can_be_float(getattr(row,var)))
         for var in [pps_age_var,figs_age_var]):
             return 
-        
         if float(getattr(row,pps_age_var)) != float(getattr(row, figs_age_var)):
             return f"{pps_age_var} is equal to {getattr(row,pps_age_var)},"
             f" but {figs_age_var} is equal to {float(getattr(row, figs_age_var))}"

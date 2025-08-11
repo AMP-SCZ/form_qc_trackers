@@ -58,8 +58,9 @@ class MultiTPDataCollector():
         for network in ['PRESCIENT','PRONET']:
             multi_tp_df = pd.DataFrame()
             for tp in tp_list:
-                combined_df = pd.read_csv(
-                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
+                combined_df =pd.read_csv(
+                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
                 keep_default_na = False)
                 self.collect_earliest_date(combined_df)
                 self.collect_earliest_latest_dates(combined_df, tp, network)
@@ -189,15 +190,17 @@ class MultiTPDataCollector():
             current network (Pronet or Prescient) 
         """
         baseln_df = pd.read_csv(
-        f'{self.combined_csv_path}combined-{network}-baseline-day1to1.csv',
-        keep_default_na = False)
+                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'baseline_{network}-day1to1.csv'),
+                keep_default_na = False)
         preserved_cols = [col for col in baseln_df.columns if 'chrblood' in col]
         preserved_cols.append('subjectid')
         baseln_df = baseln_df[preserved_cols] 
 
         month2_df = pd.read_csv(
-        f'{self.combined_csv_path}combined-{network}-month2-day1to1.csv',
-        keep_default_na = False)
+                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'month_2_{network}-day1to1.csv'),
+                keep_default_na = False)
         preserved_cols = [col for col in preserved_cols if col in month2_df.columns]
         month2_df = month2_df[preserved_cols]
 

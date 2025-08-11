@@ -17,14 +17,16 @@ class RangeDefiner():
             'chrfigs_mother_age': {'min':10,'max':85,
             'form':'family_interview_for_genetic_studies_figs'},
             'chrfigs_father_age': {'min':10,'max':85,
-            'form':'family_interview_for_genetic_studies_figs'}},
+            'form':'family_interview_for_genetic_studies_figs'},
+            'chrchs_weightkg': {'min':0,'max':300,
+            'form':'current_health_status'}},
 
             "PRESCIENT": {'chrpps_mage': {'min':10,'max':85, 'form':'psychosis_polyrisk_score'},
             'chrpps_fage': {'min':10,'max':85, 'form':'psychosis_polyrisk_score'},
             'chrfigs_mother_age': {'min':10,'max':85,
             'form':'family_interview_for_genetic_studies_figs'},
-            'chrfigs_father_age': {'min':10,'max':85,
-            'form':'family_interview_for_genetic_studies_figs'}}
+            'chrchs_weightkg': {'min':0,'max':300,
+            'form':'current_health_status'}}
         }
         
         self.comparative_values_dict = {}

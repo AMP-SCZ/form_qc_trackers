@@ -93,7 +93,8 @@ class QCFormsMain():
                 final_output.extend(multi_tp_checks())
             """
             for tp in tp_list:
-                #if 'float' not in tp:
+                if 'base' not in tp:
+                    continue
                 print(tp)
                 print('---------')
                 combined_df = pd.read_csv(
