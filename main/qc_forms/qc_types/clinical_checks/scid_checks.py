@@ -25,7 +25,7 @@ class ScidChecks(FormCheck):
         return self.final_output_list
 
     def call_scid_checks(self, row):
-        changed_output = {'reports': ['Main Report', 'Scid Report']}
+        changed_output = {'reports': ['Main Report', 'Scid Report', 'Non Team Forms']}
         form = 'scid5_psychosis_mood_substance_abuse'
         self.call_scid_diagnosis_check(row)
         self.depressed_mood_check(row, [form], 
@@ -82,7 +82,7 @@ class ScidChecks(FormCheck):
     ):
         form = 'scid5_psychosis_mood_substance_abuse'
         affected_vars = conditional_variables
-        changed_output = {'reports': ['Main Report','Scid Report']}
+        changed_output = {'reports': ['Main Report','Scid Report', 'Non Team Forms']}
         affected_vars.append(variable)
         if fulfilled == True:
             for condition in conditional_variables:

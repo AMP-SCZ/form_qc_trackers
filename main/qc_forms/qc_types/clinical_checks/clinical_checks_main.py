@@ -86,7 +86,7 @@ class ClinicalChecksMain(FormCheck):
     
     def call_pps_checks(self,row):
         forms = ['psychosis_polyrisk_score']
-        reports = {'reports' : ['Main Report']}
+        reports = {'reports' : ['Main Report','Non Team Forms']}
         for dob_var, pps_age_var in {'chrpps_fdob':'chrpps_fage',
         'chrpps_mdob':'chrpps_mage'}.items():
             vars = ['chrpps_interview_date',pps_age_var]
@@ -102,7 +102,7 @@ class ClinicalChecksMain(FormCheck):
         for var in ['chrpps_fage','chrpps_mage',
         'chrfigs_mother_age','chrfigs_father_age']:
             forms = [self.grouped_vars['var_forms'][var]]
-            reports = {'reports' : ['Main Report']}
+            reports = {'reports' : ['Main Report','Non Team Forms']}
             self.age_comparison(row, forms, [var],reports, 
             bl_filtered_vars = [], filter_excl_vars = True,
             compared_age_var = var, diff_min = 10, diff_max = 85)
@@ -115,7 +115,7 @@ class ClinicalChecksMain(FormCheck):
         'chrscid_e176_314','chrscid_e180_318','chrscid_e184_322',
         'chrscid_e188_326','chrscid_e192_330']:
             forms = [self.grouped_vars['var_forms'][var]]
-            reports = {'reports' : ['Main Report']}
+            reports = {'reports' : ['Main Report','Non Team Forms']}
             self.age_comparison(row, forms, [var], reports, 
             bl_filtered_vars = [], filter_excl_vars = True,
             compared_age_var = var, diff_min = 0, diff_max = 0)
@@ -123,7 +123,7 @@ class ClinicalChecksMain(FormCheck):
     def call_premorbid_adjustment_checks(self, row):
         forms = ['premorbid_adjustment_scale']
 
-        reports = {'reports' : ['Main Report']}
+        reports = {'reports' : ['Main Report','Non Team Forms']}
 
         self.pas_marriage_check(row, forms, ['chrpas_pmod_adult3v3',
         'chrpas_pmod_adult3v1'], reports)
@@ -134,7 +134,7 @@ class ClinicalChecksMain(FormCheck):
 
         past_form = ['past_pharmaceutical_treatment']
 
-        reports = {'reports' : ['Main Report']}
+        reports = {'reports' : ['Main Report','Non Team Forms']}
 
         self.med_name_missing_check(row, past = False, forms = curr_forms)
         self.med_name_missing_check(row, past = True, forms = past_form)
@@ -728,7 +728,7 @@ class ClinicalChecksMain(FormCheck):
                     error_message = (f"Onset Date ({onset_date}) is after Offset Date ({offset_date})")
                     error_output = self.create_row_output(
                     row, forms, [onset_var, offset_var] ,
-                    error_message, {'reports' : ['Main Report']})
+                    error_message, {'reports' : ['Main Report', 'Non Team Forms']})
                     self.final_output_list.append(error_output)
 
     def det_med_name_improper_value(self, row, past = False, forms = []):
@@ -746,7 +746,7 @@ class ClinicalChecksMain(FormCheck):
                 error_message = (f"{var} is equal to {getattr(row,var)}")
                 error_output = self.create_row_output(
                 row, forms, [var],
-                error_message, {'reports' : ['Main Report']}
+                error_message, {'reports' : ['Main Report','Non Team Forms']}
                 )
                 self.final_output_list.append(error_output)
 
@@ -789,7 +789,7 @@ class ClinicalChecksMain(FormCheck):
             f" however, based on other fields ({compared_var}) 777 seems appropriate. Please check")
             error_output = self.create_row_output(
             row, forms, name_vars_888 + compared_vars ,
-            error_message, {'reports' : ['Main Report']}
+            error_message, {'reports' : ['Main Report' ,'Non Team Forms']}
             )
             self.final_output_list.append(error_output)
 
