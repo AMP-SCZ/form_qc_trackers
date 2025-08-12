@@ -189,7 +189,6 @@ class ClinicalChecksMain(FormCheck):
             if self.utils.can_be_float(var_val) and float(var_val) == threshold:
                 self.conversion_criteria_check(row, [form],
                 [var],{'reports': ['Conversion Report']})
-
         
     def call_bprs_checks(self,row):
         changed_output = {'reports': ['Main Report']}

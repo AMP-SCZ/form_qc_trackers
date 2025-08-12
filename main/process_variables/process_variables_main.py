@@ -45,9 +45,6 @@ class ProcessVariables():
         data_dict_df = self.utils.read_data_dictionary()
         grouped_variables = CollectMiscVariables(data_dict_df)
         
-        range_definer = RangeDefiner()
-        self.utils.save_dependency_json(range_definer(), 'variable_ranges.json')
-
         grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
         important_form_vars = DefineEssentialFormVars(data_dict_df)
@@ -55,6 +52,7 @@ class ProcessVariables():
         self.identifier_effects.run_script()
         self.utils.save_dependency_json(important_form_vars(),
         'important_form_vars.json')
+        
         transform_bl = TransformBranchingLogic(data_dict_df)
         converted_branching_logic = transform_bl()
         self.utils.save_dictionary_as_csv(converted_branching_logic,
@@ -81,6 +79,11 @@ class ProcessVariables():
         self.multi_tp_data = MultiTPDataCollector()
         
         self.duplicate_finder = DuplicateFinder()
+
+        range_definer = RangeDefiner()
+        self.utils.save_dependency_json(range_definer(), 'variable_ranges.json')
+        
+
 
 
 

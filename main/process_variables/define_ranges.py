@@ -28,10 +28,17 @@ class RangeDefiner():
             'chrchs_weightkg': {'min':0,'max':300,
             'form':'current_health_status'}}
         }
-        
+
+        self.grouped_vars = self.load_dependency_json(
+        'grouped_variables.json')
+
+        pharm_vars = self.grouped_vars['pharm_vars']
+
+        compl_pharm_vars = pharm_vars['compliance_vars']
+
         self.comparative_values_dict = {}
         self.collect_ranges()
-
+        
     def __call__(self):
         return self.ranges_dict
 

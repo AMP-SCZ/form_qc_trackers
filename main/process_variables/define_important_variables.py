@@ -389,7 +389,8 @@ class CollectMiscVariables():
         'name_vars':[],
         'firstdose_vars':[],
         'med_status_vars':[],
-        'timepoint_vars' : []
+        'timepoint_vars' : [],
+        'compliance_vars':[]
         }
         
         pattern = r"chrpharm_med\d*_mo\d*"
@@ -402,6 +403,9 @@ class CollectMiscVariables():
                 pharm_vars_categorized['firstdose_vars'].append(row.var)
             if 'chrpharm_med' in row.var and '_tp' in row.var:
                 pharm_vars_categorized['timepoint_vars'].append(row.var)
+            if 'chrpharm_med' in row.var and 'comp' in row.var:
+                pharm_vars_categorized['compliance_vars'].append(row.var)
+
 
         return pharm_vars_categorized
 

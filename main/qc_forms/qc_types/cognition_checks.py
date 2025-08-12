@@ -23,7 +23,7 @@ class CognitionChecks(FormCheck):
         
     def call_checks(self, row):
         pass
-        self.call_cognition_checks(row)
+        #self.call_cognition_checks(row)
 
     def __call__(self):
         return self.final_output_list
