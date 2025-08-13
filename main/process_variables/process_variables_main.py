@@ -43,7 +43,7 @@ class ProcessVariables():
 
     def run_script(self):
         data_dict_df = self.utils.read_data_dictionary()
-        grouped_variables = CollectMiscVariables(data_dict_df)
+        """grouped_variables = CollectMiscVariables(data_dict_df)
         
         grouped_variables = CollectMiscVariables(data_dict_df)
         self.utils.save_dependency_json(grouped_variables(), 'grouped_variables.json')
@@ -76,7 +76,7 @@ class ProcessVariables():
 
         # must be called last as it uses dependencies 
         # from preceding classes
-        self.multi_tp_data = MultiTPDataCollector()
+        self.multi_tp_data = MultiTPDataCollector()"""
         
         self.duplicate_finder = DuplicateFinder()
 

@@ -55,6 +55,9 @@ class GeneralChecks(FormCheck):
             blank_check_forms = self.general_check_vars["blank_check_vars"][
             self.network][report]
             for form in blank_check_forms:
+                if (form in self.general_check_vars["excluded_forms"][
+                self.network]):
+                    continue
                 report_list = [report]
                 for team, forms in self.forms_per_report.items():
                     if form in forms:

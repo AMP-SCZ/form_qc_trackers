@@ -29,12 +29,16 @@ class RangeDefiner():
             'form':'current_health_status'}}
         }
 
-        self.grouped_vars = self.load_dependency_json(
+        self.grouped_vars = self.utils.load_dependency_json(
         'grouped_variables.json')
 
         pharm_vars = self.grouped_vars['pharm_vars']
 
         compl_pharm_vars = pharm_vars['compliance_vars']
+
+        for var in compl_pharm_vars:
+            for network in ['PRONET','PRESCIENT']:
+                self.ranges_dict[network][var] = {'min':0,'max':100,'form':'pharm'}
 
         self.comparative_values_dict = {}
         self.collect_ranges()

@@ -93,9 +93,8 @@ class QCFormsMain():
                 final_output.extend(multi_tp_checks())
             """
             for tp in tp_list:
-                if 'base' not in tp:
-                    continue
                 print(tp)
+                print(tp_list)
                 print('---------')
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
@@ -130,7 +129,7 @@ class QCFormsMain():
                 if len(final_output) > 0:
                     print(len(final_output))
                     combined_output_df = pd.DataFrame(final_output)
-                    if combined_output_df.shape[0] > 1000000:
+                    if combined_output_df.shape[0] > 3000000:
                         print(f"output rows is {combined_output_df.shape[0]}")
                         sys.exit()
                     combined_flags_path = f'{self.output_path}combined_outputs'
@@ -138,7 +137,7 @@ class QCFormsMain():
                     new_out_path =f'{combined_flags_path}/new_output/'
                     os.makedirs(new_out_path,exist_ok=True)
                     try:
-                        combined_output_df.to_csv(f'{new_out_path}combined_qc_flags.csv', index=False)
+                        combined_output_df.to_csv(f'{new_out_path}combined_qc_flags.csv', index=False,compression="zstd")
                     except Exception as e:
                         print(e)
                         traceback.print_exc()
