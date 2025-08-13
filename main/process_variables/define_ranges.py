@@ -18,6 +18,8 @@ class RangeDefiner():
             'form':'family_interview_for_genetic_studies_figs'},
             'chrfigs_father_age': {'min':10,'max':85,
             'form':'family_interview_for_genetic_studies_figs'},
+            'chrpreiq_standard_score': {'min':70,'max':130, 'form':'premorbid_iq_reading_accuracy'},
+            'chriq_fsiq': {'min':70,'max':130, 'form':'iq_assessment_wasiii_wiscv_waisiv'},
         }
         
         self.comparative_values_dict = {}

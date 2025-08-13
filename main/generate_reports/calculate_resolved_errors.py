@@ -44,15 +44,18 @@ class CalculateResolvedErrors():
             self.config_info = json.load(file)
 
         self.output_path = self.config_info['paths']['output_path']
+        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+        if self.config_info["testing_enabled"] == "True":
+            self.output_path += 'testing/'
+            self.dropbox_path += 'testing/'
 
         self.old_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/old_output/combined_qc_flags.csv'
         self.new_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/new_output/combined_qc_flags.csv'
         self.out_paths = {}
         for path_pref in ['old','new','current']:
             self.out_paths[path_pref] = f"{self.output_path}combined_outputs/{path_pref}_output/combined_qc_flags.csv"
+            
         self.new_output = []
-        
-    
         self.old_output_csv_path = f'{self.output_path}combined_outputs/old_output/combined_qc_flags.csv'
         self.new_output_csv_path = f'{self.output_path}combined_outputs/new_output/combined_qc_flags.csv'
         self.dropbox_data_folder = f'{self.output_path}formatted_outputs/dropbox_files/'
@@ -60,9 +63,7 @@ class CalculateResolvedErrors():
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
-
     def run_script(self):
-    
         # determine which errors no longer exist in the new output
         self.determine_resolved_rows() 
         # read specified columns from dropbox to new output
@@ -77,18 +78,18 @@ class CalculateResolvedErrors():
         # when comparing to the new df, make sure those columns from the old df are preserved in all conditions
 
         dbx = self.utils.collect_dropbox_credentials()
-
-        dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests'
-        for network in dbx.files_list_folder(dropbox_path).entries:
+        for network in dbx.files_list_folder(self.dropbox_path).entries:
             if network.name in ['PRONET','PRESCIENT']:
                 print(network.name)
-                print(dropbox_path + f'/{network.name}')
-                network_dir = dropbox_path + f'/{network.name}'
+                print(self.dropbox_path + f'{network.name}')
+                network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_combined_Output.xlsx'
+                all_reports = self.utils.collect_new_reports(pd.read_csv(self.out_paths['current'],
+                keep_default_na = False))
                 self.read_dropbox_data(self.formatted_column_names[network.name]["combined"],
-                ['manually_resolved','comments'], combined_output, dbx, network.name, ['Main Report'])
-                """for site_abr in self.utils.all_sites[network.name]:
+                ['manually_resolved','comments'], combined_output, dbx, network.name, all_reports)
+                for site_abr in self.utils.all_sites[network.name]:
                     site = self.utils.site_full_name_translations[site_abr]
                     site_output = network_dir + f'/{site}/{network.name}_{site_abr}_Output.xlsx'
                     site_cols = self.formatted_column_names[network.name]["sites"]
@@ -100,7 +101,7 @@ class CalculateResolvedErrors():
                             self.read_dropbox_data(site_cols, ['site_comments'], ra_output, dbx, network.name, reports_to_read)
                     else:
                         reports_to_read = ['Main Report']
-                        self.read_dropbox_data(site_cols,['site_comments'], site_output, dbx, network.name, reports_to_read)"""
+                        self.read_dropbox_data(site_cols,['site_comments'], site_output, dbx, network.name, reports_to_read)
         return 
         
     def check_dbx_file_exists(self,dbx, dropbox_path):
@@ -110,13 +111,13 @@ class CalculateResolvedErrors():
             return True
         except Exception as e:
             return False
-
         
     def read_dropbox_data(self,
         col_names,columns_to_read,
         dropbox_path, dbx, network, reports_to_read,
         excl_report = True
-    ):
+    ):  
+        print(columns_to_read)
         reversed_col_translations = self.utils.reverse_dictionary(col_names)
         if self.check_dbx_file_exists(dbx, dropbox_path) == False:
             return
@@ -124,12 +125,12 @@ class CalculateResolvedErrors():
         data = res.content
         excel_data = pd.ExcelFile(BytesIO(data))
         sheet_names = excel_data.sheet_names
-        prev_output_df = pd.read_csv(self.out_paths['current'],keep_default_na = False)
+        prev_output_df = pd.read_csv(self.out_paths['current'],
+         keep_default_na = False)
         orig_columns = prev_output_df.columns
         for report in sheet_names:
             if report not in reports_to_read and excl_report == True:
                 continue
-            
             report_df = pd.read_excel(BytesIO(data),\
                 sheet_name=report, keep_default_na = False)
             
@@ -141,14 +142,14 @@ class CalculateResolvedErrors():
             subjects_to_merge = report_df['subject'].tolist()
 
             report_df = report_df.explode('error_message').reset_index(drop=True)
-            #report_df['current_report'] = report
-            #prev_output_df['current_report'] = np.where(
-            #prev_output_df['reports'].str.contains(report, case=False), report, '')
+            report_df['current_report'] = report
+            prev_output_df['current_report'] = np.where(
+            prev_output_df['reports'].str.contains(report, case=False), report, '')
 
-            prev_output_df = pd.merge(prev_output_df,report_df, on=[
+            prev_output_df = pd.merge(prev_output_df, report_df, on=[
             'displayed_form','displayed_timepoint',
             'subject','error_message'],
-            how = 'left',suffixes=('', '_dbx'))
+            how = 'left', suffixes=('', '_dbx'))
             prev_output_df = prev_output_df.fillna('')
             
             for col_to_read in columns_to_read:
@@ -159,14 +160,13 @@ class CalculateResolvedErrors():
             prev_output_df = prev_output_df[orig_columns]  
         prev_output_df.to_csv(self.out_paths['current'], index = False)
 
-
     def determine_resolved_rows(self):
         new_df = pd.read_csv(self.out_paths['new'], keep_default_na = False)
         #new_df = new_df[new_df['currently_resolved'] == False]
         #new_df = new_df.drop('NDA Excluder', axis=1)
         #old_df = old_df.drop('NDA Excluder', axis=1)
         if os.path.exists(self.out_paths['current']):
-            curr_df = pd.read_csv(self.out_paths['current'])
+            curr_df = pd.read_csv(self.out_paths['current'],keep_default_na = False)
             curr_df.to_csv(self.out_paths['old'],index = False)
 
         if os.path.exists(self.out_paths['old']):
@@ -183,8 +183,10 @@ class CalculateResolvedErrors():
             merged_df = merged.fillna('')
             new_df = self.compare_old_new_outputs(orig_columns,cols_to_merge, merged_df)
 
-        new_df.to_csv(self.out_paths['current'], index = False)
+        output_dir = os.path.dirname(self.out_paths['current'])
+        os.makedirs(output_dir, exist_ok=True)
 
+        new_df.to_csv(self.out_paths['current'], index = False)
 
     def compare_old_new_outputs(self, orig_columns, cols_to_merge, merged_df):
         curr_date = str(datetime.today().date())
@@ -203,6 +205,8 @@ class CalculateResolvedErrors():
             elif row.network_old != '':
                 # if exists in old and not new
                 if row.network_new == '':
+                    if self.config_info["remove_flags"] == "True":
+                        continue
                     if row.currently_resolved_old == True:
                         # if it is still resolved, add all columns from old
                         curr_row_output = self.append_all_cols(row, curr_row_output,

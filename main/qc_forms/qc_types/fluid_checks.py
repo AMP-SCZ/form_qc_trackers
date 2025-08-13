@@ -11,6 +11,10 @@ from qc_forms.form_check import FormCheck
 from datetime import datetime
 
 class FluidChecks(FormCheck):
+    """
+    QC Checks related to 
+    fluid biomarker forms
+    """
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0

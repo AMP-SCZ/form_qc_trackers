@@ -196,16 +196,20 @@ class OrganizeReports():
         'chrscid_entry_date','chrscid_opioids_yn']
 
         pronet_excl_strings.extend(self.find_new_added_vars())
+        gcp_df = self.data_dict_df[self.data_dict_df['Form Name'].str.contains('gcp')]
+        gcp_vars = gcp_df['Variable / Field Name'].tolist()
+        
 
         excluded_strings =  {'PRONET':pronet_excl_strings,
         
-        'PRESCIENT':(pronet_excl_strings + ['chrdemo_racial','chrsaliva_food',
+        'PRESCIENT':(pronet_excl_strings + gcp_vars + ['chrdemo_racial','chrsaliva_food',
         'chrscid_overview_version','chrblood_freezerid',
         'chrdbb_phone_model','chrdbb_phone_software',
         'wb3id','se3id','se2id','wb2id','chrblood_rack_barcode','chrscid_inhalant_yn',
         'chrscid_opioids_yn','chrscid_phencyclidine_yn',
         'chrscid_othersub_yn','chrscid_sedhypanx_yn',
-        'chrscid_stimulant_yn','chrscid_hallucinogen_yn','chrscid_cannabis_yn'
+        'chrscid_stimulant_yn','chrscid_hallucinogen_yn','chrscid_cannabis_yn',
+        'chrscid_a111','chrscid_a112','chrscid_a119','chrscid_a120','chrpps_ausgrade'
         ])}
 
         for x in range(1,16):
@@ -270,8 +274,8 @@ class OrganizeReports():
         'digital_biomarkers_mindlamp_checkin','digital_biomarkers_axivity_checkin',
         'digital_biomarkers_axivity_end_of_12month_study_pe',
         'digital_biomarkers_mindlamp_end_of_12month_study_p'],
-        'Fluids Report':['gcp_cbc_with_differential','gcp_current_health_status',
-        'daily_activity_and_saliva_sample_collection','blood_sample_preanalytic_quality_assurance',
+        'Fluids Report':['daily_activity_and_saliva_sample_collection',
+        'blood_sample_preanalytic_quality_assurance',
         'cbc_with_differential', 'current_health_status']}
 
         non_team_forms = []
@@ -288,6 +292,7 @@ class OrganizeReports():
                     non_team_forms.append(form)
 
         # all forms not yet defined in the above dictionary
+        non_team_forms.append('scid5_psychosis_mood_substance_abuse')
         team_reports['Non Team Forms'] = non_team_forms 
 
         return team_reports

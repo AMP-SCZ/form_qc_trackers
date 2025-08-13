@@ -5,6 +5,7 @@ import os
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-1])
 sys.path.insert(1, parent_dir)
 from main.utils.utils import Utils
+from datetime import date 
 
 utils = Utils()
 absolute_path = utils.absolute_path
@@ -16,7 +17,7 @@ logger = logging.getLogger('unit_test_logger')
 logger.setLevel(logging.DEBUG)
 
 file_handler = logging.FileHandler(
-f'{config_info["paths"]["error_log_path"]}test_errors.log')
+f'{config_info["paths"]["error_log_path"]}error_log_{date.today()}.log')
 file_handler.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')

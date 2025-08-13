@@ -56,7 +56,6 @@ class GenerateReports():
         self.formatted_column_names['PRONET']['sites'] = self.formatted_column_names['PRONET']['combined']
         self.formatted_column_names['PRESCIENT']['sites'] = self.formatted_column_names['PRESCIENT']['combined']
 
-
         if not os.path.exists(col_names_json):
             self.utils.save_dependency_json(self.formatted_column_names, col_names_json)
 

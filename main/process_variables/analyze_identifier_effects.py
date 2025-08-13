@@ -43,7 +43,9 @@ class AnalyzeIdentifiers():
     
         return False
 
-    def collect_calcs_with_identifiers(self, col_to_check):
+    def collect_calcs_with_identifiers(self,
+        col_to_check : str
+    ):
         affected_fields = []
         df = self.data_dict_df
         df = df.rename(

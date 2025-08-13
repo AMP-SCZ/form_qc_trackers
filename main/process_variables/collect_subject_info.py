@@ -28,12 +28,15 @@ class CollectSubjectInfo():
         self.var_translations = {
             'chrcrit_included': {1:'included',0: 'excluded'},
             'chrcrit_part' : {1: 'CHR', 2: 'HC'},
-            'chrdemo_sexassigned' : {1 : 'Male', 2 : 'Female'}
-        }
+            'chrdemo_sexassigned' : {1 : 'Male', 2 : 'Female'},
+            'chr_statusform_screenfail' : {1 : 'true', 0 : 'false'},
+            'chr_subject_eos' : {1 : 'true', 0 : 'false'}
+        } 
 
     def __call__(self):
         self.collect_screening_info()
         self.collect_baseline_info()
+        self.collect_floating_info()
 
         return self.subject_info
 
@@ -45,7 +48,8 @@ class CollectSubjectInfo():
         return 'unknown'
     
     def collect_age(self,row):
-        for age_var in ['chrdemo_age_mos_chr','chrdemo_age_mos_hc', 'chrdemo_age_mos2']:
+        for age_var in ['chrdemo_age_mos_chr',
+        'chrdemo_age_mos_hc', 'chrdemo_age_mos2']:
             if not hasattr(row,age_var):
                 continue
             age_val = getattr(row,age_var)
@@ -64,11 +68,10 @@ class CollectSubjectInfo():
             combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
             col_list = ['subjectid','visit_status_string',
-            'chrcrit_part', 'chrcrit_included']
-            col_list = [col for col in col_list if col in combined_df.columns]
-            combined_df = combined_df[['subjectid','visit_status_string',
             'chrcrit_part', 'chrcrit_included','chrpsychs_scr_interview_date',
-            'chric_actigraphy','chric_passive']]
+            'chric_actigraphy','chric_passive']
+            col_list = [col for col in col_list if col in combined_df.columns]
+            combined_df = combined_df[col_list]
             for row in combined_df.itertuples():
                 sub = row.subjectid
                 self.subject_info.setdefault(sub, {})
@@ -93,7 +96,8 @@ class CollectSubjectInfo():
             combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
             col_list = ['subjectid','chrdemo_age_mos_chr',
-            'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 'chrdemo_sexassigned']
+            'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 'chrdemo_sexassigned',
+            'chrdemo_interview_date']
             col_list = [col for col in col_list if col in combined_df.columns]
             combined_df = combined_df[col_list]
             for row in combined_df.itertuples():
@@ -104,5 +108,28 @@ class CollectSubjectInfo():
                 self.var_translations['chrdemo_sexassigned'], row.chrdemo_sexassigned)
                 self.subject_info[sub][
                 'age'] = self.collect_age(row)
+                self.subject_info[sub][
+                'demographics_date'] = row.chrdemo_interview_date
+
+    def collect_floating_info(self):
+        tp = 'floating'
+        for network in ['PRONET']: # add prescient if extend beyond statusform
+            combined_df = pd.read_csv(
+                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
+            col_list = ['subjectid','chr_statusform_screenfail','chr_subject_eos']
+            col_list = [col for col in col_list if col in combined_df.columns]
+            combined_df = combined_df[col_list]
+            for row in combined_df.itertuples():
+                sub = row.subjectid
+                self.subject_info.setdefault(sub, {})
+                self.subject_info[sub][
+                'screenfail'] = self.translate_var_vals(
+                self.var_translations['chr_statusform_screenfail'], 
+                row.chr_statusform_screenfail)
+
+                self.subject_info[sub][
+                'completed_study'] = self.translate_var_vals(
+                self.var_translations['chr_subject_eos'], 
+                row.chr_subject_eos)
 
     

@@ -14,6 +14,7 @@ import random
 from main.process_variables.process_variables_main import ProcessVariables
 from main.qc_forms.qc_forms_main import QCFormsMain
 from main.generate_reports.generate_reports_main import GenerateReports
+from visualize_data.visualize_data_changes import VisualizeDataInflux
 
 """
 QC ORDER
@@ -33,12 +34,14 @@ include the main report (for melbourne, non team form report)
 # started at 7:44
 class RunQC():        
     def run_script(self):
+        self.visualize_data_influx = VisualizeDataInflux()
         #self.process_vars = ProcessVariables()
         #self.process_vars.run_script()
-        self.qc_forms = QCFormsMain()
-        self.qc_forms.run_script()
-        self.generate_reports = GenerateReports()
-        self.generate_reports.run_script()
+        #self.qc_forms = QCFormsMain()
+        #self.qc_forms.run_script()
+        #self.generate_reports = GenerateReports()
+        #self.generate_reports.run_script()
+        self.visualize_data_influx.run_script()
 
 if __name__ == '__main__':
     RunQC().run_script()

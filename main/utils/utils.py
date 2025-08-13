@@ -49,7 +49,6 @@ class Utils():
         self.vars_added_later = self.load_dependency_json(
         'variables_added_later.json')
 
-
     def create_timepoint_list(self):
         """
         Organizes every timepoint
@@ -340,7 +339,33 @@ class Utils():
         days_between = date_difference.days
 
         return abs(days_between)
-    
+
+    def collect_new_reports(self, df : pd.DataFrame):
+        """
+        Generates list of all unique reports
+        from output dataframe 
+
+        Parameters 
+        -------------
+        df : pd.DataFrame
+            output dataframe
+
+        Returns
+        ------------
+        all_reports : list
+            list of all unique reports 
+        """
+        all_reports = []
+        for row in df.itertuples():
+            if row.reports == '':
+                continue
+            reports = (row.reports).split(' | ')
+            for report in reports:
+                if report not in all_reports:
+                    all_reports.append(report)
+                    
+        return all_reports
+
     def check_if_val_date_format(self, string, date_format="%Y-%m-%d"):
         try:
             datetime.strptime(string, date_format)
@@ -391,7 +416,7 @@ class Utils():
         return recent_date_var
     
     def time_to_next_visit(
-        self, curr_tp : str
+        self, curr_tp : str, cohort :str,
     ) -> int:
         """
         Calculates the number of days that there
@@ -407,6 +432,9 @@ class Utils():
         else:
             curr_tp_ind = timepoints.index(curr_tp)
             next_tp = timepoints[curr_tp_ind + 1]
+            if cohort.lower() == 'hc' and curr_tp == 'month2':
+                next_tp = 'month12'
+                
             months_btwn = int(next_tp.replace('month',''))-int(curr_tp.replace('month',''))
             days_btwn = months_btwn * 30
         
@@ -458,7 +486,7 @@ class Utils():
         date_var : str
             date variable being checked
         """
-        date_added = self.vars_added_later[form]
+        date_added = self.vars_added_later[form][date_var]
         if hasattr(curr_row, date_var):
             date_val = getattr(curr_row, date_var)
             date_val = str(date_val)
@@ -502,7 +530,7 @@ class Utils():
         non_bl_vars_filled_out = 0        
         if missing_var != "" and not (form in self.vars_added_later.keys()
         and missing_var in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):                
+        self.check_if_after_date(curr_row, form, missing_var) == False):                
             if not hasattr(curr_row, missing_var):
                 return False
             # prescient missingness can also be indicated by the completion var
@@ -516,7 +544,7 @@ class Utils():
         
         elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
         in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):
+        self.check_if_after_date(curr_row, form, missing_var) == False):
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
@@ -548,7 +576,7 @@ class Utils():
             the sprecified category
         """
 
-        variable_type_distributions = self.utils.load_dependency_json(
+        variable_type_distributions = self.load_dependency_json(
         'variable_type_distributions.json')
         all_type_vars = []
         for var, distributions in variable_type_distributions.items():

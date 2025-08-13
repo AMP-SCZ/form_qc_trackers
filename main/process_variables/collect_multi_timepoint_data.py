@@ -34,18 +34,27 @@ class MultiTPDataCollector():
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         self.multitp_output = pd.DataFrame()
         self.variable_type_distributions = {}
-
-        self.multi_tp_vars = [
-        'chrpps_fage','chrfigs_father_age',
-        'chrpps_mage','chrfigs_mother_age',
-        'chrblood_wb1id','chrblood_wb2id',
-        'chrblood_se3id'
-        ]
+        self.multi_tp_vars = self.organize_multi_tp_vars()
 
         self.loop_csvs()
 
     def __call__(self):
         self.loop_csvs()
+
+    def organize_multi_tp_vars(self):
+        """
+        Creates list of variables 
+        that will be used in the multi timepoint
+        checks 
+        """
+        multi_tp_vars = ['chrpps_fage','chrfigs_father_age',
+        'chrpps_mage','chrfigs_mother_age']
+        for var_categ in ['position_variables','id_variables',
+        'volume_variables','barcode_variables']:
+            add_vars = self.grouped_vars['blood_vars'][var_categ]
+            multi_tp_vars.extend(self.grouped_vars['blood_vars'][var_categ])
+        
+        return multi_tp_vars
 
     def loop_csvs(self):
         """
@@ -60,8 +69,8 @@ class MultiTPDataCollector():
                 combined_df = pd.read_csv(
                 f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv',
                 keep_default_na = False)
-                self.collect_earliest_date(combined_df)
-                self.collect_earliest_latest_dates(combined_df, tp, network)
+                self.collect_earliest_date_var_used(combined_df)
+                self.collect_tp_ranges(combined_df, tp, network)
                 self.collect_variable_type_distributions(combined_df)
                 modified_df = self.utils.append_suffix_to_cols(combined_df,
                 tp, self.multi_tp_vars)
@@ -71,7 +80,7 @@ class MultiTPDataCollector():
                     multi_tp_df = multi_tp_df.merge(modified_df,
                     on = 'subjectid', how = 'outer')
                 self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
-                'earliest_latest_dates_per_tp.json')
+                'timepoint_date_ranges.json')
                 self.utils.save_dependency_json(self.variable_type_distributions,
                 'variable_type_distributions.json')
 
@@ -79,7 +88,7 @@ class MultiTPDataCollector():
             f'{self.depend_path}multi_tp_{network}_combined.csv',
             index = False)
 
-    def collect_earliest_latest_dates(self,
+    def collect_tp_ranges(self,
         combined_df : pd.DataFrame, tp: str,
         network : str
     ):
@@ -125,7 +134,7 @@ class MultiTPDataCollector():
                             if int_date_datetime > datetime.strptime(curr_late, "%Y-%m-%d"):
                                 self.earliest_latest_dates_per_tp[subject][tp]['latest'] = int_date_str
 
-    def collect_earliest_date(self, 
+    def collect_earliest_date_var_used(self, 
         combined_df : pd.DataFrame
     ):
         """

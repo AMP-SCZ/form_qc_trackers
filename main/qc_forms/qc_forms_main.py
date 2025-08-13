@@ -11,6 +11,8 @@ from qc_forms.qc_types.fluid_checks import FluidChecks
 from qc_forms.qc_types.clinical_checks.clinical_checks_main import ClinicalChecksMain
 from qc_forms.qc_types.SOP_checks import SOPChecks
 from qc_forms.qc_types.multi_tp_checks import MultiTPChecks
+from qc_forms.qc_types.cognition_checks import CognitionChecks
+from logging_config import logger
 
 class QCFormsMain():
     def __init__(self):
@@ -27,11 +29,10 @@ class QCFormsMain():
         if self.config_info['testing_enabled'] == "True":
             self.output_path += "testing/"
 
-        self.final_output_list = []
-
         self.combined_flags_path = f'{self.output_path}combined_outputs/'
 
         self.form_check_info = {}
+        self.cognition_csvs = {}
 
         for filename in ['subject_info','general_check_vars',
         'important_form_vars','forms_per_timepoint',
@@ -40,7 +41,13 @@ class QCFormsMain():
         'raw_csv_conversions', 'variable_ranges','earliest_latest_dates_per_tp']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
-        self.auxiliary_files_new_tabs = ['']
+        for filename in ['fsiq_conversion_wais','fsiq_conversion_wasi',
+        'iq_raw_conversion_wais','iq_raw_conversion_wasi']:
+            self.cognition_csvs[filename] = pd.read_csv(f'{self.depen_path}cognition/{filename}.csv', 
+            keep_default_na = False)
+
+        self.scid_subs = []
+        self.scid_subs_df = []
 
     def run_script(self):
         self.move_previous_output()
@@ -65,7 +72,9 @@ class QCFormsMain():
         # if a form in compl and no
         # t missing and ones 
         # that will be checked regardless
-        test_output=[]
+        main_output = []
+        withdrawn_status_list = []
+
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRONET','PRESCIENT']:
@@ -76,7 +85,7 @@ class QCFormsMain():
                 multi_tp_checks = MultiTPChecks(row,
                 'multiple_timepoints', network, 
                 self.form_check_info)
-                test_output.extend(multi_tp_checks())
+                main_output.extend(multi_tp_checks())
             for tp in tp_list:
                 print(tp)
                 print('-------')
@@ -102,13 +111,17 @@ class QCFormsMain():
                     tp, network, self.form_check_info)
                     sop_checks = SOPChecks(row,
                     tp, network, self.form_check_info)
-                    test_output.extend(gen_checks())
-                    test_output.extend(fluid_checks())
-                    test_output.extend(clinical_checks())
-                    test_output.extend(sop_checks())
-                combined_output_df = pd.DataFrame(test_output)
+                    cognition_checks = CognitionChecks(row,
+                    tp, network, self.form_check_info)
+                    main_output.extend(gen_checks())
+                    main_output.extend(fluid_checks())
+                    main_output.extend(clinical_checks())
+                    main_output.extend(sop_checks()[0])
+                    withdrawn_status_list.extend(sop_checks()[1])
+                    main_output.extend(cognition_checks())
+                combined_output_df = pd.DataFrame(main_output)
                 if combined_output_df.shape[0] > 2000000:
-                    print(f"output rows is {combined_output_df.shape[0]}")
+                    logger.error(f"output rows is {combined_output_df.shape[0]}")
                     break
                 combined_flags_path = f'{self.output_path}combined_outputs'
                 if not os.path.exists(combined_flags_path):
@@ -116,5 +129,8 @@ class QCFormsMain():
                 combined_output_df.to_csv(
                 f'{combined_flags_path}/new_output/combined_qc_flags.csv',
                 index = False)
+                withdrawn_df = pd.DataFrame(withdrawn_status_list)
+                withdrawn_df.to_csv(f'{self.utils.config_info["paths"]["output_path"]}withdrawn_status.csv',
+                index = False)
 
-        
+

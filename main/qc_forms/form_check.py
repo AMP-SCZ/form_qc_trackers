@@ -32,6 +32,7 @@ class FormCheck():
         self.raw_csv_converters = form_check_info['raw_csv_conversions']
         self.variable_ranges = form_check_info['variable_ranges']
         self.tp_date_ranges = form_check_info['earliest_latest_dates_per_tp']
+        #self.cog_df = form_check_info['cog_df']
         self.missing_code_list = self.utils.missing_code_list
         
         self.prescient_forms_no_compl_status = [
@@ -51,7 +52,7 @@ class FormCheck():
     @classmethod
     def standard_qc_check_filter(cls, func):
         def qc_check(instance, curr_row, filtered_forms,
-        all_vars,changed_output_vals={}, bl_filtered_vars=[],
+        all_vars, changed_output_vals={}, bl_filtered_vars=[],
         filter_excl_vars=True, *args, **kwargs
     ):
             cohort = instance.subject_info[curr_row.subjectid]['cohort']
@@ -194,7 +195,7 @@ class FormCheck():
         non_bl_vars_filled_out = 0        
         if missing_var != "" and not (form in self.vars_added_later.keys()
         and missing_var in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):                
+        self.check_if_after_date(curr_row, form, missing_var) == False):                
             if not hasattr(curr_row, missing_var):
                 return False
             # prescient missingness can also be indicated by the completion var
@@ -208,7 +209,7 @@ class FormCheck():
         
         elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
         in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):
+        self.check_if_after_date(curr_row, form, missing_var) == False):
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
