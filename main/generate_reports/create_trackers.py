@@ -59,13 +59,14 @@ class CreateTrackers():
                        "blue" : PatternFill(start_color='d8cffc', end_color='d8cffc', fill_type='gray125'),
                        "orange" : PatternFill(start_color='ebba83', end_color='ebba83', fill_type='gray125'),
                        "red" : PatternFill(start_color='de9590', end_color='de9590', fill_type='gray125'),
-                       "grey" : PatternFill(start_color='ededed', end_color='ededed', fill_type='gray125')}
+                       "grey" : PatternFill(start_color='ededed', end_color='ededed', fill_type='gray125'),
+                       "pink" : PatternFill(start_color='F0A1F0', end_color='F0A1F0', fill_type='gray125')}
         self.thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'),bottom=Side(style='thin'))
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
         self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
-        self.dropbox_path = f'/Apps/Automated QC Trackers/'
+        #self.dropbox_path = f'/Apps/Automated QC Trackers/'
         
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
@@ -170,7 +171,7 @@ class CreateTrackers():
             cell_color = self.colors['grey']
             # the order of this list determines which colors
             # override others
-            for color in [self.time_based_color(row,worksheet),
+            for color in [self.time_based_color(row,worksheet),self.color_priority_items(row,worksheet),
             self.determine_resolved_color(row,worksheet,'Date Resolved','green'),
             self.determine_resolved_color(row,worksheet,'Manually Resolved','blue')]:
                 if color != None:
@@ -202,6 +203,18 @@ class CreateTrackers():
                     else:
                         return self.colors['red']
         return None
+
+    def color_priority_items(self, excel_row, worksheet):
+        for cell in excel_row:
+            header_value = worksheet.cell(row=1, column=cell.column).value
+            cell_val = str(cell.value)   
+            if cell_val == 'None':
+                cell_val = ''
+            if header_value == 'Priority Item':
+                if cell_val == 'True':
+                    return self.colors['pink']
+        return None
+
     
     def determine_resolved_color(self, excel_row, worksheet, col_to_check, color_to_return):
         for cell in excel_row:

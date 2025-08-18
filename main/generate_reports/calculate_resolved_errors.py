@@ -63,7 +63,6 @@ class CalculateResolvedErrors():
 
 
     def run_script(self):
-    
         # determine which errors no longer exist in the new output
         self.determine_resolved_rows() 
         # read specified columns from dropbox to new output
@@ -86,7 +85,6 @@ class CalculateResolvedErrors():
                 combined_output = network_dir + f'/combined/{network.name}_combined_Output.xlsx'
                 self.read_dropbox_data(self.formatted_column_names[network.name]["combined"],
                 ['manually_resolved','comments'], combined_output, dbx, network.name, ['Main Report'])
-                """
                 for site_abr in self.utils.all_sites[network.name]:
                     site = self.utils.site_full_name_translations[site_abr]
                     site_output = network_dir + f'/{site}/{network.name}_{site_abr}_Output.xlsx'
@@ -99,7 +97,7 @@ class CalculateResolvedErrors():
                             self.read_dropbox_data(site_cols, ['site_comments'], ra_output, dbx, network.name, reports_to_read)
                     else:
                         reports_to_read = ['Main Report']
-                        self.read_dropbox_data(site_cols,['site_comments'], site_output, dbx, network.name, reports_to_read)"""
+                        self.read_dropbox_data(site_cols,['site_comments'], site_output, dbx, network.name, reports_to_read)
         return 
         
     def check_dbx_file_exists(self,dbx, dropbox_path):
@@ -169,20 +167,15 @@ class CalculateResolvedErrors():
 
         if os.path.exists(self.out_paths['old']):
             old_df = pd.read_csv(self.out_paths['old'], keep_default_na = False)
-
             orig_columns = list(new_df.columns)
-
             cols_to_merge = ['subject', 'displayed_form', 'displayed_timepoint',
             'displayed_variable','error_message']
-
             merged = old_df.merge(new_df,
             on = cols_to_merge, how='outer', suffixes = ('_old','_new'))
-
             merged_df = merged.fillna('')
             new_df = self.compare_old_new_outputs(orig_columns,cols_to_merge, merged_df)
 
         new_df.to_csv(self.out_paths['current'], index = False)
-
 
     def compare_old_new_outputs(self, orig_columns, cols_to_merge, merged_df):
         curr_date = str(datetime.today().date())

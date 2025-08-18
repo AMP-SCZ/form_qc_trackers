@@ -47,8 +47,8 @@ resource.setrlimit(resource.RLIMIT_FSIZE, (1500 * 1024 ** 2, hard))
 
 class RunQC():        
     def run_script(self):
-        #self.process_vars = ProcessVariables()
-        #self.process_vars.run_script()
+        self.process_vars = ProcessVariables()
+        self.process_vars.run_script()
         self.qc_forms = QCFormsMain()
         self.qc_forms.run_script()
         self.generate_reports = GenerateReports()
