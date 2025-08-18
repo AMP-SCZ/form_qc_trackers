@@ -20,13 +20,16 @@ import json
 from io import BytesIO
 import ast
 from openpyxl.formatting.formatting import ConditionalFormattingList
-
+import re
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 import time
 from functools import wraps
+import tempfile
+import shutil
+from io import BytesIO
 
 class CreateTrackers():
 
@@ -61,6 +64,8 @@ class CreateTrackers():
         top=Side(style='thin'),bottom=Side(style='thin'))
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
+        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+        self.dropbox_path = f'/Apps/Automated QC Trackers/'
         
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
@@ -79,7 +84,7 @@ class CreateTrackers():
                     self.all_reports.append(report)
 
     def generate_reports(self):
-        for network in ['PRONET','PRESCIENT']:
+        for network in ['PRESCIENT']:
             network_df = self.combined_tracker[
             self.combined_tracker['network']==network]
             for report in self.all_reports:
@@ -96,8 +101,8 @@ class CreateTrackers():
                     # add new tabs here 
                     self.format_excl_sheet(report_df, report,
                     combined_path,
-                    f'{network}_Output_V2_test.xlsx')
-                    #self.loop_sites(network, report, report_df)
+                    f'{network}_Output_V2.xlsx')
+                    self.loop_sites(network, report, report_df)
 
     def loop_sites(self, network, report, report_df):
         for site_abr in self.all_sites[network]:
@@ -117,24 +122,25 @@ class CreateTrackers():
             site_df = report_df[report_df['Participant'].str[:2] == site_abr]
             self.format_excl_sheet(site_df,
             report,site_path,
-            f'{network}_{site_abr}_Output.xlsx')
+            f'{network}_{site_abr}_Output_V2.xlsx')
 
     def loop_ras(self,network,site, report, report_df):
         for ra, subjects in self.melbourne_ras.items():
-            ra_path = f'{self.dropbox_output_path}{network}/{site}/{ra}/'
+            ra_path = f'{self.dropbox_output_path}{network}/{site}/{ra.replace(" ","_")}/'
             ra_df = report_df[report_df['Participant'].isin(subjects)]
             self.format_excl_sheet(ra_df,
             report,ra_path,
-            f'{network}_Melbourne_RA_Output.xlsx')
+            f'{network}_Melbourne_Output_V2.xlsx')
 
     def upload_trackers(self):
         fullpath = self.output_path + '/formatted_outputs/dropbox_files/'
         for root, dirs, files in os.walk(fullpath):
             for file in files:
-                if file.endswith('Output.xlsx'):
+                if file.endswith('Output.xlsx') or file.endswith('V2.xlsx'):
                     full_path = root + '/' + file
                     local_path = root.replace(fullpath,'') + '/' + file
                     self.save_to_dropbox(full_path,local_path)
+
 
     def format_excl_sheet(self, df, report, folder, filename):
         print('formatting')
@@ -158,7 +164,7 @@ class CreateTrackers():
 
         #if not os.path.exists(folder + filename):
         #df.to_excel(folder + filename, sheet_name = report, index = False)
-    
+
     def change_excel_colors(self, worksheet):
         for row in worksheet.iter_rows():
             cell_color = self.colors['grey']
@@ -179,7 +185,7 @@ class CreateTrackers():
                     cell.fill = self.colors['grey']
     
         return worksheet
-    
+
     def time_based_color(self, excel_row, worksheet):
         for cell in excel_row:
             header_value = worksheet.cell(row=1, column=cell.column).value
@@ -300,9 +306,9 @@ class CreateTrackers():
 
     def save_to_dropbox(self, fullpath, local_path):
         dbx = self.utils.collect_dropbox_credentials()
-        dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+
         with open(fullpath, 'rb') as f:
-            dbx.files_upload(f.read(), dropbox_path + local_path,\
+            dbx.files_upload(f.read(), self.dropbox_path + local_path,\
             mode=dropbox.files.WriteMode.overwrite)
 
 

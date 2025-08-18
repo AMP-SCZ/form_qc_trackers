@@ -79,7 +79,7 @@ class ClinicalChecksMain(FormCheck):
         self.call_tbi_checks(row)
         self.call_bprs_checks(row)
         self.call_conversion_check(row)
-        self.call_pharm_checks(row)
+        #self.call_pharm_checks(row)
         self.call_premorbid_adjustment_checks(row)
         #self.call_age_comparisons(row)
         self.call_pps_checks(row)

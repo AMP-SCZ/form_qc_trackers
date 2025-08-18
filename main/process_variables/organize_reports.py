@@ -144,7 +144,7 @@ class OrganizeReports():
         scid_df = self.data_dict_df[
         self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
         all_scid_vars = scid_df['Variable / Field Name'].tolist()
-        additional_blank_check_vars.extend(pharm_vars)
+        #additional_blank_check_vars.extend(pharm_vars)
 
         additional_blank_check_vars.extend(self.collect_psychs_variables())
         additional_blank_check_vars.extend(all_scid_vars)

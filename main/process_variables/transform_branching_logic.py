@@ -389,6 +389,8 @@ class TransformBranchingLogic():
                     new_branching_logic = f'[chrfigs_{family_member}{count}_info] = 1'
                     return new_branching_logic
 
+        return orig_bl
+
 
                 
                 

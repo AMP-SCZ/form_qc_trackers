@@ -59,6 +59,8 @@ class CalculateResolvedErrors():
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
+        self.dropbox_path = f'/Apps/Automated QC Trackers/'
+
 
     def run_script(self):
     
@@ -77,10 +79,9 @@ class CalculateResolvedErrors():
 
         dbx = self.utils.collect_dropbox_credentials()
 
-        dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests'
-        for network in dbx.files_list_folder(dropbox_path).entries:
-            if network.name in ['PRONET','PRESCIENT']:
-                network_dir = dropbox_path + f'/{network.name}'
+        for network in dbx.files_list_folder(self.dropbox_path).entries:
+            if network.name in ['PRESCIENT']:
+                network_dir = self.dropbox_path + f'/{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_combined_Output.xlsx'
                 self.read_dropbox_data(self.formatted_column_names[network.name]["combined"],

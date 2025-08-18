@@ -40,10 +40,10 @@ include the main report (for melbourne, non team form report)
 """
 
 soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-resource.setrlimit(resource.RLIMIT_AS, (8 * 1024 ** 3, hard))  
+resource.setrlimit(resource.RLIMIT_AS, (16 * 1024 ** 3, hard))  
 
 soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
-resource.setrlimit(resource.RLIMIT_FSIZE, (500 * 1024 ** 2, hard))  
+resource.setrlimit(resource.RLIMIT_FSIZE, (1500 * 1024 ** 2, hard))  
 
 class RunQC():        
     def run_script(self):

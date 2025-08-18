@@ -32,13 +32,16 @@ class RangeDefiner():
         self.grouped_vars = self.utils.load_dependency_json(
         'grouped_variables.json')
 
+        var_forms = self.grouped_vars['var_forms']
+
         pharm_vars = self.grouped_vars['pharm_vars']
 
         compl_pharm_vars = pharm_vars['compliance_vars']
 
         for var in compl_pharm_vars:
             for network in ['PRONET','PRESCIENT']:
-                self.ranges_dict[network][var] = {'min':0,'max':100,'form':'pharm'}
+                self.ranges_dict[network][var] = {'min':0,'max':100,\
+                'form':var_forms[var]}
 
         self.comparative_values_dict = {}
         self.collect_ranges()

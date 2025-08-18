@@ -51,7 +51,7 @@ class ProcessVariables():
         self.identifier_effects = AnalyzeIdentifiers()
         self.identifier_effects.run_script()
         self.utils.save_dependency_json(important_form_vars(),
-        'important_form_vars.json')
+        'important_form_vars.json')"""
         
         transform_bl = TransformBranchingLogic(data_dict_df)
         converted_branching_logic = transform_bl()
@@ -60,15 +60,15 @@ class ProcessVariables():
 
         self.utils.save_dependency_json(converted_branching_logic,
         'converted_branching_logic.json')
-        subject_info = CollectSubjectInfo()
+        """subject_info = CollectSubjectInfo()
 
         self.utils.save_dependency_json(subject_info(),
-        'subject_info.json')
+        'subject_info.json')"""
 
         organize_reports = OrganizeReports()
         organize_reports.run_script()
 
-        ra_subs = RaSubjects()
+        """ra_subs = RaSubjects()
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
 
         raw_csv_conversions = RawCSVCollector()

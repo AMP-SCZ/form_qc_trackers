@@ -117,15 +117,15 @@ class QCFormsMain():
                     network, self.form_check_info)
                     clinical_checks = ClinicalChecksMain(row,
                     tp, network, self.form_check_info)
-                    cognition_checks = CognitionChecks(row,
-                    tp, network, self.form_check_info)
+                    """cognition_checks = CognitionChecks(row,
+                    tp, network, self.form_check_info)"""
                     sop_checks = SOPChecks(row,
                     tp, network, self.form_check_info)
                     final_output.extend(gen_checks())
                     final_output.extend(fluid_checks())
                     final_output.extend(clinical_checks())
                     final_output.extend(sop_checks())
-                    final_output.extend(cognition_checks())
+                    #final_output.extend(cognition_checks())
                 if len(final_output) > 0:
                     print(len(final_output))
                     combined_output_df = pd.DataFrame(final_output)
@@ -137,7 +137,7 @@ class QCFormsMain():
                     new_out_path =f'{combined_flags_path}/new_output/'
                     os.makedirs(new_out_path,exist_ok=True)
                     try:
-                        combined_output_df.to_csv(f'{new_out_path}combined_qc_flags.csv', index=False,compression="zstd")
+                        combined_output_df.to_csv(f'{new_out_path}combined_qc_flags.csv', index=False)
                     except Exception as e:
                         print(e)
                         traceback.print_exc()
