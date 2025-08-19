@@ -170,12 +170,18 @@ class GeneralChecks(FormCheck):
                 getattr(row, compl_var) not in self.utils.all_dtype([2,3,4])):
                     error_message = f"{form} not marked as complete, but subject has started the next timepoint"
                     if self.network == 'PRONET':
-                        output_changes = {'reports' : ['Incomplete Forms']}
+                        report_list =  ['Incomplete Forms']
                     else:
-                        output_changes = {'reports' : ['Main Report','Incomplete Forms']}
+                        report_list =  ['Main Report', 'Incomplete Forms',
+                        'Non Team Forms']
+
+                    for team, forms in self.forms_per_report.items():
+                        if form in forms:
+                            report_list.append(team)
+                            
+                    output_changes = {'reports' : report_list}
                     error_output = self.create_row_output(
                     row,[form],[compl_var], error_message, output_changes)
-
                     self.final_output_list.append(error_output)
 
     def guid_format_check(self, row, filtered_forms,
