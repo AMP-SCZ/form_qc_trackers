@@ -74,7 +74,7 @@ class ProcessData():
             network, {'x_axis':x,
             'y_axis':y,'labels':labels})
             print(self.stacked_line_data)
-                
 
+            
 if __name__ == '__main__':
     ProcessData().run_script()
