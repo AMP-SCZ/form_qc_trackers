@@ -215,7 +215,6 @@ class CreateTrackers():
                     return self.colors['pink']
         return None
 
-    
     def determine_resolved_color(self, excel_row, worksheet, col_to_check, color_to_return):
         for cell in excel_row:
             cell.fill = self.colors['grey']
@@ -241,7 +240,8 @@ class CreateTrackers():
             'Days Since Detected' : 25,
             'Date Resolved': 20,
             'Manually Resolved' : 20,
-            'Comments' : 15 
+            'Comments' : 20,
+            'Priority Item' : 20 
         }
         for header, length in columns_sizes.items():
             col_letter = self.find_col_letter(worksheet, header)

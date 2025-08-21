@@ -19,9 +19,9 @@ if row exists in current output and not at all in old
     append date detected as today
 
 if row exists in old output and not new
-     if the most recent date resolved is after the most recent date
+    if the most recent date resolved is after the most recent date
     detected and neither are blank, ignore it
-     if the most recent date detected is after the most recent date resolved
+    if the most recent date detected is after the most recent date resolved
     and neither are blank, append today's date to the date resolved, set currently_resolved to False
     if date detected is not blank and date resolved is blank, append
     today's date to date resolved, set currently_resolved to True
@@ -49,7 +49,10 @@ class CalculateResolvedErrors():
         self.new_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/new_output/combined_qc_flags.csv'
         self.out_paths = {}
         for path_pref in ['old','new','current']:
-            self.out_paths[path_pref] = f"{self.output_path}combined_outputs/{path_pref}_output/combined_qc_flags.csv"
+            directory = f"{self.output_path}combined_outputs/{path_pref}_output/"
+            if not os.path.exists(directory):
+                os.makedirs(os.path.dirname(directory), exist_ok=True)
+            self.out_paths[path_pref] = f"{directory}/combined_qc_flags.csv"
         self.new_output = []
         
         self.old_output_csv_path = f'{self.output_path}combined_outputs/old_output/combined_qc_flags.csv'
@@ -60,11 +63,12 @@ class CalculateResolvedErrors():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
         self.dropbox_path = f'/Apps/Automated QC Trackers/'
+        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
 
 
     def run_script(self):
         # determine which errors no longer exist in the new output
-        self.determine_resolved_rows() 
+        #self.determine_resolved_rows() 
         # read specified columns from dropbox to new output
         self.loop_dropbox_files()
             
@@ -93,11 +97,14 @@ class CalculateResolvedErrors():
                         # melbourne not working
                         reports_to_read = ['Non Team Forms']
                         for ra in self.melbourne_ras:
+                            print(ra)
                             ra_output = network_dir + f'/{site}/{ra}/{network.name}_Melbourne_RA_Output.xlsx'
-                            self.read_dropbox_data(site_cols, ['site_comments'], ra_output, dbx, network.name, reports_to_read)
+                            self.read_dropbox_data(site_cols, ['site_comments','network_comments'], 
+                            ra_output, dbx, network.name, reports_to_read)
                     else:
                         reports_to_read = ['Main Report']
-                        self.read_dropbox_data(site_cols,['site_comments'], site_output, dbx, network.name, reports_to_read)
+                        self.read_dropbox_data(site_cols,['site_comments','network_comments'], site_output,
+                        dbx, network.name, reports_to_read)
         return 
         
     def check_dbx_file_exists(self,dbx, dropbox_path):
@@ -137,9 +144,9 @@ class CalculateResolvedErrors():
             subjects_to_merge = report_df['subject'].tolist()
 
             report_df = report_df.explode('error_message').reset_index(drop=True)
-            #report_df['current_report'] = report
-            #prev_output_df['current_report'] = np.where(
-            #prev_output_df['reports'].str.contains(report, case=False), report, '')
+            report_df['current_report'] = report
+            prev_output_df['current_report'] = np.where(
+            prev_output_df['reports'].str.contains(report, case=False), report, '')
 
             prev_output_df = pd.merge(prev_output_df,report_df, on=[
             'displayed_form','displayed_timepoint',
@@ -148,13 +155,14 @@ class CalculateResolvedErrors():
             prev_output_df = prev_output_df.fillna('')
             
             for col_to_read in columns_to_read:
+                print('------')
+                print(dropbox_path)
                 print(col_to_read)
                 dbx_col = col_to_read + '_dbx'
                 prev_output_df.loc[
                 prev_output_df['subject'].isin(subjects_to_merge), col_to_read] = prev_output_df[dbx_col]
             prev_output_df = prev_output_df[orig_columns]  
         prev_output_df.to_csv(self.out_paths['current'], index = False)
-
 
     def determine_resolved_rows(self):
         new_df = pd.read_csv(self.out_paths['new'], keep_default_na = False)
@@ -173,8 +181,7 @@ class CalculateResolvedErrors():
             merged = old_df.merge(new_df,
             on = cols_to_merge, how='outer', suffixes = ('_old','_new'))
             merged_df = merged.fillna('')
-            new_df = self.compare_old_new_outputs(orig_columns,cols_to_merge, merged_df)
-
+            new_df = self.compare_old_new_outputs(orig_columns, cols_to_merge, merged_df)
         new_df.to_csv(self.out_paths['current'], index = False)
 
     def compare_old_new_outputs(self, orig_columns, cols_to_merge, merged_df):
@@ -190,8 +197,8 @@ class CalculateResolvedErrors():
                 row.dates_detected_old, curr_date)
                 # adds all other columns of the new output 
                 curr_row_output = self.append_all_cols(
-                row, curr_row_output, orig_columns, '_new',cols_to_merge,merged_df)
-            elif row.network_old != '':
+                row, curr_row_output, orig_columns, '_new', cols_to_merge,merged_df)
+            elif row.network_old != '': 
                 # if exists in old and not new
                 if row.network_new == '':
                     if row.currently_resolved_old == True:
@@ -206,7 +213,7 @@ class CalculateResolvedErrors():
                         row.dates_resolved_old, curr_date)
                         # adds all other columns from old output
                         curr_row_output = self.append_all_cols(row, curr_row_output,
-                        orig_columns, '_old',cols_to_merge,merged_df)
+                        orig_columns, '_old', cols_to_merge,merged_df)
                 # if exists in old and new
                 elif row.network_new != '':
                     # sets currently_resolved to false
@@ -228,15 +235,12 @@ class CalculateResolvedErrors():
             most_recent_detection = dates_detected[-1]
             curr_row_output['time_since_last_detection'] = self.utils.days_since_today(
             str(most_recent_detection))
-            print(curr_row_output['time_since_last_detection'])
-
             self.new_output.append(curr_row_output)
                 #if row.currently_resolved
                 #curr_row_output['currently_resolved'] = True
         new_df = pd.DataFrame(self.new_output)
         return new_df
     
-
     def append_formatted_list(self, curr_list_string, item_to_append):
         new_list = []
         if curr_list_string == '':

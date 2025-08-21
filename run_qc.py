@@ -40,17 +40,17 @@ include the main report (for melbourne, non team form report)
 """
 
 soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-resource.setrlimit(resource.RLIMIT_AS, (16 * 1024 ** 3, hard))  
+resource.setrlimit(resource.RLIMIT_AS, (64 * 1024 ** 3, hard))  
 
 soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
-resource.setrlimit(resource.RLIMIT_FSIZE, (1500 * 1024 ** 2, hard))  
+resource.setrlimit(resource.RLIMIT_FSIZE, (6000 * 1024 ** 2, hard))  
 
 class RunQC():        
     def run_script(self):
-        self.process_vars = ProcessVariables()
-        self.process_vars.run_script()
-        self.qc_forms = QCFormsMain()
-        self.qc_forms.run_script()
+        #self.process_vars = ProcessVariables()
+        #self.process_vars.run_script()
+        #self.qc_forms = QCFormsMain()
+        #self.qc_forms.run_script()
         self.generate_reports = GenerateReports()
         self.generate_reports.run_script()
 

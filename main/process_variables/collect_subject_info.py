@@ -67,7 +67,7 @@ class CollectSubjectInfo():
         for network in ['PRONET','PRESCIENT']:
             combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
             col_list = ['subjectid','visit_status_string',
             'chrcrit_part', 'chrcrit_included']
@@ -98,7 +98,7 @@ class CollectSubjectInfo():
         for network in ['PRONET','PRESCIENT']:
             combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
             col_list = ['subjectid','chrdemo_age_mos_chr',
             'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 
@@ -121,7 +121,7 @@ class CollectSubjectInfo():
         for network in ['PRONET']:
             combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
             col_list = ['subjectid','chr_statusform_screenfail','chr_subject_eos']
             col_list = [col for col in col_list if col in combined_df.columns]

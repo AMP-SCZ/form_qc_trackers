@@ -32,7 +32,7 @@ class OrganizeReports():
 
 
         self.excluded_forms = {"PRESCIENT": ["gcp_current_health_status",
-        "gcp_cbc_with_differential"],
+        "gcp_cbc_with_differential","adverse_events","coenrollment_form"],
         "PRONET":[]}
 
     def run_script(self):

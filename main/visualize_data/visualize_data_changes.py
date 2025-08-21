@@ -49,7 +49,6 @@ class VisualizeDataInflux():
         plt.ylabel('Variables Changed')
         plt.tight_layout()
         plt.savefig('data_changes_prescient.png',dpi = 600)
-
-
+        
 if __name__ == '__main__':
     VisualizeDataInflux().run_script()

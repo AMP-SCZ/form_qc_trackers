@@ -173,8 +173,7 @@ class GeneralChecks(FormCheck):
                     if self.network == 'PRONET':
                         report_list =  ['Incomplete Forms']
                     else:
-                        report_list =  ['Main Report', 'Incomplete Forms',
-                        'Non Team Forms']
+                        report_list =  ['Main Report', 'Incomplete Forms']
 
                     for team, forms in self.forms_per_report.items():
                         if form in forms:
