@@ -63,12 +63,11 @@ class CalculateResolvedErrors():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
         self.dropbox_path = f'/Apps/Automated QC Trackers/'
-        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
-
+        #self.dropbox_path = f'/Automated QC Trackers/refactoring_tests/'
 
     def run_script(self):
         # determine which errors no longer exist in the new output
-        #self.determine_resolved_rows() 
+        self.determine_resolved_rows() 
         # read specified columns from dropbox to new output
         self.loop_dropbox_files()
             
@@ -84,35 +83,41 @@ class CalculateResolvedErrors():
 
         for network in dbx.files_list_folder(self.dropbox_path).entries:
             if network.name in ['PRESCIENT']:
-                network_dir = self.dropbox_path + f'/{network.name}'
+                network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
-                combined_output = network_dir + f'/combined/{network.name}_combined_Output.xlsx'
+                combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'
                 self.read_dropbox_data(self.formatted_column_names[network.name]["combined"],
                 ['manually_resolved','comments'], combined_output, dbx, network.name, ['Main Report'])
                 for site_abr in self.utils.all_sites[network.name]:
                     site = self.utils.site_full_name_translations[site_abr]
-                    site_output = network_dir + f'/{site}/{network.name}_{site_abr}_Output.xlsx'
+                    site_output = network_dir + f'/{site}/{network.name}_{site_abr}_Output_V2.xlsx'
                     site_cols = self.formatted_column_names[network.name]["sites"]
                     if site_abr == 'ME':
                         # melbourne not working
                         reports_to_read = ['Non Team Forms']
                         for ra in self.melbourne_ras:
                             print(ra)
-                            ra_output = network_dir + f'/{site}/{ra}/{network.name}_Melbourne_RA_Output.xlsx'
-                            self.read_dropbox_data(site_cols, ['site_comments','network_comments'], 
+                            ra_output = network_dir + f'/{site}/{ra}/{network.name}_Melbourne_Output_V2.xlsx'
+                            print(ra_output)
+                            self.read_dropbox_data(site_cols, ['site_comments','comments'], 
                             ra_output, dbx, network.name, reports_to_read)
-                    else:
-                        reports_to_read = ['Main Report']
-                        self.read_dropbox_data(site_cols,['site_comments','network_comments'], site_output,
-                        dbx, network.name, reports_to_read)
+                    #else:
+                    #    reports_to_read = ['Main Report']
+                    #    self.read_dropbox_data(site_cols,['site_comments','comments'], site_output,
+                    #    dbx, network.name, reports_to_read)
         return 
         
     def check_dbx_file_exists(self,dbx, dropbox_path):
         try:
+            print('checking if dbx exists')
+            print(dropbox_path)
             _, res = dbx.files_download(dropbox_path)
             data = res.content
+            print('exists')
             return True
         except Exception as e:
+            print('does not exist')
+            print(e)
             return False
         
     def read_dropbox_data(self,
@@ -121,17 +126,29 @@ class CalculateResolvedErrors():
         excl_report = True
     ):
         reversed_col_translations = self.utils.reverse_dictionary(col_names)
+        print('STAGE 1')
         if self.check_dbx_file_exists(dbx, dropbox_path) == False:
             return
+        print('STAGE 2')
         _, res = dbx.files_download(dropbox_path)
         data = res.content
         excel_data = pd.ExcelFile(BytesIO(data))
         sheet_names = excel_data.sheet_names
-        prev_output_df = pd.read_csv(self.out_paths['current'],keep_default_na = False)
+        prev_output_df = pd.read_csv(
+            self.out_paths['current'],
+            keep_default_na=False,
+            engine="python",         
+            on_bad_lines="skip",    
+            quotechar='"',
+            escapechar='\\',
+        )
+        print(reports_to_read)
         orig_columns = prev_output_df.columns
         for report in sheet_names:
             if report not in reports_to_read and excl_report == True:
                 continue
+            print(report)
+            print(sheet_names)
             
             report_df = pd.read_excel(BytesIO(data),\
                 sheet_name=report, keep_default_na = False)
@@ -154,14 +171,20 @@ class CalculateResolvedErrors():
             how = 'left',suffixes=('', '_dbx'))
             prev_output_df = prev_output_df.fillna('')
             
-            for col_to_read in columns_to_read:
-                print('------')
-                print(dropbox_path)
-                print(col_to_read)
-                dbx_col = col_to_read + '_dbx'
-                prev_output_df.loc[
-                prev_output_df['subject'].isin(subjects_to_merge), col_to_read] = prev_output_df[dbx_col]
-            prev_output_df = prev_output_df[orig_columns]  
+        for col_to_read in columns_to_read:
+            dbx_col = f"{col_to_read}_dbx"
+
+            if dbx_col not in prev_output_df.columns:
+                print(f"[WARN] Expected {dbx_col} not found in merge. Skipping.")
+                continue
+
+            col_values = prev_output_df[dbx_col]
+
+            if isinstance(col_values, pd.DataFrame):
+                col_values = col_values.iloc[:, 0]
+
+            has_new = col_values.astype(str).str.len() > 0
+            prev_output_df.loc[has_new, col_to_read] = col_values[has_new]
         prev_output_df.to_csv(self.out_paths['current'], index = False)
 
     def determine_resolved_rows(self):

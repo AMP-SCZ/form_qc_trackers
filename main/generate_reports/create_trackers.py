@@ -66,7 +66,7 @@ class CreateTrackers():
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
         self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
-        #self.dropbox_path = f'/Apps/Automated QC Trackers/'
+        self.dropbox_path = f'/Apps/Automated QC Trackers/'
         
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,

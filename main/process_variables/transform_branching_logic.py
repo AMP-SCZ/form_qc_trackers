@@ -392,15 +392,6 @@ class TransformBranchingLogic():
         return orig_bl
 
 
-                
-                
-
-
-
-
-        
-
-
     def edit_scid_bl(
         self, variable : str, orig_bl : str
     ) -> str:
