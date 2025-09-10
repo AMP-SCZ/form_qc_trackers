@@ -8,6 +8,7 @@ if parent_dir_path not in sys.path:
     sys.path.append(parent_dir_path)
 
 from classes.utils import Utils
+
 class NumericalOutliers():
     """
     Class to discover new potential

@@ -76,7 +76,7 @@ class ProcessVariables():
 
         # must be called last as it uses dependencies 
         # from preceding classes
-        #self.multi_tp_data = MultiTPDataCollector()
+        self.multi_tp_data = MultiTPDataCollector()
         
         self.duplicate_finder = DuplicateFinder()
 

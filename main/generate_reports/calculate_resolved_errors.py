@@ -63,7 +63,7 @@ class CalculateResolvedErrors():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
         self.dropbox_path = f'/Apps/Automated QC Trackers/'
-        #self.dropbox_path = f'/Automated QC Trackers/refactoring_tests/'
+        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
 
     def run_script(self):
         # determine which errors no longer exist in the new output
@@ -101,10 +101,10 @@ class CalculateResolvedErrors():
                             print(ra_output)
                             self.read_dropbox_data(site_cols, ['site_comments','comments'], 
                             ra_output, dbx, network.name, reports_to_read)
-                    #else:
-                    #    reports_to_read = ['Main Report']
-                    #    self.read_dropbox_data(site_cols,['site_comments','comments'], site_output,
-                    #    dbx, network.name, reports_to_read)
+                    else:
+                        reports_to_read = ['Main Report']
+                        self.read_dropbox_data(site_cols,['site_comments','comments'], site_output,
+                        dbx, network.name, reports_to_read)
         return 
         
     def check_dbx_file_exists(self,dbx, dropbox_path):

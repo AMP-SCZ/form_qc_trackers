@@ -334,6 +334,8 @@ class OrganizeReports():
                 if form not in non_team_forms:
                     non_team_forms.append(form)
 
+        non_team_forms.append('scid5_psychosis_mood_substance_abuse')
+
         # all forms not yet defined in the above dictionary
         team_reports['Non Team Forms'] = non_team_forms 
 
