@@ -44,14 +44,19 @@ class CalculateResolvedErrors():
             self.config_info = json.load(file)
 
         self.output_path = self.config_info['paths']['output_path']
+        if self.config_info["testing_enabled"] == "True":
+            self.output_path += "testing/"
+
 
         self.old_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/old_output/combined_qc_flags.csv'
         self.new_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/new_output/combined_qc_flags.csv'
         self.out_paths = {}
         for path_pref in ['old','new','current']:
+            
             directory = f"{self.output_path}combined_outputs/{path_pref}_output/"
             if not os.path.exists(directory):
                 os.makedirs(os.path.dirname(directory), exist_ok=True)
+
             self.out_paths[path_pref] = f"{directory}/combined_qc_flags.csv"
         self.new_output = []
         
@@ -82,7 +87,7 @@ class CalculateResolvedErrors():
         dbx = self.utils.collect_dropbox_credentials()
 
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name in ['PRESCIENT']:
+            if network.name in ['PRONET']:
                 network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'
@@ -147,9 +152,6 @@ class CalculateResolvedErrors():
         for report in sheet_names:
             if report not in reports_to_read and excl_report == True:
                 continue
-            print(report)
-            print(sheet_names)
-            
             report_df = pd.read_excel(BytesIO(data),\
                 sheet_name=report, keep_default_na = False)
             

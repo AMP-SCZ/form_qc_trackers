@@ -67,6 +67,8 @@ class CreateTrackers():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
         self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
         #self.dropbox_path = f'/Apps/Automated QC Trackers/'
+
+        self.master = pd.DataFrame()
         
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
@@ -85,7 +87,7 @@ class CreateTrackers():
                     self.all_reports.append(report)
 
     def generate_reports(self):
-        for network in ['PRESCIENT']:
+        for network in ['PRONET','PRESCIENT']:
             network_df = self.combined_tracker[
             self.combined_tracker['network']==network]
             for report in self.all_reports:
@@ -99,7 +101,6 @@ class CreateTrackers():
                     combined_path = f'{self.dropbox_output_path}{network}/combined/'
                     if not os.path.exists(combined_path):
                         os.makedirs(combined_path)
-                    # add new tabs here 
                     self.format_excl_sheet(report_df, report,
                     combined_path,
                     f'{network}_Output_V2.xlsx')
@@ -141,7 +142,6 @@ class CreateTrackers():
                     full_path = root + '/' + file
                     local_path = root.replace(fullpath,'') + '/' + file
                     self.save_to_dropbox(full_path,local_path)
-
 
     def format_excl_sheet(self, df, report, folder, filename):
         print('formatting')
@@ -250,7 +250,7 @@ class CreateTrackers():
 
         return worksheet
 
-    def find_col_letter(self,worksheet, col_name):
+    def find_col_letter(self, worksheet, col_name):
         for cell in worksheet[1]:  
             if cell.value == col_name:
                 column_letter = get_column_letter(cell.column)
@@ -323,6 +323,42 @@ class CreateTrackers():
         with open(fullpath, 'rb') as f:
             dbx.files_upload(f.read(), self.dropbox_path + local_path,\
             mode=dropbox.files.WriteMode.overwrite)
+            #self.recover_comments(self.dropbox_path + local_path)
             
-    def recover_comments(self):
-        pass
+    def recover_comments(self, path):
+        dbx = self.utils.collect_dropbox_credentials()
+        md = dbx.files_get_metadata(path)  
+        file_id = md.id                          
+        rev_result = dbx.files_list_revisions(
+            path=file_id,
+            mode=dropbox.files.ListRevisionsMode.id,
+            limit=100,  
+        )
+
+        for idx, entry in enumerate(rev_result.entries, start=1):
+            if idx > 40:
+                break
+            rev = entry.rev
+            when = entry.server_modified
+            md2, resp = dbx.files_download(path=path, rev=rev)
+            df = pd.read_excel(BytesIO(resp.content), keep_default_na = False)  
+            #print('RECOVER COMMENTS TEST')
+            #print(f"[{idx}] rev={rev}  modified={when}  shape={df.shape}")
+            #print(df)
+            #print(path)
+            cols = ['Site Comments','Network Comments', 'Manually Resolved']
+            tmp = df[cols].replace(r"^\s*$", pd.NA, regex=True)
+            mask_any_nonblank = tmp.notna().any(axis=1)
+            df_filtered = df[mask_any_nonblank]
+            self.master = pd.concat([self.master, df_filtered], ignore_index=True)
+            print(self.master)
+            print(path)
+            print(idx)
+
+        self.master = self.master.drop_duplicates(subset=["Participant", "Timepoint","Form"])
+
+        self.master.to_csv('recovered_comments.csv', index = False)
+
+
+
+        

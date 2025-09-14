@@ -36,7 +36,5 @@ class BranchingLogicTester():
         self.utils.save_dictionary_as_csv(converted_branching_logic,
         f"{self.config_info['paths']['dependencies_path']}converted_branching_logic_clinical_trial.csv")
     
-    
-
 if __name__ == '__main__':
     BranchingLogicTester().run_script()

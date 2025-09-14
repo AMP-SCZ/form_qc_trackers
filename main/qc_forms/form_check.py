@@ -74,7 +74,6 @@ class FormCheck():
             # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
-
             # filters out form if variables in excluded variables 
             if filter_excl_vars:
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
@@ -96,7 +95,6 @@ class FormCheck():
                     bl = instance.conv_bl[var]["converted_branching_logic"]
                     if bl != "" and eval(bl) == False:
                         return
-
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)
             instance.final_output_list.append(error_output)
@@ -140,19 +138,15 @@ class FormCheck():
         in self.prescient_forms_no_compl_status 
         and self.check_if_next_tp(curr_row) == False):
             completion_filter = False
-
         if self.network == 'PRESCIENT' and self.timepoint == 'floating':
             completion_filter = True
-
         if completion_filter == False:
             return False
-
         if self.check_if_missing(curr_row, form) == True:
             return False
-
         if self.extra_form_conditions(curr_row, form) == False:
             return False
-     
+            
         return True
 
     def extra_form_conditions(

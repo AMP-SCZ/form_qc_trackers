@@ -64,8 +64,6 @@ class GeneralChecks(FormCheck):
                         report_list.append(team)
                 if self.standard_form_filter(row, form):
                     for var in blank_check_forms[form]:
-                        #if ('pharm' in var and 'past' not in var):
-                        #    print(var)                            
                         if self.prescient_scid_filter(var, row) == True:
                             continue
                         self.check_if_blank(row, [form], [var],
