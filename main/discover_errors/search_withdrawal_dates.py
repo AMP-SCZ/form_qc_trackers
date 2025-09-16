@@ -43,7 +43,6 @@ class AnalyzeWithdrawalDates():
     def loop_csvs(self):
         tp_list = self.utils.create_timepoint_list()
         for network in ['PRESCIENT','PRONET']:
-
             combined_df_floating = pd.read_csv(
             (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
             f'{"floating_forms"}_{network}-day1to1.csv'),
