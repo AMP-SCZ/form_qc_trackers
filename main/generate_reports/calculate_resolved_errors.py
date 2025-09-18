@@ -68,7 +68,7 @@ class CalculateResolvedErrors():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
         self.dropbox_path = f'/Apps/Automated QC Trackers/'
-        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+        #self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
 
     def run_script(self):
         # determine which errors no longer exist in the new output
@@ -87,7 +87,7 @@ class CalculateResolvedErrors():
         dbx = self.utils.collect_dropbox_credentials()
 
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name in ['PRONET']:
+            if network.name in ['PRESCIENT']:
                 network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'

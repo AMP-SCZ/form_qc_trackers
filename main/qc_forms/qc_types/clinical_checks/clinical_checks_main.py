@@ -62,7 +62,7 @@ class ClinicalChecksMain(FormCheck):
         scid_checks = ScidChecks(row, timepoint, network,
         form_check_info)
 
-        #self.final_output_list = scid_checks()
+        self.final_output_list = scid_checks()
 
         self.call_checks(row)
         
@@ -79,7 +79,7 @@ class ClinicalChecksMain(FormCheck):
         self.call_tbi_checks(row)
         self.call_bprs_checks(row)
         self.call_conversion_check(row)
-        self.call_pharm_checks(row)
+        #self.call_pharm_checks(row)
         self.call_premorbid_adjustment_checks(row)
         #self.call_age_comparisons(row)
         self.call_pps_checks(row)
@@ -554,7 +554,9 @@ class ClinicalChecksMain(FormCheck):
 
         if row.subjectid in self.tp_date_ranges.keys():
             mod_vars_out_of_range = 0
-            for mod_var in ['chrpharm_date_mod','chrpharm_date_mod_2']:
+            for mod_var in ['chrpharm_date_mod','chrpharm_date_mod_2','chrpharm_date_first']:
+                if not hasattr(row, mod_var):
+                    continue
                 pharm_date_mod = str(getattr(row,mod_var)).split(' ')[0]
                 if pharm_date_mod in self.utils.missing_code_list:
                     continue

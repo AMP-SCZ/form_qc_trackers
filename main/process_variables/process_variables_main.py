@@ -52,7 +52,6 @@ class ProcessVariables():
         self.identifier_effects.run_script()
         self.utils.save_dependency_json(important_form_vars(),
         'important_form_vars.json')"""
-        
         transform_bl = TransformBranchingLogic(data_dict_df)
         converted_branching_logic = transform_bl()
         self.utils.save_dictionary_as_csv(converted_branching_logic,

@@ -66,15 +66,15 @@ class CreateTrackers():
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
         self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
-        #self.dropbox_path = f'/Apps/Automated QC Trackers/'
+        self.dropbox_path = f'/Apps/Automated QC Trackers/'
 
         self.master = pd.DataFrame()
         
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
         keep_default_na= False)
-        self.collect_new_reports()
-        self.generate_reports()
+        #self.collect_new_reports()
+        #self.generate_reports()
         self.upload_trackers()
 
     def collect_new_reports(self):
@@ -87,7 +87,7 @@ class CreateTrackers():
                     self.all_reports.append(report)
 
     def generate_reports(self):
-        for network in ['PRONET','PRESCIENT']:
+        for network in ['PRESCIENT']:
             network_df = self.combined_tracker[
             self.combined_tracker['network']==network]
             for report in self.all_reports:
@@ -321,9 +321,9 @@ class CreateTrackers():
         dbx = self.utils.collect_dropbox_credentials()
 
         with open(fullpath, 'rb') as f:
-            dbx.files_upload(f.read(), self.dropbox_path + local_path,\
-            mode=dropbox.files.WriteMode.overwrite)
-            #self.recover_comments(self.dropbox_path + local_path)
+            #dbx.files_upload(f.read(), self.dropbox_path + local_path,\
+            #mode=dropbox.files.WriteMode.overwrite)
+            self.recover_old_flags(self.dropbox_path + local_path)
             
     def recover_comments(self, path):
         dbx = self.utils.collect_dropbox_credentials()
@@ -357,7 +357,64 @@ class CreateTrackers():
 
         self.master = self.master.drop_duplicates(subset=["Participant", "Timepoint","Form"])
 
-        self.master.to_csv('recovered_comments.csv', index = False)
+        self.master.to_csv(f'{self.output_path}recovered_comments.csv', index = False)
+        self.append_recovered_comments('PRESCIENT')
+
+    def recover_old_flags(self, path):
+        """function to recover history of specified row over time"""
+        dbx = self.utils.collect_dropbox_credentials()
+        md = dbx.files_get_metadata(path)  
+        file_id = md.id                          
+        rev_result = dbx.files_list_revisions(
+            path=file_id,
+            mode=dropbox.files.ListRevisionsMode.id,
+            limit=100,  
+        )
+
+        for idx, entry in enumerate(rev_result.entries, start=1):
+            if idx > 40:
+                break
+            rev = entry.rev
+            when = entry.server_modified
+            md2, resp = dbx.files_download(path=path, rev=rev)
+            df = pd.read_excel(BytesIO(resp.content), keep_default_na = False)  
+            #print('RECOVER COMMENTS TEST')
+            #print(f"[{idx}] rev={rev}  modified={when}  shape={df.shape}")
+            #print(df)
+            #print(path)
+            cols = ['Participant','Site Comments','Network Comments',
+            'Manually Resolved','Date Resolved','Form','Flags']
+            tmp = df[cols].replace(r"^\s*$", pd.NA, regex=True)
+            mask_any_nonblank = tmp.notna().any(axis=1)
+            df_filtered = df[mask_any_nonblank]
+            self.master = pd.concat([self.master, df_filtered], ignore_index=True)
+            print(self.master)
+            print(path)
+            print(idx)
+        
+        self.master = self.master.drop_duplicates(subset=["Participant", "Timepoint","Form","Flags"])
+
+        self.master.to_csv('recovered_flags.csv', index = False)
+    
+
+    def append_recovered_comments(self, network):
+        comments_df = pd.read_csv(f'{self.output_path}recovered_comments.csv',
+        keep_default_na =False)
+        orig_columns = comments_df.columns
+        new_cols= {}
+        reversed_dictionary = self.utils.reverse_dictionary(
+            self.formatted_column_names[
+            network]['combined'])
+        for old_col in orig_columns:
+            new_cols[old_col] = reversed_dictionary[old_col]
+        comments_df = comments_df.rename(columns = new_cols)
+        comments_df.to_csv('new_comments_df_test.csv', index = False)
+
+        merged = pd.merge_csv(comments_df, self.combined_tracker, on =[
+        "Participant", "Timepoint","Form","Flags"] )
+
+
+
 
 
 

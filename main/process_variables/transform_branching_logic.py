@@ -135,7 +135,8 @@ class TransformBranchingLogic():
                     self.excluded_conversions[var] = branching_logic
 
     def branching_logic_redcap_to_python(self, branching_logic):
-        """This function focuses on converting the syntax
+        """
+        This function focuses on converting the syntax
         from the REDCap branching logic in the data dictionary
         into Python syntax to be used as conditionals later in the code.
 
@@ -160,7 +161,6 @@ class TransformBranchingLogic():
                 
         return modified_branching_logic
     
-
     def exclude_identifiers(self):
         depend_path = self.config_info['paths']['dependencies_path']
         ident_df = pd.read_csv(f'{depend_path}identifier_effects.csv')
@@ -345,12 +345,12 @@ class TransformBranchingLogic():
                 number = self.utils.collect_digit(variable)
                 if number not in ['1','']:
                     new_branching_logic = \
-                    (f"[chrpharm_med{number}_name{suffix}] <> '999' and"\
-                    f" [chrpharm_med{int(number)-1}_add{suffix}] = '1'")
+                    (f"([chrpharm_med{number}_name{suffix}] <> '999' and"\
+                    f" [chrpharm_med{int(number)-1}_add{suffix}] = '1') and ({orig_bl})")
                 else:
                     new_branching_logic = \
-                    (f"[chrpharm_med{number}_name{suffix}] <> '999'"
-                    f" and [chrpharm_med{suffix}] = '1'")
+                    (f"([chrpharm_med{number}_name{suffix}] <> '999'"
+                    f" and [chrpharm_med{suffix}] = '1') and ({orig_bl})")
                 return new_branching_logic
                 """if 'onset_past' in variable:
                     return new_branching_logic
@@ -359,7 +359,6 @@ class TransformBranchingLogic():
 
         return orig_bl
     
-
     def edit_av_branch_logic(self, variable, orig_bl):
         if variable == 'chrpsychs_av_audio_expl':
             new_branching_logic = '[chrpsychs_av_audio_yn] = 0'
@@ -392,7 +391,6 @@ class TransformBranchingLogic():
                     return new_branching_logic
 
         return orig_bl
-
 
     def edit_scid_bl(
         self, variable : str, orig_bl : str
