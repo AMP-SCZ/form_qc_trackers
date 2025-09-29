@@ -73,9 +73,12 @@ class CreateTrackers():
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
         keep_default_na= False)
-        #self.collect_new_reports()
-        #self.generate_reports()
+        #self.append_recovered_comments('PRESCIENT')
+
+        self.collect_new_reports()
+        self.generate_reports()
         self.upload_trackers()
+
 
     def collect_new_reports(self):
         for row in self.combined_tracker.itertuples():
@@ -321,9 +324,9 @@ class CreateTrackers():
         dbx = self.utils.collect_dropbox_credentials()
 
         with open(fullpath, 'rb') as f:
-            #dbx.files_upload(f.read(), self.dropbox_path + local_path,\
-            #mode=dropbox.files.WriteMode.overwrite)
-            self.recover_old_flags(self.dropbox_path + local_path)
+            dbx.files_upload(f.read(), self.dropbox_path + local_path,\
+            mode=dropbox.files.WriteMode.overwrite)
+            #self.recover_comments(self.dropbox_path + local_path)
             
     def recover_comments(self, path):
         dbx = self.utils.collect_dropbox_credentials()
@@ -351,14 +354,14 @@ class CreateTrackers():
             mask_any_nonblank = tmp.notna().any(axis=1)
             df_filtered = df[mask_any_nonblank]
             self.master = pd.concat([self.master, df_filtered], ignore_index=True)
-            print(self.master)
-            print(path)
-            print(idx)
+            #print(self.master)
+            #print(path)
+            #print(idx)
 
         self.master = self.master.drop_duplicates(subset=["Participant", "Timepoint","Form"])
 
         self.master.to_csv(f'{self.output_path}recovered_comments.csv', index = False)
-        self.append_recovered_comments('PRESCIENT')
+        #self.append_recovered_comments('PRESCIENT')
 
     def recover_old_flags(self, path):
         """function to recover history of specified row over time"""
@@ -392,10 +395,9 @@ class CreateTrackers():
             print(path)
             print(idx)
         
-        self.master = self.master.drop_duplicates(subset=["Participant", "Timepoint","Form","Flags"])
-
+        self.master = self.master.drop_duplicates(subset=["Participant",
+        "Timepoint","Form","Flags"])
         self.master.to_csv('recovered_flags.csv', index = False)
-    
 
     def append_recovered_comments(self, network):
         comments_df = pd.read_csv(f'{self.output_path}recovered_comments.csv',
@@ -408,14 +410,21 @@ class CreateTrackers():
         for old_col in orig_columns:
             new_cols[old_col] = reversed_dictionary[old_col]
         comments_df = comments_df.rename(columns = new_cols)
+        print('--0-')
+        print(comments_df.shape)
+        print(comments_df)
         comments_df.to_csv('new_comments_df_test.csv', index = False)
+        cols = list(comments_df.columns)
+        cols = [col for col in cols if col in self.combined_tracker.columns]
+        merged = pd.merge(comments_df, self.combined_tracker, on = cols,
+        how = 'outer')
+        print(merged.columns)
+        print(f'MERGED SHAPE: {merged.shape}')
+        """merged = merged[
+            (merged['comments'] != '') |
+            (merged['manually_resolved'] != '') |
+            (merged['site_comments'] != '')
+        ]"""
 
-        merged = pd.merge_csv(comments_df, self.combined_tracker, on =[
-        "Participant", "Timepoint","Form","Flags"] )
-
-
-
-
-
-
+        merged.to_csv(self.curr_output_csv_path, index = False) 
         

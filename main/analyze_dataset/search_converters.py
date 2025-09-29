@@ -53,8 +53,8 @@ class ConversionSearcher():
         mask = (
             mult_choice_df["Choices, Calculations, OR Slider Labels"]                    
             .astype(str)                 
-            .str.count(r"\|")              # count the number of "|" characters
-            .gt(3)                         # keep rows where the count > 3
+            .str.count(r"\|")              
+            .gt(3)                        
         )
 
         mult_choice_df = mult_choice_df[mask].copy()        

@@ -73,7 +73,7 @@ class QCFormsMain():
                 return
 
     def iterate_combined_dfs(self):
-        #TODO: split checks by ones that will only be checked 
+        # TODO: split checks by ones that will only be checked 
         # if a form in compl and no
         # t missing and ones 
         # that will be checked regardless
