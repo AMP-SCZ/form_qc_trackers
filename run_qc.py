@@ -18,11 +18,6 @@ from main.qc_forms.qc_forms_main import QCFormsMain
 from main.generate_reports.generate_reports_main import GenerateReports
 import resource
 
-soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-resource.setrlimit(resource.RLIMIT_AS, (64 * 1024 ** 3, hard)) 
-
-soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
-resource.setrlimit(resource.RLIMIT_FSIZE, (25000 * 1024 ** 2, hard))
 
 """
 QC ORDER
@@ -39,8 +34,8 @@ include the main report (for melbourne, non team form report)
 7. save all formatted outputs to folder and upload them to dropbox
 """
 
-soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-resource.setrlimit(resource.RLIMIT_AS, (64 * 1024 ** 3, hard))  
+#soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+#resource.setrlimit(resource.RLIMIT_AS, (64 * 1024 ** 3, hard))  
 
 soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
 resource.setrlimit(resource.RLIMIT_FSIZE, (96000 * 1024 ** 2, hard))  

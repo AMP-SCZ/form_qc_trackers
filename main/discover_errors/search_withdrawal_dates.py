@@ -12,7 +12,7 @@ from datetime import datetime
 from io import BytesIO
 import numpy as np 
 from matplotlib import pyplot as plt
-
+# check BI00141, BI00230, and BI03026
 class AnalyzeWithdrawalDates():
 
     def __init__(self):
@@ -87,6 +87,8 @@ class AnalyzeWithdrawalDates():
                 if network == 'PRESCIENT':
                     withdrawal_date = self.convert_prescient_date(withdrawal_date)
                 withdrawal_date = str(withdrawal_date).split(' ')[0]
+                if withdrawal_date in self.utils.missing_code_list:
+                    continue
                 if not (self.utils.check_if_val_date_format(withdrawal_date)):
                     continue
                 for date_var in self.date_vars:
@@ -111,7 +113,7 @@ class AnalyzeWithdrawalDates():
                                 self.count_per_form.setdefault(form,0)
                                 self.count_per_form[form] += 1
                                 time_between = self.utils.find_days_between(withdrawal_date, date_val)
-                                self.dates_after_withdrawal.append({'subject':row.subjectid, 'network':network,
+                                self.dates_after_withdrawal.append({'subject':row.subjectid,'network':network,
                                 'timepoint':tp,'form':form,'form_date_var':date_var,
                                 'form_date':date_val,'withdrawal_date':withdrawal_date,
                                 "days_between_dates":time_between, 'withdrawal_info_source':row.removed_info_source})

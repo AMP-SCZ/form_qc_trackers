@@ -5,5 +5,5 @@
         "error_log_path" : "/home/ob001/refactored_qc/error_logs/",
         "output_path": "/home/ob001/output/"
     },
-    "testing_enabled" : "False"
+    "testing_enabled" : "True"
 }
