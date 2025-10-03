@@ -52,7 +52,6 @@ class CalculateResolvedErrors():
         self.new_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/new_output/combined_qc_flags.csv'
         self.out_paths = {}
         for path_pref in ['old','new','current']:
-            
             directory = f"{self.output_path}combined_outputs/{path_pref}_output/"
             if not os.path.exists(directory):
                 os.makedirs(os.path.dirname(directory), exist_ok=True)
@@ -68,7 +67,7 @@ class CalculateResolvedErrors():
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
 
         self.dropbox_path = f'/Apps/Automated QC Trackers/'
-        #self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
 
     def run_script(self):
         # determine which errors no longer exist in the new output

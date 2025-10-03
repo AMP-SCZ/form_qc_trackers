@@ -13,13 +13,14 @@ import pandas as pd
 
 class DataGenerator():
 
-
     def __init__(self):
-        pass 
+        self.redcap_json_path = '' 
 
     def run_script(self):
-        pass 
+        self.create_combined_csv()
 
+    def create_combined_csv(self):
+        pass
 
 
 if __name__ == '__main__':

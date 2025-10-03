@@ -101,7 +101,7 @@ class QCFormsMain():
                 #combined_df = combined_df.sample(n=20)
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 for row in combined_df.itertuples(): 
-                    #print(tp)
+                    print(tp)
                     #print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
                     if (row.subjectid not

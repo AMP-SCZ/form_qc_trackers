@@ -197,4 +197,15 @@ class FluidChecks(FormCheck):
                     self.final_output_list.append(error_output)
 
 
-    
+    def height_weight_unit_checks(self):
+        height_val = getattr(row, 'chrchs_height') 
+        height_units = getattr(row,'chrchs_height_units')
+        if all(self.utils.can_be_float(var_val) and var_val not
+        in self.utils.missing_code_list for
+        var_val in [height_val, height_units]):
+            if float(height_val) < 10 and float(height_units) in [1,2]:
+                print('error')
+
+
+
+            
