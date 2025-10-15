@@ -206,6 +206,9 @@ class FluidChecks(FormCheck):
             if float(height_val) < 10 and float(height_units) in [1,2]:
                 print('error')
 
+    def height_bmi_check(self):
+        bmi_var = 'chrchs_bmi' 
+        
 
 
             

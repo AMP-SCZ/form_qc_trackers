@@ -93,6 +93,8 @@ class QCFormsMain():
                 final_output.extend(multi_tp_checks())
             """
             for tp in tp_list:
+                print(tp)
+
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
@@ -101,8 +103,7 @@ class QCFormsMain():
                 #combined_df = combined_df.sample(n=20)
                 #combined_df = combined_df.sample(n=100, random_state=42)
                 for row in combined_df.itertuples(): 
-                    print(tp)
-                    #print(row.Index)
+                    print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
                     if (row.subjectid not
                     in self.form_check_info['subject_info']):

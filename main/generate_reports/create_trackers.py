@@ -40,7 +40,10 @@ class CreateTrackers():
         self.output_path = self.config_info['paths']['output_path']
         if self.config_info["testing_enabled"] == "True":
             self.output_path += "testing/"
-        
+            self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+        else:
+            self.dropbox_path = f'/Apps/Automated QC Trackers/'
+
         self.all_reports = ['Main Report','Secondary Report']
         self.site_reports = ['Main Report']
         self.all_report_df = {}
@@ -65,8 +68,6 @@ class CreateTrackers():
         top=Side(style='thin'),bottom=Side(style='thin'))
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
-        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
-        #self.dropbox_path = f'/Apps/Automated QC Trackers/'
 
         self.master = pd.DataFrame()
         
@@ -173,7 +174,8 @@ class CreateTrackers():
             cell_color = self.colors['grey']
             # the order of this list determines which colors
             # override others
-            for color in [self.time_based_color(row,worksheet),self.color_priority_items(row,worksheet),
+            for color in [self.time_based_color(row,worksheet),
+            self.color_priority_items(row,worksheet),
             self.determine_resolved_color(row,worksheet,'Date Resolved','green'),
             self.determine_resolved_color(row,worksheet,'Manually Resolved','blue')]:
                 if color != None:
@@ -321,7 +323,6 @@ class CreateTrackers():
 
     def save_to_dropbox(self, fullpath, local_path):
         dbx = self.utils.collect_dropbox_credentials()
-
         with open(fullpath, 'rb') as f:
             dbx.files_upload(f.read(), self.dropbox_path + local_path,\
             mode=dropbox.files.WriteMode.overwrite)

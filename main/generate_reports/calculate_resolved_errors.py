@@ -46,7 +46,9 @@ class CalculateResolvedErrors():
         self.output_path = self.config_info['paths']['output_path']
         if self.config_info["testing_enabled"] == "True":
             self.output_path += "testing/"
-
+            self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+        else:
+            self.dropbox_path = f'/Apps/Automated QC Trackers/'
 
         self.old_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/old_output/combined_qc_flags.csv'
         self.new_path = '/PHShome/ob001/anaconda3/refactored_qc/output/combined_outputs/new_output/combined_qc_flags.csv'
@@ -65,9 +67,6 @@ class CalculateResolvedErrors():
 
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
-
-        self.dropbox_path = f'/Apps/Automated QC Trackers/'
-        self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
 
     def run_script(self):
         # determine which errors no longer exist in the new output
