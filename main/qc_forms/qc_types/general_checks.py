@@ -241,3 +241,6 @@ class GeneralChecks(FormCheck):
                     row, [form], [vars['missing_spec_var'],vars['missing_var']], error_message, 
                      {"reports" : ['Main Report']})
                     self.final_output_list.append(error_output)
+    
+    def date_inconsistency_check(self, row):
+        pass
