@@ -159,7 +159,6 @@ class CalculateResolvedErrors():
             )
 
             subjects_to_merge = report_df['subject'].tolist()
-
             report_df = report_df.explode('error_message').reset_index(drop=True)
             report_df['current_report'] = report
             prev_output_df['current_report'] = np.where(

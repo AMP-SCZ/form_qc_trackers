@@ -22,8 +22,7 @@ class CognitionChecks(FormCheck):
         self.call_checks(row)
         
     def call_checks(self, row):
-        pass
-        #self.call_cognition_checks(row)
+        self.call_cognition_checks(row)
 
     def __call__(self):
         return self.final_output_list
@@ -50,7 +49,7 @@ class CognitionChecks(FormCheck):
                         if (hasattr(row, 'chriq_assessment') and 
                         row.chriq_assessment not in (self.utils.missing_code_list + ['']) and
                         self.utils.can_be_float(row.chriq_assessment) and
-                        float(row.chriq_assessment) in [1.0,2.0]):
+                        float(row.chriq_assessment) in [1.0]):
                             assessment = self.assessment_translations[float(row.chriq_assessment)]
                             if assessment == 'wasi':
                                 self.fsiq_conversion_check(row, forms,

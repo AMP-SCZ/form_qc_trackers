@@ -115,15 +115,15 @@ class QCFormsMain():
                     network, self.form_check_info)
                     clinical_checks = ClinicalChecksMain(row,
                     tp, network, self.form_check_info)
-                    """cognition_checks = CognitionChecks(row,
-                    tp, network, self.form_check_info)"""
+                    cognition_checks = CognitionChecks(row,
+                    tp, network, self.form_check_info)
                     sop_checks = SOPChecks(row,
                     tp, network, self.form_check_info)
                     final_output.extend(gen_checks())
                     final_output.extend(fluid_checks())
                     final_output.extend(clinical_checks())
                     final_output.extend(sop_checks())
-                    #final_output.extend(cognition_checks())
+                    final_output.extend(cognition_checks())
                 if len(final_output) > 0:
                     combined_output_df = pd.DataFrame(final_output)
                     print(combined_df)

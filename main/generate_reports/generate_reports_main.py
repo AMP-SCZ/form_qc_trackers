@@ -66,7 +66,8 @@ class GenerateReports():
         else:
             dbx_col_names = self.formatted_column_names
         
-        """self.formatted_column_names['sites'] = {'PRONET' : {}, 'PRESCIENT' : {}}
+        """
+        self.formatted_column_names['sites'] = {'PRONET' : {}, 'PRESCIENT' : {}}
         for network in ['PRONET','PRESCIENT']:
             for orig, trans in self.formatted_column_names[network].items():
                 if orig == 'comments':
@@ -75,7 +76,8 @@ class GenerateReports():
                 self.formatted_column_names['sites'][network][orig] = trans
 
             self.formatted_column_names['sites'][network] = self.formatted_column_names[network]
-            self.formatted_column_names['sites'][network][]"""
+            self.formatted_column_names['sites'][network][]
+        """
 
         self.utils = Utils()
         self.calc_resolved = CalculateResolvedErrors(dbx_col_names)

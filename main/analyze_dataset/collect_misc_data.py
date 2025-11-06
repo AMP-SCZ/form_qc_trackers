@@ -60,6 +60,5 @@ class CollectData():
             df.to_csv('incomplete_forms.csv', index = False)
             print('saved')
 
-
 if __name__ == '__main__':
     CollectData().run_script()

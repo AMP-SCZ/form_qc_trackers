@@ -43,7 +43,6 @@ class CreateTrackers():
             self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
         else:
             self.dropbox_path = f'/Apps/Automated QC Trackers/'
-
         self.all_reports = ['Main Report','Secondary Report']
         self.site_reports = ['Main Report']
         self.all_report_df = {}
@@ -74,12 +73,11 @@ class CreateTrackers():
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
         keep_default_na= False)
-        #self.append_recovered_comments('PRESCIENT')
-
         self.collect_new_reports()
         self.generate_reports()
         self.upload_trackers()
-
+        self.append_recovered_comments('PRESCIENT')
+ 
     def collect_new_reports(self):
         for row in self.combined_tracker.itertuples():
             if row.reports == '':
@@ -120,7 +118,7 @@ class CreateTrackers():
             if report != 'Non Team Forms' and site_abr == 'ME':
                 continue 
             if site_abr == 'ME':
-                self.loop_ras(network,site, report, report_df)
+                self.loop_ras(network, site, report, report_df)
             site_path = f'{self.dropbox_output_path}{network}/{site}/'
             if not os.path.exists(site_path):
                 os.makedirs(site_path)
@@ -129,12 +127,12 @@ class CreateTrackers():
             report,site_path,
             f'{network}_{site_abr}_Output_V2.xlsx')
 
-    def loop_ras(self,network,site, report, report_df):
+    def loop_ras(self, network, site, report, report_df):
         for ra, subjects in self.melbourne_ras.items():
             ra_path = f'{self.dropbox_output_path}{network}/{site}/{ra.replace(" ","_")}/'
             ra_df = report_df[report_df['Participant'].isin(subjects)]
             self.format_excl_sheet(ra_df,
-            report,ra_path,
+            report, ra_path,
             f'{network}_Melbourne_Output_V2.xlsx')
 
     def upload_trackers(self):
@@ -188,7 +186,7 @@ class CreateTrackers():
                     cell.fill = cell_color
                 else:
                     cell.fill = self.colors['grey']
-    
+
         return worksheet
 
     def time_based_color(self, excel_row, worksheet):
@@ -219,7 +217,8 @@ class CreateTrackers():
                     return self.colors['pink']
         return None
 
-    def determine_resolved_color(self, excel_row, worksheet, col_to_check, color_to_return):
+    def determine_resolved_color(self, excel_row, 
+    worksheet, col_to_check, color_to_return):
         for cell in excel_row:
             cell.fill = self.colors['grey']
             header_value = worksheet.cell(row=1, column=cell.column).value
@@ -310,7 +309,7 @@ class CreateTrackers():
         
         return merged_df
     
-    def move_rows_to_bottom(self, incl_col_name,excl_col_name, df):
+    def move_rows_to_bottom(self, incl_col_name, excl_col_name, df):
         if excl_col_name != None:
             moving_df = df[(df[incl_col_name] != '') & (df[excl_col_name]=='')]
             df = df[(df[incl_col_name] == '') | (df[excl_col_name]!='')]
@@ -326,7 +325,7 @@ class CreateTrackers():
         with open(fullpath, 'rb') as f:
             dbx.files_upload(f.read(), self.dropbox_path + local_path,\
             mode=dropbox.files.WriteMode.overwrite)
-            #self.recover_comments(self.dropbox_path + local_path)
+            self.recover_comments(self.dropbox_path + local_path)
             
     def recover_comments(self, path):
         dbx = self.utils.collect_dropbox_credentials()
@@ -400,31 +399,44 @@ class CreateTrackers():
         self.master.to_csv('recovered_flags.csv', index = False)
 
     def append_recovered_comments(self, network):
+        # 1. load recovered comments
         comments_df = pd.read_csv(f'{self.output_path}recovered_comments.csv',
-        keep_default_na =False)
-        orig_columns = comments_df.columns
-        new_cols= {}
-        reversed_dictionary = self.utils.reverse_dictionary(
-            self.formatted_column_names[
-            network]['combined'])
-        for old_col in orig_columns:
-            new_cols[old_col] = reversed_dictionary[old_col]
-        comments_df = comments_df.rename(columns = new_cols)
-        print('--0-')
-        print(comments_df.shape)
-        print(comments_df)
-        comments_df.to_csv('new_comments_df_test.csv', index = False)
-        cols = list(comments_df.columns)
-        cols = [col for col in cols if col in self.combined_tracker.columns]
-        merged = pd.merge(comments_df, self.combined_tracker, on = cols,
-        how = 'outer')
-        print(merged.columns)
-        print(f'MERGED SHAPE: {merged.shape}')
-        """merged = merged[
-            (merged['comments'] != '') |
-            (merged['manually_resolved'] != '') |
-            (merged['site_comments'] != '')
-        ]"""
+                                keep_default_na=False)
 
-        merged.to_csv(self.curr_output_csv_path, index = False) 
-        
+        # 2. map formatted -> raw, but safely
+        reversed_dict = self.utils.reverse_dictionary(
+            self.formatted_column_names[network]['combined']
+        )
+        comments_df = comments_df.rename(
+            columns={c: reversed_dict.get(c, c) for c in comments_df.columns}
+        )
+
+        # 3. define the key we actually use to identify a row
+        # adjust these names to match your *raw* combined_qc_flags.csv
+        key_cols = ['subject', 'displayed_timepoint', 'displayed_form']
+
+        # keep only the columns we care about from recovered comments
+        # (so we don't accidentally merge on comment columns)
+        comment_cols = ['site_comments', 'network_comments', 'manually_resolved']
+        comment_cols = [c for c in comment_cols if c in comments_df.columns]
+
+        comments_df = comments_df[key_cols + comment_cols].drop_duplicates()
+
+        # 4. merge onto the current tracker by key only
+        merged = self.combined_tracker.merge(
+            comments_df,
+            on=key_cols,
+            how='left',
+            suffixes=('', '_rec')
+        )
+
+        # 5. for each comment-like column: if current is blank, fill from recovered
+        for col in comment_cols:
+            rec_col = f'{col}_rec'
+            if rec_col in merged.columns:
+                # treat '' as blank
+                merged[col] = merged[col].where(merged[col] != '', merged[rec_col])
+                merged = merged.drop(columns=[rec_col])
+
+        # 6. write back
+        merged.to_csv(self.curr_output_csv_path, index=False)
