@@ -74,7 +74,7 @@ class CollectSubjectInfo():
             col_list = [col for col in col_list if col in combined_df.columns]
             combined_df = combined_df[['subjectid','visit_status_string',
             'chrcrit_part', 'chrcrit_included','chrpsychs_scr_interview_date',
-            'chric_actigraphy','chric_passive']]
+            'chric_actigraphy','chric_passive','chrpharm_interview_date']]
             for row in combined_df.itertuples():
                 sub = row.subjectid
                 self.subject_info.setdefault(sub, {})
@@ -92,6 +92,10 @@ class CollectSubjectInfo():
                 'axivity_opt'] = row.chric_actigraphy 
                 self.subject_info[sub][
                 'mindlamp_opt'] = row.chric_passive
+                self.subject_info[sub][
+                'past_pharm_date'] = row.chrpharm_interview_date
+
+
 
     def collect_baseline_info(self):
         tp = 'baseline'
@@ -123,7 +127,8 @@ class CollectSubjectInfo():
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
-            col_list = ['subjectid','chr_statusform_screenfail','chr_subject_eos']
+            col_list = ['subjectid','chr_statusform_screenfail',
+            'chr_subject_eos','chrpharm_date_first']
             col_list = [col for col in col_list if col in combined_df.columns]
             combined_df = combined_df[col_list]
             for row in combined_df.itertuples():
@@ -137,5 +142,8 @@ class CollectSubjectInfo():
                 'completed_study'] = self.translate_var_vals(
                 self.var_translations['chr_subject_eos'], 
                 row.chr_subject_eos)
+                self.subject_info[sub][
+                'curr_pharm_date'] = row.chrpharm_date_first
+
 
     
