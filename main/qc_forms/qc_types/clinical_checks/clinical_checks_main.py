@@ -79,7 +79,7 @@ class ClinicalChecksMain(FormCheck):
         self.call_tbi_checks(row)
         self.call_bprs_checks(row)
         self.call_conversion_check(row)
-        self.call_pharm_checks(row)
+        #self.call_pharm_checks(row)
         self.call_premorbid_adjustment_checks(row)
         #self.call_age_comparisons(row)
         self.call_pps_checks(row)
@@ -149,6 +149,8 @@ class ClinicalChecksMain(FormCheck):
 
         self.pharm_date_mod_check(row, curr_forms,
         ['chrpharm_date_mod'], reports)
+
+        self.check_pharm_date_chronologies(row, curr_forms + past_form)
 
         name_vars = self.grouped_vars['pharm_vars']['name_vars']
         self.pharm_med_name_check(row, 
@@ -790,9 +792,30 @@ class ClinicalChecksMain(FormCheck):
             f" however, based on other fields ({compared_var}) 777 seems appropriate. Please check")
             error_output = self.create_row_output(
             row, forms, name_vars_888 + compared_vars ,
-            error_message, {'reports' : ['Main Report' ,'Non Team Forms']}
+            error_message, {'reports' : ['Main Report', 'Non Team Forms']}
             )
             self.final_output_list.append(error_output)
+    
+    def check_pharm_date_chronologies(self,row, forms):
+        subject = row.subjectid
+        if (not all(key in self.subject_info[subject].keys()
+        for key in ['past_pharm_date','curr_pharm_date'])):
+            return
+        past_pharm_date = self.subject_info[subject]['past_pharm_date']
+        curr_pharm_date = self.subject_info[subject]['curr_pharm_date']
+        date_list = [curr_pharm_date, past_pharm_date]
+        if (not any(date in (self.utils.missing_code_list + ['']) for 
+        date in date_list) and all(self.utils.check_if_val_date_format(date)
+        for date in date_list)):
+            if ((datetime.strptime(past_pharm_date, "%Y-%m-%d")
+            > datetime.strptime(curr_pharm_date, "%Y-%m-%d"))):
+                error_message = (f'Past Pharmaceutical date ({past_pharm_date})'
+                f' is later than Current Pharmaceutical Date ({curr_pharm_date})')
+                error_output = self.create_row_output(
+                row, forms, ['chrpharm_interview_date','chrpharm_date_first'] ,
+                error_message, {'reports' : ['Main Report', 'Non Team Forms']}
+                )
+                self.final_output_list.append(error_output)
 
     def det_if_overlapping_pharm_dates(self, row, nums):
         ranges_iterated_daily = []

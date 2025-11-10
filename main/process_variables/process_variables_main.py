@@ -82,8 +82,3 @@ class ProcessVariables():
         range_definer = RangeDefiner()
         self.utils.save_dependency_json(range_definer(), 'variable_ranges.json')
         
-
-
-
-
-        

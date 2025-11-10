@@ -3,7 +3,6 @@ import os
 import sys
 import json
 import traceback
-
 import random
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
@@ -12,7 +11,6 @@ from qc_forms.qc_types.general_checks import GeneralChecks
 from qc_forms.qc_types.fluid_checks import FluidChecks
 from qc_forms.qc_types.clinical_checks.clinical_checks_main import ClinicalChecksMain
 from qc_forms.qc_types.cognition_checks import CognitionChecks
-
 from qc_forms.qc_types.SOP_checks import SOPChecks
 from qc_forms.qc_types.multi_tp_checks import MultiTPChecks
 
@@ -94,7 +92,8 @@ class QCFormsMain():
             """
             for tp in tp_list:
                 print(tp)
-
+                if tp not in ['floating','screening']:
+                    continue
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),

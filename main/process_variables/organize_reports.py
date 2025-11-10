@@ -226,7 +226,7 @@ class OrganizeReports():
 
         excluded_strings =  {'PRONET':pronet_excl_strings,
         
-        'PRESCIENT':(pronet_excl_strings + ['chrdemo_racial','chrsaliva_food',
+        'PRESCIENT':(pronet_excl_strings + self.prescient_scid_excluded_vars() + ['chrdemo_racial','chrsaliva_food',
         'chrscid_overview_version','chrblood_freezerid',
         'chrdbb_phone_model','chrdbb_phone_software',
         'wb3id','se3id','se2id','wb2id','chrblood_rack_barcode','chrscid_inhalant_yn',
@@ -292,7 +292,27 @@ class OrganizeReports():
             'chrpsychs_fu_e27_app','hcpsychs_fu_e27','hcpsychs_fu_e27_app'])
 
         return essential_psychs_vars
-    
+
+
+    def prescient_scid_excluded_vars(self):
+        excluded_scid_vars = ['chrscid_a55','chrscid_a56',
+        'chrscid_a64','chrscid_a65','chrscid_a73','chrscid_a74'
+        'chrscid_a81','chrscid_a82','chrscid_a93','chrscid_a94',
+        'chrscid_a102','chrscid_a103','chrscid_a111',
+        'chrscid_a112','chrscid_a119','chrscid_a120',
+        'chrscid_d29','chrscid_e1_a''chrscid_e1_b','chrscid_e15','chrscid_e20',
+        'chrscid_e39','chrscid_e40','chrscid_e41','chrscid_e42','chrscid_e43',
+        'chrscid_e44','chrscid_e45','chrscid_e46','chrscid_e160-161','chrscid_e165-166',
+        'chrscid_e169-170','chrscid_e173-174','chrscid_e177-178','chrscid_e181-182',
+        'chrscid_e185-186','chrscid_e189-190','chrscid_e194','chrscid_e195',
+        'chrscid_e196','chrscid_e197','chrscid_e198','chrscid_e199','chrscid_e200',
+        'chrscid_e201','chrscid_e299-300','chrscid_e303-304','chrscid_e307-308',
+        'chrscid_e311-312','chrscid_e315-316','chrscid_e319-320','chrscid_e323-324',
+        'chrscid_e327-328','chrscid_e341','chrscid_e342','chrscid_e343','chrscid_e344',
+        'chrscid_e345','chrscid_e346','chrscid_e347','chrscid_e348']
+
+        return excluded_scid_vars
+            
     def find_new_added_vars(self):
         depen_path = self.config_info['paths']['dependencies_path']
         old_data_dict_path = depen_path + 'data_dictionary/'
