@@ -76,7 +76,7 @@ class CreateTrackers():
         self.collect_new_reports()
         self.generate_reports()
         self.upload_trackers()
-        self.append_recovered_comments('PRESCIENT')
+        #self.append_recovered_comments('PRESCIENT')
  
     def collect_new_reports(self):
         for row in self.combined_tracker.itertuples():
@@ -325,7 +325,7 @@ class CreateTrackers():
         with open(fullpath, 'rb') as f:
             dbx.files_upload(f.read(), self.dropbox_path + local_path,\
             mode=dropbox.files.WriteMode.overwrite)
-            self.recover_comments(self.dropbox_path + local_path)
+            #self.recover_comments(self.dropbox_path + local_path)
             
     def recover_comments(self, path):
         dbx = self.utils.collect_dropbox_credentials()

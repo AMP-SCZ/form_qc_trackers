@@ -52,6 +52,11 @@ class ScidChecks(FormCheck):
         ['chrscid_d28','chrscid_a70','chrscid_a91','chrscid_a108',
         'chrscid_a129','chrscid_a138'],
         changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
+        self.chrscid_d28_more_advanced_check(row, [form], 
+         ['chrscid_a70','chrscid_a91','chrscid_a108',
+        'chrscid_a128'],
+        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
+
         self.major_depressive_episode_check(row, [form], 
         ['chrscid_d26','chrscid_a51','chrscid_a25',
         'chrscid_d3','chrscid_d9','chrscid_d11','chrscid_d23'],
@@ -206,7 +211,20 @@ class ScidChecks(FormCheck):
             
         if row.chrscid_d28 not in self.utils.all_dtype([3]):
             return 'chrscid_d28 has to be 3 since no manic or hypomanic episode was fulfilled.'
-    
+
+    @FormCheck.standard_qc_check_filter 
+    def chrscid_d28_more_advanced_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=False
+    ):  
+        for var in ['chrscid_a70','chrscid_a91','chrscid_a108',
+        'chrscid_a128']:
+            if getattr(row,var) in self.utils.all_dtype([3]):
+                return
+            
+        if row.chrscid_d28 in self.utils.all_dtype([1]):
+            return 'chrscid_d28 cannot be 1 since no manic or hypomanic episode was fulfilled.'
+
     @FormCheck.standard_qc_check_filter 
     def depressed_mood_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
