@@ -32,7 +32,6 @@ class PrepareDateChecks():
         
 
 
-
 if __name__ == '__main__':
     PrepareDateChecks().run_script()
 

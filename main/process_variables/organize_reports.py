@@ -226,7 +226,7 @@ class OrganizeReports():
 
         excluded_strings =  {'PRONET':pronet_excl_strings,
         
-        'PRESCIENT':(pronet_excl_strings + self.prescient_scid_excluded_vars() + ['chrdemo_racial','chrsaliva_food',
+        'PRESCIENT':(pronet_excl_strings + self.prescient_scid_excluded_vars()+ ['chrdemo_racial','chrsaliva_food',
         'chrscid_overview_version','chrblood_freezerid',
         'chrdbb_phone_model','chrdbb_phone_software',
         'wb3id','se3id','se2id','wb2id','chrblood_rack_barcode','chrscid_inhalant_yn',
