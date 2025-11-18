@@ -71,8 +71,10 @@ class CalculateResolvedErrors():
     def run_script(self):
         # determine which errors no longer exist in the new output
         self.determine_resolved_rows() 
+        print('stage 1 done')
         # read specified columns from dropbox to new output
         self.loop_dropbox_files()
+        print('stage 2 done')
             
     def loop_dropbox_files(self):
         # define columns to read over
@@ -85,7 +87,7 @@ class CalculateResolvedErrors():
         dbx = self.utils.collect_dropbox_credentials()
 
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name in ['PRESCIENT']:
+            if network.name in ['PRONET']:
                 network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'
@@ -191,10 +193,11 @@ class CalculateResolvedErrors():
         #new_df = new_df[new_df['currently_resolved'] == False]
         #new_df = new_df.drop('NDA Excluder', axis=1)
         #old_df = old_df.drop('NDA Excluder', axis=1)
+        print('checkpoint1')
         if os.path.exists(self.out_paths['current']):
             curr_df = pd.read_csv(self.out_paths['current'])
             curr_df.to_csv(self.out_paths['old'],index = False)
-
+        print('checkpoint2')
         if os.path.exists(self.out_paths['old']):
             old_df = pd.read_csv(self.out_paths['old'], keep_default_na = False)
             orig_columns = list(new_df.columns)
@@ -204,6 +207,7 @@ class CalculateResolvedErrors():
             on = cols_to_merge, how='outer', suffixes = ('_old','_new'))
             merged_df = merged.fillna('')
             new_df = self.compare_old_new_outputs(orig_columns, cols_to_merge, merged_df)
+        print('checkpoint3')
         new_df.to_csv(self.out_paths['current'], index = False)
 
     def compare_old_new_outputs(self, orig_columns, cols_to_merge, merged_df):

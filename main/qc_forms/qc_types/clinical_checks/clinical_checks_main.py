@@ -833,7 +833,7 @@ class ClinicalChecksMain(FormCheck):
                 ranges_iterated_daily.append(onset_val)
                 continue
             if onset_val > lastuse_val:
-                return Falseo
+                return False
             add_days = True
             while add_days:
                 ranges_iterated_daily.append(onset_val)

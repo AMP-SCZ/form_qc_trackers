@@ -84,7 +84,8 @@ class FluidChecks(FormCheck):
 
         drawdate = row.chrblood_drawdate
         labdate = row.chrblood_labdate
-        if any(date in (self.missing_code_list +['']) for\
+        if any((date in (self.missing_code_list +['']) or
+        not self.utils.check_if_val_date_format(date, "%Y-%m-%d %H:%M")) for\
         date in [drawdate,labdate]):
             return
         if (datetime.strptime(drawdate,"%Y-%m-%d %H:%M") > 
@@ -195,7 +196,6 @@ class FluidChecks(FormCheck):
                     error_output = self.create_row_output(
                     row,forms,[barcode_var], error_message, output_changes)
                     self.final_output_list.append(error_output)
-
 
     def height_weight_unit_checks(self):
         height_val = getattr(row, 'chrchs_height') 

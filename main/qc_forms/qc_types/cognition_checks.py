@@ -37,7 +37,6 @@ class CognitionChecks(FormCheck):
         forms =  ['iq_assessment_wasiii_wiscv_waisiv']
         reports = ['Main Report', 'Cognition Report']
         if self.timepoint in ["baseline","month24"]:   
- 
             if ('age' in self.subject_info[row.subjectid].keys() and
             'demographics_date' in self.subject_info[row.subjectid].keys()):
                 self.age = self.subject_info[row.subjectid]['age']
@@ -46,7 +45,6 @@ class CognitionChecks(FormCheck):
                 date_val in [self.demo_date, row.chriq_interview_date]):
                     iq_age_diff = self.utils.find_days_between(self.demo_date, row.chriq_interview_date)
                     if all(self.utils.can_be_float(age_val) for age_val in [iq_age_diff, self.age]):
-
                         iq_age = float(self.age) + (float(iq_age_diff) / 365)
                         if (hasattr(row, 'chriq_assessment') and 
                         row.chriq_assessment not in (self.utils.missing_code_list + ['']) and
@@ -78,13 +76,13 @@ class CognitionChecks(FormCheck):
             and self.utils.can_be_float(iq_var) for iq_var
             in [redcap_fsiq, redcap_raw_score]):
                 fsiq_table = self.cognition_csvs[f'fsiq_conversion_{assessment}'] 
-
                 for iq_row in fsiq_table.itertuples():
                     if (float(redcap_raw_score) == float(
                     getattr(iq_row, var_to_convert))):
-
                         python_fsiq = float(getattr(iq_row, 'chriq_fsiq'))
                         if float(python_fsiq) != float(redcap_fsiq):
+                            print((f"FSIQ Miscalculated" 
+                            f" (Recorded as {redcap_fsiq}, but should be {python_fsiq})"))
                             return (f"FSIQ Miscalculated" 
                             f" (Recorded as {redcap_fsiq}, but should be {python_fsiq})")
                         
@@ -116,25 +114,20 @@ class CognitionChecks(FormCheck):
             'scaled':'chriq_scaled_matrix','col_name':'mr'}}
             vocab_raw = getattr(row,'chriq_vocab_raw')
             matrix_raw = getattr(row, 'chriq_matrix_raw')
-
             for iq_row in filtered_table.itertuples():
                 for test_type, scores in score_dict.items():
-
                     conversion_sheet_score = self.utils.convert_range_to_list(
                     getattr(iq_row, scores['col_name']))
                     redcap_score = getattr(row, scores['raw'])
-
                     if redcap_score == conversion_sheet_score:
                         redcap_scaled = getattr(row, scores['scaled'])
                         qc_scaled = getattr(iq_row, iq_col_names[assessment])
-                        print('---')
-                        print(redcap_score)
-                        print(conversion_sheet_score)
-                        print('----')
-                        """print('----')
-                        print(redcap_scaled)
-                        print(qc_scaled)
-                        print('-----')"""
+                        """if (redcap_scaled not in self.utils.missing_code_list
+                        and qc_scaled not in self.utils.missing_code_list):
+                            print('----')
+                            print(redcap_scaled)
+                            print(qc_scaled)
+                            print('-----')"""
                         if (redcap_scaled != qc_scaled and redcap_scaled
                         not in (self.utils.missing_code_list + [''])):
                             error_message = (f"Check scaled conversion for {test_type} IQ score."

@@ -20,7 +20,6 @@ class PrepareDateChecks():
 
         self.date_chronologies = {}
 
-
     def run_script(self):
         self.organize_variable_checks()
 

@@ -84,6 +84,6 @@ class GenerateReports():
         self.create_trackers = CreateTrackers(self.formatted_column_names)
 
     def run_script(self):
-        #self.calc_resolved.run_script()
+        self.calc_resolved.run_script()
         self.create_trackers.run_script()
    

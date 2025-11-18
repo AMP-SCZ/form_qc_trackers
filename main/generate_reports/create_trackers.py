@@ -73,8 +73,11 @@ class CreateTrackers():
     def run_script(self):
         self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
         keep_default_na= False)
+        print('stage 1')
         self.collect_new_reports()
+        print('stage 2')
         self.generate_reports()
+        print('stage 3')
         self.upload_trackers()
         #self.append_recovered_comments('PRESCIENT')
  
@@ -88,7 +91,7 @@ class CreateTrackers():
                     self.all_reports.append(report)
 
     def generate_reports(self):
-        for network in ['PRESCIENT']:
+        for network in ['PRONET']:
             network_df = self.combined_tracker[
             self.combined_tracker['network']==network]
             for report in self.all_reports:

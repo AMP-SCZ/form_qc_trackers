@@ -46,6 +46,10 @@ class FormCheck():
         self.module_b_vars = self.grouped_vars['scid_vars']['module_b_vars']
         self.module_c_vars = self.grouped_vars['scid_vars']['module_c_vars']
 
+        with open(f'{self.absolute_path}/config.json','r') as file:
+            self.config_info = json.load(file)
+
+
     def call_checks(self):
         pass
     
@@ -324,7 +328,8 @@ class FormCheck():
             row_output['priority_item'] = True
 
         if (row_output['withdrawn_enabled'] == False
-        and removed_status == True):
+        and removed_status == True and
+        self.config_info["withdrawn_enabled"] == False):
             row_output['reports'] = []
 
         if (row_output['excluded_enabled'] == False
