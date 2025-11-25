@@ -333,7 +333,8 @@ class FormCheck():
             row_output['reports'] = []
 
         if (row_output['excluded_enabled'] == False
-        and incl_status.lower() != 'included'):
+        and (incl_status.lower() != 'included' or
+        curr_row.recruitment_status_v2 == 'negative_screen')):
             row_output['reports'] = []
                 
         for key in row_output.keys():

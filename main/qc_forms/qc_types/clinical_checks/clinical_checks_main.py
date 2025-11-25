@@ -150,7 +150,8 @@ class ClinicalChecksMain(FormCheck):
         self.pharm_date_mod_check(row, curr_forms,
         ['chrpharm_date_mod'], reports)
 
-        self.check_pharm_date_chronologies(row, curr_forms + past_form)
+        if self.timepoint == 'screening':
+            self.check_pharm_date_chronologies(row, curr_forms + past_form)
 
         name_vars = self.grouped_vars['pharm_vars']['name_vars']
         self.pharm_med_name_check(row, 
@@ -171,7 +172,8 @@ class ClinicalChecksMain(FormCheck):
                 f'chrpharm_med{secondary_med_count}_use'
                 ]  
 
-                self.pharm_overlapping_days(row, curr_forms, med_vars, reports)          
+                self.pharm_overlapping_days(row,
+                 urr_forms, med_vars, reports)          
 
     def call_conversion_check(self,row):
         for var, threshold in self.gt_var_val_pairs.items():

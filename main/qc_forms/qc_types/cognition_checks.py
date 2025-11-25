@@ -122,12 +122,13 @@ class CognitionChecks(FormCheck):
                     if redcap_score == conversion_sheet_score:
                         redcap_scaled = getattr(row, scores['scaled'])
                         qc_scaled = getattr(iq_row, iq_col_names[assessment])
-                        """if (redcap_scaled not in self.utils.missing_code_list
+                        if (redcap_scaled not in self.utils.missing_code_list
                         and qc_scaled not in self.utils.missing_code_list):
-                            print('----')
-                            print(redcap_scaled)
-                            print(qc_scaled)
-                            print('-----')"""
+                            print('-------')
+                            print(row.subjectid)
+                            print(conversion_sheet_score)
+                            print(redcap_score)
+                            print('-------')
                         if (redcap_scaled != qc_scaled and redcap_scaled
                         not in (self.utils.missing_code_list + [''])):
                             error_message = (f"Check scaled conversion for {test_type} IQ score."

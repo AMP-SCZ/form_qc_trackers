@@ -28,9 +28,9 @@ class ScidChecks(FormCheck):
         changed_output = {'reports': ['Main Report', 'Scid Report', 'Non Team Forms']}
         form = 'scid5_psychosis_mood_substance_abuse'
         self.call_scid_diagnosis_check(row)
-        #self.depressed_mood_check(row, [form], 
-        #['chrscid_a27','chrscid_a28','chrscid_a48_1'],
-        #changed_output)   
+        self.depressed_mood_check(row, [form], 
+        ['chrscid_a27','chrscid_a28','chrscid_a48_1'],
+        changed_output)   
         self.major_depressive_check(row, [form], 
         ['chrscid_a26_53','chrscid_a25','chrscid_a51'],
         changed_output)  
