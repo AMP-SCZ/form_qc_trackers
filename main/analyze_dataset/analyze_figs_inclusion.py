@@ -234,9 +234,6 @@ class RedcapDependencyAnalyzer:
         return all_paths
 
 if __name__ == '__main__':
-    AnalyzeFigs().run_script()
-    sys.exit()
-
     def save_dependency_graph_png(edges, roots, target=None, filename="psychs_dependencies"):
         """
         edges: dict[parent] = set(children)
@@ -302,8 +299,9 @@ if __name__ == '__main__':
     })
 
     connected_vars = set(psychs_vars)      
-    to_visit = list(psychs_vars)           
-    target = "chrcrit_included"                
+    to_visit = list(psychs_vars) 
+    to_visit = ['chrfigs_father_napdef2']          
+    target = "chrfigs_father_napdx"                
 
     edges = defaultdict(set)
 

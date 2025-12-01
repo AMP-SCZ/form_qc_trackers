@@ -83,11 +83,9 @@ class CalculateResolvedErrors():
         # for any rows in the old df that match those, pull the necessary columns 
         # then save this as the old df again and compare to the new df
         # when comparing to the new df, make sure those columns from the old df are preserved in all conditions
-
         dbx = self.utils.collect_dropbox_credentials()
-
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name in ['PRESCIENT']:
+            if network.name in ['PRONET','PRESCIENT']:
                 network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'
@@ -195,7 +193,10 @@ class CalculateResolvedErrors():
         #old_df = old_df.drop('NDA Excluder', axis=1)
         print('checkpoint1')
         if os.path.exists(self.out_paths['current']):
-            curr_df = pd.read_csv(self.out_paths['current'])
+            curr_df = pd.read_csv(self.out_paths['current'],engine="python",         
+            on_bad_lines="skip",    
+            quotechar='"',
+            escapechar='\\')
             curr_df.to_csv(self.out_paths['old'],index = False)
         print('checkpoint2')
         if os.path.exists(self.out_paths['old']):

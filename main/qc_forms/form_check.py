@@ -331,6 +331,10 @@ class FormCheck():
         and removed_status == True and
         self.config_info["withdrawn_enabled"] == False):
             row_output['reports'] = []
+        
+        if (curr_row.recruitment_status_v2 == 'recruited' and
+        self.config_info["recruited_only"] == True):
+            row_output['reports'] = []
 
         if (row_output['excluded_enabled'] == False
         and (incl_status.lower() != 'included' or
