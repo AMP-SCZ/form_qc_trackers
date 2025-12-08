@@ -14,13 +14,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 # check BI00141, BI00230, and BI03026
 class AnalyzeWithdrawalDates():
-
     def __init__(self):
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
-
         self.output_path = self.config_info['paths']['output_path']
         depen_path = self.config_info['paths']['dependencies_path']
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']

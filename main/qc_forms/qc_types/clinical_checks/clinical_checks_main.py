@@ -141,8 +141,8 @@ class ClinicalChecksMain(FormCheck):
         self.det_med_name_improper_value(row, past = False, forms = curr_forms)
         self.det_med_name_improper_value(row, past = True, forms = past_form)
         
-        #self.check_onset_date(row, curr_forms,
-        #['chrpharm_date_mod'], reports)
+        self.check_onset_date(row, curr_forms,
+        ['chrpharm_date_mod'], reports)
 
         self.pharm_firstdose_check(row, curr_forms,
         ['chrpharm_med1_onset','chrpharm_firstdose_med1'], reports)
@@ -173,7 +173,7 @@ class ClinicalChecksMain(FormCheck):
                 ]  
 
                 self.pharm_overlapping_days(row,
-                 urr_forms, med_vars, reports)          
+                curr_forms, med_vars, reports)          
 
     def call_conversion_check(self,row):
         for var, threshold in self.gt_var_val_pairs.items():
@@ -425,6 +425,7 @@ class ClinicalChecksMain(FormCheck):
         date_list = []
         for x in range(0,10):
             date_list.append(f'chrpharm_med{x}_onset')
+            date_list.append(f'chrpharm_med{x}_offset')
         most_recent_date = ''
         for var in all_vars:
             if not hasattr(row, var):
@@ -450,7 +451,7 @@ class ClinicalChecksMain(FormCheck):
             str(most_recent_date), data_entry_val)      
             if days_btwn > 10:
                 error_message =  (f'There are {days_btwn} days between'
-                f' the most recent medication date ({date_val}) and'
+                f' the most recent onset/offset medication date ({date_val}) and'
                 f' medication mod date ({data_entry_val})')
                 error_output = self.create_row_output(
                 row, filtered_forms, all_vars,
@@ -748,7 +749,7 @@ class ClinicalChecksMain(FormCheck):
         improper_val_vars = []
         for var in pharm_name_vars:
             if (hasattr(row,var) and getattr(row,var) in self.utils.all_dtype([573,542,538,539])):
-                error_message = (f"{var} is equal to {getattr(row,var)}")
+                error_message = (f"If {var} is equal to {getattr(row,var)}, was a blinded medication code. Please update if known.")
                 error_output = self.create_row_output(
                 row, forms, [var],
                 error_message, {'reports' : ['Main Report','Non Team Forms']}

@@ -342,6 +342,10 @@ class TransformBranchingLogic():
             for suffix in ['_past','']:
                 if '_past' in suffix and '_past' not in variable:
                     continue
+                #add onset, offset, and continue variables as exceptions here 
+                if (any(excluded_key in variable for
+                excluded_key in ['onset','offset','interm_meds'])):
+                    continue
                 number = self.utils.collect_digit(variable)
                 if number not in ['1','']:
                     new_branching_logic = \
