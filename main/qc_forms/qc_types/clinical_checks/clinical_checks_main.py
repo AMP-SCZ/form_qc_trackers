@@ -423,7 +423,7 @@ class ClinicalChecksMain(FormCheck):
         filter_excl_vars=True
     ):
         date_list = []
-        for x in range(0,10):
+        for x in range(1,61):
             date_list.append(f'chrpharm_med{x}_onset')
             date_list.append(f'chrpharm_med{x}_offset')
         most_recent_date = ''
