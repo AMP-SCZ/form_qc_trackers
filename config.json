@@ -6,5 +6,5 @@
         "output_path": "/home/ob001/output/"
     },
     "testing_enabled" : "False",
-    "withdrawn_enabled" : "False",
-    "recruited_only": "False"}
+    "withdrawn_enabled" : "True",
+    "recruited_only": "True"}

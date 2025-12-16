@@ -75,7 +75,7 @@ class QCFormsMain():
         # if a form in compl and no
         # t missing and ones 
         # that will be checked regardless
-        final_output=[]
+        final_output = []
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
         for network in ['PRESCIENT']:
