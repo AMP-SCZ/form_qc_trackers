@@ -67,7 +67,8 @@ class CollectSubjectInfo():
         for network in ['PRONET','PRESCIENT']:
             combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network.replace("PRONET","ProNET")}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
             col_list = ['subjectid','visit_status_string',
             'chrcrit_part', 'chrcrit_included']
@@ -95,14 +96,13 @@ class CollectSubjectInfo():
                 self.subject_info[sub][
                 'past_pharm_date'] = row.chrpharm_interview_date
 
-
-
     def collect_baseline_info(self):
         tp = 'baseline'
         for network in ['PRONET','PRESCIENT']:
             combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network.replace("PRONET","ProNET")}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
             col_list = ['subjectid','chrdemo_age_mos_chr',
             'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 
@@ -125,10 +125,12 @@ class CollectSubjectInfo():
         for network in ['PRONET']:
             combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network.replace("PRONET","ProNET")}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
             col_list = ['subjectid','chr_statusform_screenfail',
-            'chr_subject_eos','chrpharm_date_first']
+            'chr_subject_eos','chrpharm_date_first','chrpharm_date_mod',
+            'chrpharm_date_mod_2']
             col_list = [col for col in col_list if col in combined_df.columns]
             combined_df = combined_df[col_list]
             for row in combined_df.itertuples():
@@ -144,6 +146,10 @@ class CollectSubjectInfo():
                 row.chr_subject_eos)
                 self.subject_info[sub][
                 'curr_pharm_date'] = row.chrpharm_date_first
+                self.subject_info[sub][
+                'chrpharm_date_mod'] = row.chrpharm_date_mod
+                self.subject_info[sub][
+                'chrpharm_date_mod_2'] = row.chrpharm_date_mod_2
 
 
     

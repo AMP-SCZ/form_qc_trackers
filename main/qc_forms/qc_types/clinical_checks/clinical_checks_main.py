@@ -396,7 +396,6 @@ class ClinicalChecksMain(FormCheck):
                         return (f"{gt_var} ({getattr(row,gt_var)})"
                         f" is less than {lt_var} ({getattr(row,lt_var)})")
 
-    
     def call_twenty_one_day_check(self, row):   
         if self.timepoint != 'baseline':
             return 
@@ -540,6 +539,27 @@ class ClinicalChecksMain(FormCheck):
             error_message, changed_output_vals)
             self.final_output_list.append(error_output)
 
+    def check_pharm_interview_dates(self,row):
+        print(list(self.subject_info[row.subjectid].keys()))
+        if (row.subjectid in self.subject_info.keys() and 
+        all(var in self.subject_info[row.subjectid].keys()
+        for var in ['chrpharm_date_mod','chrpharm_date_mod_2'])):
+            print('RUNNING NEW PHARM CHECK')
+            date_mod = self.subject_info[row.subjectid]['chrpharm_date_mod']
+            date_mod2 = self.subject_info[row.subjectid]['chrpharm_date_mod_2']
+            for form, form_info in self.important_form_vars.items():
+                int_date_var = form_info['interview_date_var']
+                if hasattr(row, int_date_var):
+                    date = getattr(row, int_date_var)
+                    if self.utils.check_if_val_date_format(str(date)):
+                        for mod_date in [date_mod]:
+                            if (datetime.strptime(date, "%Y-%m-%d") > datetime.strptime(date_mod, "%Y-%m-%d")):
+                                print(row.subjectid)
+                                print(mod_date)
+                                print(date)
+                                print(int_date_var)
+                                print(self.timepoint)
+                        
     #@FormCheck.standard_qc_check_filter
     def pharm_date_mod_check(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],

@@ -91,7 +91,7 @@ class CreateTrackers():
                     self.all_reports.append(report)
 
     def generate_reports(self):
-        for network in ['PRESCIENT']:
+        for network in ['PRONET']:
             network_df = self.combined_tracker[
             self.combined_tracker['network']==network]
             for report in self.all_reports:

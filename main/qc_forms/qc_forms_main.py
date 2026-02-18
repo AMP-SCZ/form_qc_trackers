@@ -78,7 +78,7 @@ class QCFormsMain():
         final_output = []
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRESCIENT']:
+        for network in ['PRONET']:
             multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
             """
             multi_tp_df = pd.read_csv(multi_tp_path,
@@ -92,6 +92,7 @@ class QCFormsMain():
             """
             for tp in tp_list:
                 print(tp)
+                print(tp_list)
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
