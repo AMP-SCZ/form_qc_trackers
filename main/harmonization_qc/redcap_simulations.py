@@ -15,9 +15,16 @@ class REDCapSimulator():
         with open(f'{self.utils.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
         self.combined_csv_path = self.config_info['paths']['combined_csv_path']
-        output_path = self.config_info['paths']['output_path']
+        depend_path = self.config_info['paths']['dependencies_path']
+        self.output_path = self.config_info['paths']['output_path']
         self.excl_bl = self.utils.load_dependency_json('excluded_branching_logic_vars.json')
         self.miss_codes = self.utils.missing_code_list
+        self.exported_redcap_data = pd.read_csv(
+        f'{depend_path}PRONETTESTALLRECORDS_DATA_2026-02-19_1443.csv',
+        keep_default_na = False)
+        print(self.exported_redcap_data.shape)
+        self.exported_redcap_data.rename(columns={"chric_record_id": "subjectid"}, inplace=True)
+        
 
     def run_script(self):
         self.loop_combined_csv()
@@ -27,38 +34,53 @@ class REDCapSimulator():
         # if a form in compl and no
         # t missing and ones 
         # that will be checked regardless
-        final_output = []
+        vals_only_in_redcap = []
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRESCIENT']:
+        for network in ['PRONET']:
             for tp in tp_list:
+                tp = tp.replace("month","month_").replace("floating","floating_forms")
                 combined_df = pd.read_csv(
-                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
+                (f'{self.combined_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp}_{network}-day1to1.csv'),
                 keep_default_na = False, on_bad_lines='skip')
-                #combined_df = combined_df.iloc[80:120]
-                #combined_df = combined_df.sample(n=20)
-                #combined_df = combined_df.sample(n=100, random_state=42)
-                for row in combined_df.itertuples(): 
-                    #print(row.Index)
-                    #TODO: Add tracker for all subjects not existing here 
-                if len(final_output) > 0:
-                    combined_output_df = pd.DataFrame(final_output)
-                    print(combined_df)
-                    if combined_output_df.shape[0] > 3000000:
-                        print(f"output rows is {combined_output_df.shape[0]}")
-                        sys.exit()
-                    combined_flags_path = f'{self.output_path}combined_outputs'
-                    os.makedirs(combined_flags_path,exist_ok=True)  # Creates the folder and any necessary parent directories
-                    new_out_path =f'{combined_flags_path}/new_output/'
-                    os.makedirs(new_out_path,exist_ok=True)
-                    try:
-                        combined_output_df.to_csv(f'{new_out_path}combined_qc_flags.csv', index=False)
-                    except Exception as e:
-                        print(e)
-                        traceback.print_exc()
-                        sys.exit()
+                
+                filtered_redcap_df = self.exported_redcap_data[
+                self.exported_redcap_data["redcap_event_name"].str.contains(f"{tp}_")]
+                out_diffs = f"{self.output_path}differences_{tp}.csv"
+                out_only_1 = f"{self.output_path}only_in_file1_{tp}.csv"
+                out_only_2 = f"{self.output_path}only_in_file2_{tp}.csv"
 
+                self.utils.compare_dataframes(
+                combined_df,filtered_redcap_df,
+                out_diffs,out_only_1,out_only_2)
+                print(tp)
+                print(filtered_redcap_df.shape)
+                filtered_cols = list(filtered_redcap_df.columns)
+                comb_cols = list(combined_df.columns)
+
+                only_in_filtered = [col for col in filtered_cols if col not in comb_cols]
+                only_in_combined = [col for col in comb_cols if col not in filtered_cols]
+                for row in filtered_redcap_df.itertuples():
+                    for col in only_in_filtered:
+                        if ('___' in col or col.endswith('_complete')
+                        or col in ['redcap_event_name']):
+                            continue
+                        val = getattr(row,col)
+                        if val not in (self.miss_codes + ['','nan']):
+                            subject = getattr(row,'subjectid')
+                            print(val)
+                            print(col)
+                            print(subject)
+                            vals_only_in_redcap.append({'subject':subject,
+                            'timepoint':tp,'variable':col,'value':val})
+                vals_only_in_redcap_df = pd.DataFrame(vals_only_in_redcap)
+                vals_only_in_redcap_df.to_csv(
+                f'{self.output_path}values_only_in_redcap.csv',
+                index = False)
+                
+                #print(only_in_filtered)
+                #print(only_in_combined)
 
 
 

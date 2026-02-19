@@ -36,7 +36,6 @@ if row exists in both outputs
 """
 
 class CalculateResolvedErrors():
-
     def __init__(self,formatted_col_names):
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
@@ -85,7 +84,7 @@ class CalculateResolvedErrors():
         # when comparing to the new df, make sure those columns from the old df are preserved in all conditions
         dbx = self.utils.collect_dropbox_credentials()
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name in ['PRONET']:
+            if network.name in ['PRESCIENT']:
                 network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
                 combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'

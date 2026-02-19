@@ -16,6 +16,8 @@ class Utils():
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
 
+        self.output_path = self.config_info['paths']['output_path']
+
         self.all_pronet_sites = ["KC", "BI", "SD", "NL", "OR", "CA", "IR", "MU","YA", "HA",\
         "MA", "PI", "PV", "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM','SL','SI','SH','UR','OH']
         self.all_prescient_sites = ['BM', 'CG', 'CP', 'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']
@@ -613,5 +615,42 @@ class Utils():
                 new_item = x
             range_list.append(new_item)
         return range_list
+
+    def compare_dataframes(self, df1, df2,out_diffs,out_only_1,out_only_2):
+        KEY_COL = "subjectid"
+        if KEY_COL not in df1.columns or KEY_COL not in df2.columns:
+            raise ValueError(f"Key column '{KEY_COL}' must exist in both files.")
+
+        df1 = df1.set_index(KEY_COL)
+        df2 = df2.set_index(KEY_COL)
+
+        keys1 = set(df1.index)
+        keys2 = set(df2.index)
+
+        common_keys = sorted(keys1 & keys2)
+        only1 = sorted(keys1 - keys2)
+        only2 = sorted(keys2 - keys1)
+
+        # compare columns (all columns except the key)
+        compare_cols = sorted(set(df1.columns) | set(df2.columns))
+
+        diffs = []
+        for k in common_keys:
+            r1 = df1.loc[k]
+            r2 = df2.loc[k]
+
+            if isinstance(r1, pd.DataFrame) or isinstance(r2, pd.DataFrame):
+                raise ValueError(f"Duplicate key found: {k}. This simple script requires unique keys.")
+
+            for col in compare_cols:
+                v1 = r1[col] if col in r1.index else ""
+                v2 = r2[col] if col in r2.index else ""
+                if v1 != v2:
+                    diffs.append({"key": k, "column": col, "file1_value": v1, "file2_value": v2})
+        diffs_df = pd.DataFrame(diffs)
+        diffs_df = diffs_df[diffs_df['column'].str.contains('figs')]       
+        diffs_df.to_csv(out_diffs, index=False)
+        #pd.DataFrame({"key": only1}).to_csv(out_only_1, index=False)
+        #pd.DataFrame({"key": only2}).to_csv(out_only_2, index=False)
 
 
