@@ -3,6 +3,10 @@ import os
 import sys 
 import json
 import numpy as np
+import dropbox
+from io import BytesIO
+from datetime import datetime, timedelta, timezone
+from xml.etree.ElementTree import ParseError as XMLParseError
 
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
@@ -15,6 +19,12 @@ class ResolvedEstimator():
         self.absolute_path = self.utils.absolute_path
         with open(f'{self.absolute_path}/config.json','r') as file:
             self.config_info = json.load(file)
+        self.output_path = self.config_info['paths']['output_path']
+        if self.config_info["testing_enabled"] == "True":
+            self.output_path += "testing/"
+            self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
+        else:
+            self.dropbox_path = f'/Apps/Automated QC Trackers/'
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         self.depend_path = self.config_info['paths']['dependencies_path']
         self.output_path = self.config_info['paths']['output_path']
@@ -32,148 +42,213 @@ class ResolvedEstimator():
     def loop_dropbox(self):
         dbx = self.utils.collect_dropbox_credentials()
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name in ['PRESCIENT']:
+            if network.name in ['PRONET']:
                 network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
-                combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'
-                self.read_dropbox_data(self.formatted_column_names[network.name]["combined"],
-                ['manually_resolved','comments'], combined_output, dbx, network.name, ['Main Report'])
+                combined_output = network_dir + f'/combined/{network.name}_Output.xlsx'
+                # Get all available revisions (set days_back=None) or specify a number like days_back=730 for 2 years
+                self.recover_old_flags(combined_output, days_back=None)
 
-    def recover_old_flags(self, path):
-        """function to recover history of specified row over time"""
+    def recover_old_flags(self, path, days_back=None, page_limit=100, sample_every_days=4):
+        """
+        Recover history over time, paging beyond 100 revisions via before_rev.
+        Requires path-mode (mode='path').
+
+        path: Dropbox path string like "/folder/file.xlsx" (NOT file id)
+        days_back: Number of days to go back (None = get all available revisions)
+        page_limit: Maximum revisions per API call
+        sample_every_days: Only keep revisions spaced at least this many days apart
+        """
+
         dbx = self.utils.collect_dropbox_credentials()
-        md = dbx.files_get_metadata(path)  
-        file_id = md.id                          
-        rev_result = dbx.files_list_revisions(
-            path=file_id,
-            mode=dropbox.files.ListRevisionsMode.id,
-            limit=100,  
-        )
+        # Ensure access token is set when using refresh token (required before request_json_object)
+        if hasattr(dbx, "check_and_refresh_access_token"):
+            dbx.check_and_refresh_access_token()
 
-        for idx, entry in enumerate(rev_result.entries, start=1):
-            if idx > 40:
-                break
-            rev = entry.rev
-            when = entry.server_modified
-            md2, resp = dbx.files_download(path=path, rev=rev)
-            df = pd.read_excel(BytesIO(resp.content), keep_default_na = False)  
-            #print('RECOVER COMMENTS TEST')
-            #print(f"[{idx}] rev={rev}  modified={when}  shape={df.shape}")
-            #print(df)
-            #print(path)
-            cols = ['Participant','Site Comments','Network Comments',
-            'Manually Resolved','Date Resolved','Form','Flags']
-            tmp = df[cols].replace(r"^\s*$", pd.NA, regex=True)
-            mask_any_nonblank = tmp.notna().any(axis=1)
-            df_filtered = df[mask_any_nonblank]
-            self.master = pd.concat([self.master, df_filtered], ignore_index=True)
-            print(self.master)
-            print(path)
-            print(idx)
-        
-        self.master = self.master.drop_duplicates(subset=["Participant",
-        "Timepoint","Form","Flags"])
-        self.master.to_csv('recovered_flags.csv', index = False)
+        # --- find an object that can make raw RPC calls (SDK 11+: Dropbox has request_json_object itself) ---
+        def find_requester(client):
+            if hasattr(client, "request_json_object"):
+                return client
+            # older SDKs: look for internal transport/client
+            for attr in ("_transport", "_client", "_request", "_session", "_Dropbox__transport", "_Dropbox__client"):
+                obj = getattr(client, attr, None)
+                if obj is not None and hasattr(obj, "request_json_object"):
+                    return obj
+            for name in dir(client):
+                if name.startswith("__"):
+                    continue
+                try:
+                    obj = getattr(client, name)
+                except Exception:
+                    continue
+                if obj is not None and hasattr(obj, "request_json_object"):
+                    return obj
+            return None
 
-    def append_recovered_comments(self, network):
-        comments_df = pd.read_csv(f'{self.output_path}recovered_comments.csv',
-                                keep_default_na=False)
-
-        reversed_dict = self.utils.reverse_dictionary(
-            self.formatted_column_names[network]['combined']
-        )
-        comments_df = comments_df.rename(
-            columns={c: reversed_dict.get(c, c) for c in comments_df.columns}
-        )
-
-        key_cols = ['subject', 'displayed_timepoint', 'displayed_form']
-
-        # keep only the columns we care about from recovered comments
-        # (so we don't accidentally merge on comment columns)
-        comment_cols = ['site_comments', 'network_comments', 'manually_resolved']
-        comment_cols = [c for c in comment_cols if c in comments_df.columns]
-
-        comments_df = comments_df[key_cols + comment_cols].drop_duplicates()
-
-        # 4. merge onto the current tracker by key only
-        merged = self.combined_tracker.merge(
-            comments_df,
-            on=key_cols,
-            how='left',
-            suffixes=('', '_rec')
-        )
-
-        for col in comment_cols:
-            rec_col = f'{col}_rec'
-            if rec_col in merged.columns:
-                # treat '' as blank
-                merged[col] = merged[col].where(merged[col] != '', merged[rec_col])
-                merged = merged.drop(columns=[rec_col])
-
-        merged.to_csv(self.curr_output_csv_path, index=False)
-
-    def read_dropbox_data(self,
-        col_names,columns_to_read,
-        dropbox_path, dbx, network, reports_to_read,
-        excl_report = True
-    ):
-        reversed_col_translations = self.utils.reverse_dictionary(col_names)
-        print('STAGE 1')
-        if self.check_dbx_file_exists(dbx, dropbox_path) == False:
-            return
-        print('STAGE 2')
-        _, res = dbx.files_download(dropbox_path)
-        data = res.content
-        excel_data = pd.ExcelFile(BytesIO(data))
-        sheet_names = excel_data.sheet_names
-        prev_output_df = pd.read_csv(
-            self.out_paths['current'],
-            keep_default_na=False,
-            engine="python",         
-            on_bad_lines="skip",    
-            quotechar='"',
-            escapechar='\\',
-        )
-        print(reports_to_read)
-        orig_columns = prev_output_df.columns
-        for report in sheet_names:
-            if report not in reports_to_read and excl_report == True:
-                continue
-            report_df = pd.read_excel(BytesIO(data),\
-                sheet_name=report, keep_default_na = False)
-            
-            report_df.rename(columns=reversed_col_translations, inplace=True)
-            report_df = report_df.assign(
-                error_message=report_df['error_message'].apply(lambda x: x.split(' | '))
+        requester = find_requester(dbx)
+        if requester is None:
+            raise RuntimeError(
+                "Couldn't find an internal requester on the Dropbox client with request_json_object(). "
+                "In this SDK, easiest fix is upgrading the `dropbox` package, OR pass an access token "
+                "and use requests directly."
             )
 
-            subjects_to_merge = report_df['subject'].tolist()
-            report_df = report_df.explode('error_message').reset_index(drop=True)
-            report_df['current_report'] = report
-            prev_output_df['current_report'] = np.where(
-            prev_output_df['reports'].str.contains(report, case=False), report, '')
+        # auth_type constant differs across SDK versions; try a few
+        USER_AUTH = getattr(dropbox.dropbox_client, "USER_AUTH", None)
+        if USER_AUTH is None:
+            USER_AUTH = getattr(dropbox.dropbox_client, "AuthType", None)
+            USER_AUTH = getattr(USER_AUTH, "USER", None) if USER_AUTH else None
+        if USER_AUTH is None:
+            # last resort: some versions accept string "user"
+            USER_AUTH = "user"
 
-            prev_output_df = pd.merge(prev_output_df,report_df, on=[
-            'displayed_form','displayed_timepoint',
-            'subject','error_message'],
-            how = 'left',suffixes=('', '_dbx'))
-            prev_output_df = prev_output_df.fillna('')
-            
-        for col_to_read in columns_to_read:
-            dbx_col = f"{col_to_read}_dbx"
+        # Set cutoff if days_back is specified, otherwise get all available revisions
+        cutoff = None
+        if days_back is not None:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
+            print(f"Retrieving revisions from the last {days_back} days (cutoff: {cutoff})")
+        else:
+            print("Retrieving all available revisions (no time limit)")
 
-            if dbx_col not in prev_output_df.columns:
-                print(f"[WARN] Expected {dbx_col} not found in merge. Skipping.")
-                continue
+        cols = [
+            "Subject", "Timepoint", "Additional Comments",
+            "Manually Marked as Resolved", "Date Resolved", "General Flag", "Specific Flags"
+        ]
 
-            col_values = prev_output_df[dbx_col]
+        before_rev = None
+        has_more = True
+        last_kept_when = None
+        kept = 0
+        oldest_revision = None
+        newest_revision = None
 
-            if isinstance(col_values, pd.DataFrame):
-                col_values = col_values.iloc[:, 0]
+        # Collect unique rows by cols; track Earliest seen and Latest seen per row
+        unique_rows = {}  # key (tuple of col values) -> (earliest_when, latest_when)
 
-            has_new = col_values.astype(str).str.len() > 0
-            prev_output_df.loc[has_new, col_to_read] = col_values[has_new]
-        prev_output_df.to_csv(self.out_paths['current'], index = False)
+        while has_more:
+            req = {"path": path, "mode": "path", "limit": page_limit}
+            if before_rev:
+                req["before_rev"] = before_rev
 
+            # Some SDKs require request_binary and auth_type; others ignore extras.
+            data = requester.request_json_object(
+                "api",
+                "files/list_revisions",
+                "rpc",
+                req,
+                USER_AUTH,
+                None,  # request_binary
+            )
+
+            entries = data.get("entries", [])
+            has_more = bool(data.get("has_more", False))
+            if not entries:
+                break
+
+            for entry in entries:
+                rev = entry["rev"]
+                when = datetime.fromisoformat(entry["server_modified"].replace("Z", "+00:00"))
+
+                # Track oldest and newest revisions found
+                if oldest_revision is None or when < oldest_revision:
+                    oldest_revision = when
+                if newest_revision is None or when > newest_revision:
+                    newest_revision = when
+
+                # stop once we're older than cutoff (if cutoff is set)
+                if cutoff is not None and when < cutoff:
+                    has_more = False
+                    print(f"Reached cutoff date ({cutoff}), stopping retrieval")
+                    break
+
+                # optional sampling to "skip days"
+                if sample_every_days and last_kept_when is not None:
+                    if (last_kept_when - when).days < sample_every_days:
+                        continue
+
+                try:
+                    md2, resp = dbx.files_download(path=path, rev=rev)
+                    df = pd.read_excel(BytesIO(resp.content), keep_default_na=False)
+
+                    # Support both old and new combined-output schemas, normalize to new names
+                    old_cols = [
+                        "Participant", "Site Comments", "Network Comments",
+                        "Manually Resolved", "Date Resolved", "Form", "Flags"
+                    ]
+                    new_cols = [
+                        "Subject", "Timepoint", "Additional Comments",
+                        "Manually Marked as Resolved", "Date Resolved", "General Flag", "Specific Flags"
+                    ]
+
+                    if all(c in df.columns for c in new_cols):
+                        # Already in new schema
+                        cols = new_cols
+                    elif all(c in df.columns for c in old_cols):
+                        # Old schema – rename into new schema so everything is consistent
+                        df = df.rename(columns={
+                            "Participant": "Subject",
+                            "Site Comments": "Additional Comments",
+                            # If you want to preserve Network Comments separately, you can map it to a new column;
+                            # here we just keep Additional Comments as the main free-text field.
+                            "Manually Resolved": "Manually Marked as Resolved",
+                            "Form": "General Flag",
+                            "Flags": "Specific Flags",
+                        })
+                        cols = new_cols
+                    else:
+                        print(f"WARNING: Skipping revision {rev} from {when} - unrecognized columns: {list(df.columns)}")
+                        continue
+
+                    tmp = df[cols].replace(r"^\\s*$", pd.NA, regex=True)
+                    mask_any_nonblank = tmp.notna().any(axis=1)
+                    df_filtered = df[mask_any_nonblank].copy()
+
+                    # Keep only rows where Date Resolved and Manually Marked as Resolved are both blank
+                    mask_both_blank = pd.Series(True, index=df_filtered.index)
+                    for c in ("Date Resolved", "Manually Marked as Resolved"):
+                        if c in df_filtered.columns:
+                            mask_both_blank &= df_filtered[c].fillna("").astype(str).str.strip() == ""
+                    df_filtered = df_filtered[mask_both_blank].reset_index(drop=True)
+
+                    # Track unique rows by cols; Earliest = min(revision date), Latest = max(revision date)
+                    df_subset = df_filtered[cols].copy()
+                    for row in df_subset.itertuples(index=False, name=None):
+                        key = row
+                        if key not in unique_rows:
+                            unique_rows[key] = (when, when)
+                        else:
+                            e, l = unique_rows[key]
+                            unique_rows[key] = (min(e, when), max(l, when))
+
+                    last_kept_when = when
+                    kept += 1
+                    print(f"{path} - Revision {kept}: {rev} from {when}")
+                except (ValueError, XMLParseError, Exception) as e:
+                    # Skip corrupted or unreadable file revisions
+                    print(f"WARNING: Skipping revision {rev} from {when} - file error: {type(e).__name__}: {str(e)[:100]}")
+                    continue
+
+            # paginate older than oldest in this page
+            before_rev = entries[-1]["rev"]
+
+        # Final output: unique rows with Earliest seen and Latest seen
+        rows_with_dates = [
+            (*key, earliest, latest)
+            for key, (earliest, latest) in unique_rows.items()
+        ]
+        self.master = pd.DataFrame(rows_with_dates, columns=cols + ["Earliest seen", "Latest seen"])
+        print(f"Total unique rows collected: {len(self.master)}")
+        self.master.to_csv("recovered_flags_orig_pronet.csv", index=False)
+        
+        # Print summary
+        if oldest_revision and newest_revision:
+            days_span = (newest_revision - oldest_revision).days
+            print(f"\nDone. Kept {kept} revisions.")
+            print(f"Date range: {oldest_revision} to {newest_revision} ({days_span} days)")
+            if cutoff:
+                print(f"Requested: {days_back} days back from today")
+        else:
+            print(f"\nDone. Kept {kept} revisions.")
+    
 if __name__ == '__main__':
-    ResolvedEstimator.run_script()
+    ResolvedEstimator().run_script()
