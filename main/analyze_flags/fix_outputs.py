@@ -19,7 +19,6 @@ for row in df.itertuples(index=False, name=None):
 
     for col, col_val in row_dict.items():
         new_output_dict[new_key].setdefault(col, col_val)
-
         if col == "Specific_Flags":
             if col in new_output_dict[new_key]:
                 curr_val = new_output_dict[new_key][col]

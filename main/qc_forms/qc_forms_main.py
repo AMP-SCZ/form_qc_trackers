@@ -35,11 +35,11 @@ class QCFormsMain():
 
         self.form_check_info = {'cognition_csvs':{}}
 
-        for filename in ['subject_info','general_check_vars',
-        'important_form_vars','forms_per_timepoint',
-        'converted_branching_logic','excluded_branching_logic_vars',
-        'team_report_forms','grouped_variables','variables_added_later',
-        'raw_csv_conversions', 'variable_ranges','earliest_latest_dates_per_tp']:
+        for filename in ['subject_info', 'general_check_vars',
+        'important_form_vars', 'forms_per_timepoint',
+        'converted_branching_logic', 'excluded_branching_logic_vars',
+        'team_report_forms', 'grouped_variables', 'variables_added_later',
+        'raw_csv_conversions', 'variable_ranges', 'earliest_latest_dates_per_tp']:
             self.form_check_info[filename] = self.utils.load_dependency_json(f"{filename}.json")
 
         for iq_type in ['wais','wasi']:
@@ -78,7 +78,7 @@ class QCFormsMain():
         final_output = []
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRESCIENT']:
+        for network in ['PRONET','PRESCIENT']:
             multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
             """
             multi_tp_df = pd.read_csv(multi_tp_path,
@@ -95,7 +95,8 @@ class QCFormsMain():
                 print(tp_list)
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}"
+                f"_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False, on_bad_lines='skip')
                 #combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=20)

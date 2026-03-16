@@ -47,6 +47,5 @@ class RunQC():
         self.generate_reports = GenerateReports()
         self.generate_reports.run_script()
 
-
 if __name__ == '__main__':
     RunQC().run_script()

@@ -91,7 +91,7 @@ class CreateTrackers():
                     self.all_reports.append(report)
 
     def generate_reports(self):
-        for network in ['PRESCIENT']:
+        for network in ['PRONET','PRESCIENT']:
             network_df = self.combined_tracker[
             self.combined_tracker['network']==network]
             for report in self.all_reports:
@@ -200,7 +200,7 @@ class CreateTrackers():
                 cell_val = ''
             if header_value == 'Days Since Detected':
                 if self.utils.can_be_float(cell_val):
-                    days_since_detected = int(cell_val)
+                    days_since_detected = int(float(cell_val))
                     if days_since_detected < 7:
                         return self.colors['yellow']
                     elif 7 <= days_since_detected < 14:

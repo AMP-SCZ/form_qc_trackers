@@ -42,10 +42,10 @@ class ResolvedEstimator():
     def loop_dropbox(self):
         dbx = self.utils.collect_dropbox_credentials()
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name in ['PRONET']:
+            if network.name in ['PRESCIENT']:
                 network_dir = self.dropbox_path + f'{network.name}'
                 #for network_entry in dbx.files_list_folder(network_dir).entries:
-                combined_output = network_dir + f'/combined/{network.name}_Output.xlsx'
+                combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'
                 # Get all available revisions (set days_back=None) or specify a number like days_back=730 for 2 years
                 self.recover_old_flags(combined_output, days_back=None)
 
@@ -238,7 +238,7 @@ class ResolvedEstimator():
         ]
         self.master = pd.DataFrame(rows_with_dates, columns=cols + ["Earliest seen", "Latest seen"])
         print(f"Total unique rows collected: {len(self.master)}")
-        self.master.to_csv("recovered_flags_orig_pronet.csv", index=False)
+        self.master.to_csv("recovered_flags_new_pronet.csv", index=False)
         
         # Print summary
         if oldest_revision and newest_revision:

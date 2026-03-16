@@ -192,7 +192,7 @@ class GeneralChecks(FormCheck):
         guid = str(getattr(row,checked_guid_var))
         if guid == '' or guid in self.utils.missing_code_list:
             return
-        if not re.search(r"^NDA[A-Z0-9]+$", guid):
+        if not re.search(r"^NDAR[A-Z0-9]+$", guid):
             error_message = f"GUID in incorrect format. GUID was reported to be {guid}."
             error_output = self.create_row_output(
             row,filtered_forms,[checked_guid_var], error_message,
@@ -221,7 +221,7 @@ class GeneralChecks(FormCheck):
     ):
         """
         Checks all ages to make sure
-         they are in the correct range.
+        they are in the correct range.
         """
         age = self.subject_info[row.subjectid]["age"]
         if age == "unknown":

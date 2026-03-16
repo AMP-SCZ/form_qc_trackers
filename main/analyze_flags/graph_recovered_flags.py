@@ -5,6 +5,7 @@ import os
 import json
 import sys
 import statistics as stats
+import re
 
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
@@ -19,17 +20,12 @@ class ResolvedGrapher():
             self.config_info = json.load(file)
         self.output_path = self.config_info['paths']['output_path']
         self.total_flags = {'ProNET':0,'PRESCIENT':0}
-        
         self.large_jumps = {}
-
-        self.excluded_dates = {'ProNET':{'orig':[],'new':[]},'PRESCIENT':{'orig':[],'new':[]}}
-        with open("excluded_dates.json", "r") as f:
-            self.excluded_dates = json.load(f)
-
-
+        self.excluded_dates = {'ProNET':{'orig':[],'new':[]},
+        'PRESCIENT':{'orig':[],'new':[]}}
 
     def run_script(self):
-        for file in ['prescient_fixed.csv','pronet_fixed.csv']:
+        for file in ['prescient_fixed.csv', 'pronet_fixed.csv']:
             if 'pronet' in file:
                 network = 'ProNET'
             else:
@@ -38,17 +34,26 @@ class ResolvedGrapher():
                 version = 'orig'
             else:
                 version = 'new'
-            
+
             self.resolved_df = pd.read_csv(file, keep_default_na = False)
             self.resolved_df.columns = self.resolved_df.columns.str.replace(" ", "_")
 
             self.resolved_df['Latest_seen'] = pd.to_datetime(
             self.resolved_df['Latest_seen'], errors="coerce")
 
-            # 2) Sort earliest -> latest
             self.resolved_df = self.resolved_df.sort_values(
             by='Latest_seen', ascending=True)
 
+            strings_to_match = ["p1p8", "p9ac32", "mood"]
+            col = "General_Flag"
+
+            pattern = "|".join(re.escape(s) for s in strings_to_match)
+
+            self.resolved_df = self.resolved_df[self.resolved_df[
+            col].astype(str).str.contains(pattern, case=False, na=False)]
+            self.resolved_df.to_csv(
+            self.output_path + file.replace('.csv','') + 'filtered.csv',
+            index = False)
 
             self.flags_per_day = {}
             self.avrg_days_btwn = {}
@@ -58,8 +63,6 @@ class ResolvedGrapher():
         print(self.large_jumps)
         print(self.total_flags)
 
-
-
     def collect_errors_per_day_new(self, df, network, version):
         # Build per-date buckets first (order-independent processing)
         per_date = {}
@@ -68,12 +71,12 @@ class ResolvedGrapher():
             date = getattr(row, 'Latest_seen')
             earliest_date = getattr(row, 'Earliest_seen')
 
-
             days_btwn = self.utils.find_days_between(str(date), str(earliest_date))
 
             # Normalize flag count safely
             flag_str = str(getattr(row, 'Specific_Flags', '') or '')
-            flag_count = len([f for f in flag_str.split('|') if f.strip()])
+            flag_count = flag_str.count(':') 
+            #len([f for f in flag_str.split('|') if f.strip()])
 
             per_date.setdefault(date, []).append({
                 'days_btwn': days_btwn,
@@ -155,7 +158,6 @@ class ResolvedGrapher():
             self.flags_per_day.setdefault(date, 0)
             self.avrg_days_btwn.setdefault(date, {'total':0,'count': 0, 'avrg':0,'all_vals':[],'stdv':0})
             if ((not (self.flags_per_day[date] > 100 and self.avrg_days_btwn[date]['avrg'] < 7)) and (self.flags_per_day[date] < 300)):
-
                 if (not (self.avrg_days_btwn[date]['count'] > 50
                 and float(self.avrg_days_btwn[date]['stdv']) < 4)):
                     self.flags_per_day[date]+=1 
@@ -193,7 +195,6 @@ class ResolvedGrapher():
         # plt.show()  # optional
         plt.close()
 
-        
 
 if __name__ == '__main__':
     ResolvedGrapher().run_script()

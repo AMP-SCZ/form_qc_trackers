@@ -127,7 +127,13 @@ class OrganizeReports():
         'chrchs_timeslept','chrdemo_age_mos_chr',
         'chrdemo_age_mos_hc','chrdemo_age_mos2','chroasis_oasis_1',
         'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']
-        
+
+        # removed timeslept due to false flags
+        additional_blank_check_vars = [
+        'chrpsychs_av_dev_desc', 'chrcrit_included','chrdemo_age_mos_chr',
+        'chrdemo_age_mos_hc','chrdemo_age_mos2','chroasis_oasis_1',
+        'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']
+
         pharm_vars_df = self.data_dict_df[
         self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
         ap_vars_df = self.data_dict_df[

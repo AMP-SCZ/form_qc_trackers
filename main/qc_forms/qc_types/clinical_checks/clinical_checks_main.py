@@ -72,17 +72,17 @@ class ClinicalChecksMain(FormCheck):
         return self.final_output_list
 
     def call_checks(self, row):
-        self.call_global_function_checks(row)
+        """self.call_global_function_checks(row)
         self.call_oasis_checks(row)
         self.call_cssrs_checks(row)
         self.call_twenty_one_day_check(row)
         self.call_tbi_checks(row)
         self.call_bprs_checks(row)
-        self.call_conversion_check(row)
-        #self.call_pharm_checks(row)
-        self.call_premorbid_adjustment_checks(row)
-        #self.call_age_comparisons(row)
-        self.call_pps_checks(row)
+        self.call_conversion_check(row)"""
+        self.call_pharm_checks(row)
+        """self.call_premorbid_adjustment_checks(row)
+        self.call_age_comparisons(row)
+        self.call_pps_checks(row)"""
     
     def call_pps_checks(self,row):
         forms = ['psychosis_polyrisk_score']
@@ -92,7 +92,7 @@ class ClinicalChecksMain(FormCheck):
             vars = ['chrpps_interview_date',pps_age_var]
             self.pps_dob_age_range_check(row, forms,
             ['chrpps_interview_date', dob_var], reports)
-            for age_var in [pps_age_var, 'demographics_age']:
+            for age_var in [pps_age_var ]:# removed demographics age
                 self.pps_age_comp(row,forms,['chrpps_interview_date',
                 dob_var, age_var], bl_filtered_vars =[],
                 filter_excl_vars=False, age_var = age_var,
@@ -129,7 +129,7 @@ class ClinicalChecksMain(FormCheck):
         'chrpas_pmod_adult3v1'], reports)
 
     def call_pharm_checks(self, row):
-        curr_forms = ['current_pharmaceutical_treatment_floating_med_125',
+        """curr_forms = ['current_pharmaceutical_treatment_floating_med_125',
         'current_pharmaceutical_treatment_floating_med_2650']
 
         past_form = ['past_pharmaceutical_treatment']
@@ -173,7 +173,11 @@ class ClinicalChecksMain(FormCheck):
                 ]  
 
                 self.pharm_overlapping_days(row,
-                curr_forms, med_vars, reports)          
+                curr_forms, med_vars, reports)"""
+
+        self.check_pharm_interview_dates(row)
+
+        self.check_onset_after_offset(row)     
 
     def call_conversion_check(self,row):
         for var, threshold in self.gt_var_val_pairs.items():
@@ -329,10 +333,10 @@ class ClinicalChecksMain(FormCheck):
             or not self.utils.can_be_float(var_val)):
                 return
                 
-        if (lifetime_var_val in self.utils.all_dtype([2])
-        and recent_var_val in self.utils.all_dtype([1])):
-            return (f'Lifetime variable ({lifetime_var}) was answered as yes,'
-                    f' but recent variable ({recent_var}) was answered as no.')
+        if (recent_var_val in self.utils.all_dtype([2])
+        and lifetime_var_val in self.utils.all_dtype([1])):
+            return (f'Recent variable ({recent_var}) was answered as yes,'
+                    f' but lifetime variable ({lifetime_var}) was answered as no.')
         
     @FormCheck.standard_qc_check_filter 
     def cssrs_greater_vals_check(self, row, filtered_forms,
@@ -539,26 +543,6 @@ class ClinicalChecksMain(FormCheck):
             error_message, changed_output_vals)
             self.final_output_list.append(error_output)
 
-    def check_pharm_interview_dates(self,row):
-        print(list(self.subject_info[row.subjectid].keys()))
-        if (row.subjectid in self.subject_info.keys() and 
-        all(var in self.subject_info[row.subjectid].keys()
-        for var in ['chrpharm_date_mod','chrpharm_date_mod_2'])):
-            print('RUNNING NEW PHARM CHECK')
-            date_mod = self.subject_info[row.subjectid]['chrpharm_date_mod']
-            date_mod2 = self.subject_info[row.subjectid]['chrpharm_date_mod_2']
-            for form, form_info in self.important_form_vars.items():
-                int_date_var = form_info['interview_date_var']
-                if hasattr(row, int_date_var):
-                    date = getattr(row, int_date_var)
-                    if self.utils.check_if_val_date_format(str(date)):
-                        for mod_date in [date_mod]:
-                            if (datetime.strptime(date, "%Y-%m-%d") > datetime.strptime(date_mod, "%Y-%m-%d")):
-                                print(row.subjectid)
-                                print(mod_date)
-                                print(date)
-                                print(int_date_var)
-                                print(self.timepoint)
                         
     #@FormCheck.standard_qc_check_filter
     def pharm_date_mod_check(self, row, filtered_forms,
@@ -909,7 +893,7 @@ class ClinicalChecksMain(FormCheck):
         days_between = self.utils.find_days_between(pps_int_date, pps_dob)
         yrs_between = days_between/365
         age_diffs = yrs_between - float(age)
-        if age_diffs >= 1:
+        if age_diffs >= 2:
             return f"Age ({age_var} = {age}) does not align with date of birth ({pps_dob})."
 
     @FormCheck.standard_qc_check_filter
@@ -930,5 +914,41 @@ class ClinicalChecksMain(FormCheck):
                     return (f"Difference between demographics"
                     f" age ({age}) and {compared_age_var} ({compared_age}) is {diff}")
 
+    def check_pharm_interview_dates(self,row):
+        print(list(self.subject_info[row.subjectid].keys()))
+        if (row.subjectid in self.subject_info.keys() and 
+        all(var in self.subject_info[row.subjectid].keys()
+        for var in ['chrpharm_date_mod','chrpharm_date_mod_2'])):
+            print('RUNNING NEW PHARM CHECK')
+            date_mod = self.subject_info[row.subjectid]['chrpharm_date_mod']
+            date_mod2 = self.subject_info[row.subjectid]['chrpharm_date_mod_2']
+            for form, form_info in self.important_form_vars.items():
+                int_date_var = form_info['interview_date_var']
+                if hasattr(row, int_date_var):
+                    date = getattr(row, int_date_var)
+                    if self.utils.check_if_val_date_format(str(date)):
+                        for mod_date in [date_mod]:
+                            if (datetime.strptime(date, "%Y-%m-%d") > datetime.strptime(date_mod, "%Y-%m-%d")):
+                                print(row.subjectid)
+                                print(mod_date)
+                                print(date)
+                                print(int_date_var)
+                                print(self.timepoint)
 
-    
+    def check_onset_after_offset(self,row):
+        for x in range(1,61):
+            onset_date_var = f'chrpharm_med{x}_onset'
+            offset_date_var = f'chrpharm_med{x}_offset'
+            if (not all(hasattr(row,var) and 
+            selt.utils.check_if_val_date_format(str(getattr(row,var)))
+            and getattr(row,var) not in self.utils.missing_code_list
+            for var in [onset_date_var,offset_date_var])):
+                continue
+            onset_date = getattr(row, onset_date_var)
+            offset_date = getattr(row, offset_date_var)
+            date_format="%Y-%m-%d"
+            if (datetime.strptime(str(onset_date), date_format) 
+            > datetime.strptime(str(onset_date), date_format)):
+                print('offset after onset')
+                print(onset_date_var) 
+                print(offset_date_var)
