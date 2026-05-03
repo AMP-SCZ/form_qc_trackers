@@ -140,7 +140,8 @@ class ResolvedGrapher():
         y = list(self.flags_per_day.values())
 
         plt.plot(x, y)
-        plt.savefig(f"resolved_over_time_{network}_{version}.png", format="png", bbox_inches="tight")
+        plt.savefig(f"resolved_over_time_{network}_{version}.png",
+        format="png", bbox_inches="tight")
         plt.close()
 
     def collect_errors_per_day(self,df, network, version):
@@ -157,7 +158,8 @@ class ResolvedGrapher():
                 
             self.flags_per_day.setdefault(date, 0)
             self.avrg_days_btwn.setdefault(date, {'total':0,'count': 0, 'avrg':0,'all_vals':[],'stdv':0})
-            if ((not (self.flags_per_day[date] > 100 and self.avrg_days_btwn[date]['avrg'] < 7)) and (self.flags_per_day[date] < 300)):
+            if ((not (self.flags_per_day[date] > 100 and 
+            self.avrg_days_btwn[date]['avrg'] < 7)) and (self.flags_per_day[date] < 300)):
                 if (not (self.avrg_days_btwn[date]['count'] > 50
                 and float(self.avrg_days_btwn[date]['stdv']) < 4)):
                     self.flags_per_day[date]+=1 

@@ -45,30 +45,42 @@ class MultiTPChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True, pps_age_var = '', figs_age_var = ''
     ):
-        if any((getattr(row,var) in self.utils.missing_code_list
+        if any((getattr(row,var) in self.utils.missing_code_set
         or not self.utils.can_be_float(getattr(row,var)))
         for var in [pps_age_var,figs_age_var]):
             return 
         if float(getattr(row,pps_age_var)) != float(getattr(row, figs_age_var)):
-            return f"{pps_age_var} is equal to {getattr(row,pps_age_var)},"
-            f" but {figs_age_var} is equal to {float(getattr(row, figs_age_var))}"
+            # Previously this had a bare f-string on the second line — Python
+            # treated it as an unreachable expression statement after the
+            # `return`, so the message was silently truncated mid-sentence
+            # at the comma. Concatenate explicitly.
+            return (f"{pps_age_var} is equal to {getattr(row,pps_age_var)},"
+            f" but {figs_age_var} is equal to {float(getattr(row, figs_age_var))}")
 
     def check_blood_id_duplicates(self, row):
         all_id_vals = {}
         for var in self.blood_vars['id_variables']:
             for col in self.all_col_names:
                 if var in col:
-                    all_id_vals[col] = getattr(row,col)
+                    all_id_vals[col] = getattr(row, col)
+        forms = ['blood_sample_preanalytic_quality_assurance']
+        reports = {"reports": ['Main Report', 'Blood Report', 'Fluids Report']}
+        seen = set()
         for init_var, init_val in all_id_vals.items():
             for second_var, second_val in all_id_vals.items():
-                if init_var != second_var:
-                    if init_val == second_val:
-                        error_message = (f"Duplicate IDs found between different"
-                        f" variables ({init_var} = {init_val} / {second_var} = {second_val})")
-                        error_output = self.create_row_output(
-                        row, filtered_forms, [scores['raw'], scores['scaled']],
-                        error_message, reports)
-                        self.final_output_list.append(error_output)
+                if init_var == second_var or init_val in (self.utils.missing_code_list + ['']):
+                    continue
+                pair = tuple(sorted((init_var, second_var)))
+                if pair in seen:
+                    continue
+                if init_val == second_val:
+                    seen.add(pair)
+                    error_message = (f"Duplicate IDs found between different"
+                    f" variables ({init_var} = {init_val} / {second_var} = {second_val})")
+                    error_output = self.create_row_output(
+                    row, forms, [init_var, second_var],
+                    error_message, reports)
+                    self.final_output_list.append(error_output)
 
 
     def medication_past_current_crosscheck(self,row):

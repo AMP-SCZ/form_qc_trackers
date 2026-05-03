@@ -48,12 +48,50 @@ class PIIGenerator():
             "that could identify someone.\n\n"
             "Input text:\n"
         )
+
+        self.prompt_intro = (
+            "Task: Please determine whether the"
+            " input of this text indicates a problem or that a researcher "
+            "should take a second look at the data. If it does, include the "
+            "string 'CONTAINS POTENTIAL ERRORS' in your output. If it does not,"
+            " make sure that string is nowhere to be found in your output. Input text:"
+        )
+
+        self.prompt_intro = (
+            "Task: Please determine whether the"
+            " input of this text indicates anything related to romantic relationships "
+            "If it does, include the "
+            "string 'CONTAINS POTENTIAL KEYWORD' in your output. If it does not,"
+            " make sure that string is nowhere to be found in your output. Input text: "
+        )
+
+        self.prompt_intro = (
+            "Task: Determine whether the input text contains content suggestive of psychosis-related symptoms or experiences. "
+            "Examples include hallucinations, hearing voices, seeing things others do not see, paranoia, delusions, bizarre beliefs, "
+            "thought broadcasting, thought insertion, disorganized thinking, suspiciousness, or losing touch with reality. "
+            "Do not flag ordinary stress, sadness, or anxiety unless psychosis-like symptoms are described. "
+            "Return ONLY one of these exact outputs:\n"
+            "1) CONTAINS PSYCHOSIS CONTENT\n"
+            "2) NO PSYCHOSIS CONTENT\n\n"
+            "Input text:\n"
+        )
+
+        self.prompt_intro = (
+            "Task: Determine whether the input text should be manually reviewed by a study team member. "
+            "Flag content involving acute risk, psychosis symptoms, major social instability, unclear contradiction, "
+            "possible protocol issue, or text that is difficult to interpret. "
+            "Return ONLY one of these exact outputs:\n"
+            "1) MANUAL REVIEW RECOMMENDED\n"
+            "2) NO MANUAL REVIEW NEEDED\n\n"
+            "Input text:\n"
+        )
+
+
         self.final_output_list = []
 
     def run_script(self):
-        #self.loop_csvs()
-        self.check_data_dictionary_rows()
-
+        self.loop_csvs()
+        #self.check_data_dictionary_rows()
 
     def loop_csvs(self):
         tp_list = self.utils.create_timepoint_list()
@@ -62,7 +100,8 @@ class PIIGenerator():
             for tp in tp_list:
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network}-day1to1.csv'),
                 keep_default_na = False, on_bad_lines='skip')
                 self.check_df_for_pii(combined_df, network, tp)
     
@@ -83,15 +122,12 @@ class PIIGenerator():
                     )
                     data = resp.json()
                     response = data["response"]
-                    if "This contains PII" in response:
-                        print(var)
-                        print(val)
-                        print(response)
+                    if "Will Make Me Laugh" in response:
                         self.final_output_list.append({'Subject': row.subjectid,
                         "network": network,"timepoint":tp,"variable": var,
                         "variable_value":val,"llama_response":response})
             output_df = pd.DataFrame(self.final_output_list)
-            output_df.to_csv(f'{self.output_path}potential_pii_detected.csv',index = False)
+            output_df.to_csv(f'{self.output_path}lmao_detected.csv',index = False)
 
     def check_data_dictionary_rows(self):
         output_list = []

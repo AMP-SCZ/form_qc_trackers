@@ -7,4 +7,20 @@
     },
     "testing_enabled" : "True",
     "withdrawn_enabled" : "True",
-    "recruited_only": "True"}
+    "recruited_only": "True",
+    "longitudinal_anomaly": {
+        "enabled": true,
+        "merge_into_main_tracker": false,
+        "networks": ["PRONET", "PRESCIENT"],
+        "min_points_per_subject": 3,
+        "min_observations_per_variable": 30,
+        "min_distinct_values": 5,
+        "robust_z_threshold": 3.5,
+        "exclude_integer_low_cardinality": true,
+        "max_integer_distinct_for_categorical": 6,
+        "keep_non_numeric_audit_rows": true,
+        "max_flags_to_write": null,
+        "excluded_name_patterns": ["comment", "note", "describe", "_specify", "_other"],
+        "categorical_field_types": ["radio", "dropdown", "yesno", "checkbox"],
+        "data_dictionary_path": ""
+    }}

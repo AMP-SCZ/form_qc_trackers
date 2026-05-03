@@ -8,7 +8,6 @@ import matplotlib.dates as mdates
 class VisualizeDataInflux():
 
     def __init__(self):
-        self.data_change_path = '/PHShome/ob001/anaconda3/refactored_qc/output/daily_changes/'
 
         self.changes_list = []
         self.date_list = []

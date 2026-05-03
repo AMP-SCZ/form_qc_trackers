@@ -9,6 +9,40 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 
+# Module-level cache: branching-logic source string → compiled code object.
+# Each unique string is parsed by Python exactly once per process. Without
+# this cache, `eval(bl)` below re-parses the same string on every check
+# call. With ~280K subject-rows × ~10 bl-gated checks per row, that's ~2.8M
+# parse+compile cycles per run — measured in minutes. The compiled object
+# evaluates in microseconds.
+_BL_COMPILED_CACHE = {}
+
+
+def _compile_bl(bl_str):
+    cached = _BL_COMPILED_CACHE.get(bl_str)
+    if cached is None:
+        cached = compile(bl_str, '<branching_logic>', 'eval')
+        _BL_COMPILED_CACHE[bl_str] = cached
+    return cached
+
+
+# config.json is loaded read-only at runtime and is identical across every
+# FormCheck subclass instantiation. Without this cache, the file is opened
+# and JSON-parsed once per per-row checker construction (~5 × N rows per
+# run). Keyed by absolute_path so test environments with a different
+# project root don't get crossed.
+_CONFIG_CACHE = {}
+
+
+def _load_config(absolute_path):
+    cached = _CONFIG_CACHE.get(absolute_path)
+    if cached is None:
+        with open(f'{absolute_path}/config.json', 'r') as file:
+            cached = json.load(file)
+        _CONFIG_CACHE[absolute_path] = cached
+    return cached
+
+
 class FormCheck():
 
     def __init__(self, timepoint : str,
@@ -46,8 +80,7 @@ class FormCheck():
         self.module_b_vars = self.grouped_vars['scid_vars']['module_b_vars']
         self.module_c_vars = self.grouped_vars['scid_vars']['module_c_vars']
 
-        with open(f'{self.absolute_path}/config.json','r') as file:
-            self.config_info = json.load(file)
+        self.config_info = _load_config(self.absolute_path)
 
 
     def call_checks(self):
@@ -86,8 +119,10 @@ class FormCheck():
 
             # error message set to what the QC function returns
             error_message = func(instance, curr_row,
-            filtered_forms,all_vars,changed_output_vals={},
-            bl_filtered_vars=[],filter_excl_vars=True, *args, **kwargs)
+            filtered_forms, all_vars,
+            changed_output_vals=changed_output_vals,
+            bl_filtered_vars=bl_filtered_vars,
+            filter_excl_vars=filter_excl_vars, *args, **kwargs)
             if error_message == None:
                 return
 
@@ -95,9 +130,9 @@ class FormCheck():
             if bl_filtered_vars != []:
                 for var in bl_filtered_vars:
                     if var in instance.excl_bl.keys():
-                        return 
+                        return
                     bl = instance.conv_bl[var]["converted_branching_logic"]
-                    if bl != "" and eval(bl) == False:
+                    if bl != "" and eval(_compile_bl(bl)) == False:
                         return
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)
@@ -289,7 +324,8 @@ class FormCheck():
             "inclusion_status" : incl_status,
             "excluded_enabled" : False,
             "withdrawn_enabled" : False,
-            "nda_excluder" : False,  
+            "nda_excluder" : False,
+            "priority" : False,
             "priority_item" : False,
             "dates_detected" : str(datetime.today().date()).split(' ')[0],
             "time_since_last_detection":"",
@@ -389,8 +425,7 @@ class FormCheck():
             formatted string
         """
 
-        inp_list = [str(item) for item in inp_list]
-        output_str = '|'.join(output_str)
+        output_str = '|'.join(str(item) for item in inp_list)
 
         return output_str
 

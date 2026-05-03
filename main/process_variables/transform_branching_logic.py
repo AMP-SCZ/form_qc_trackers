@@ -53,7 +53,7 @@ class TransformBranchingLogic():
         " and instance.utils.can_be_float(curr_row.chriq_assessment)==True and"
         " (float(curr_row.chriq_assessment)==float(4) or float(curr_row.chriq_assessment)==float(5))"),
 
-        "chrdig_notes_5" : ("hasattr(curr_row,chrdig_reason_missing)"
+        "chrdig_notes_5" : ("hasattr(curr_row,'chrdig_reason_missing')"
         " and instance.utils.can_be_float(curr_row.chrdig_reason_missing) and float(curr_row.chrdig_reason_missing) == float(3)"
         " and hasattr(curr_row,'chrdig_motivational')"
         " and curr_row.chrdig_motivational != ''"),

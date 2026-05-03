@@ -9,6 +9,7 @@ class RaSubjects():
         self.ra_output = {}
         self.prescient_raw_csv_path = \
         '/data/predict1/data_from_nda/Prescient/PHOENIX/PROTECTED/'
+
         self.all_dates_list = []
         self.ra_assignments = {}
 

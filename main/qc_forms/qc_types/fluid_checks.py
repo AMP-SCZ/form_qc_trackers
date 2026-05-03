@@ -12,9 +12,16 @@ from datetime import datetime
 
 class FluidChecks(FormCheck):
     """
-    QC Checks related to 
+    QC Checks related to
     fluid biomarker forms
     """
+
+    # Class-level registries persist across per-row instances so that
+    # duplicate blood IDs / barcodes can be detected across subjects.
+    # Maps value -> list of (subject, var, timepoint).
+    _seen_blood_id_vals = {}
+    _seen_blood_barcode_vals = {}
+
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
@@ -40,6 +47,11 @@ class FluidChecks(FormCheck):
         self.check_blood_date(row,[form],
         ['chrblood_drawdate','chrblood_labdate'], {"reports":blood_reports})
         self.barcode_format_check(row)
+        # PRESCIENT disabled per operator request 2026-04-30. PRONET
+        # rows still run the cross-subject duplicate detector. To
+        # re-enable PRESCIENT, remove the network guard.
+        if self.network != 'PRESCIENT':
+            self.cross_subject_blood_duplicate_check(row)
 
     def cbc_differential_check(self,row):
         """Checks for additional errors in
@@ -100,7 +112,7 @@ class FluidChecks(FormCheck):
         cbc_var = all_vars[0]
         cbc_val = getattr(row, cbc_var)
         if (self.utils.can_be_float(cbc_val)
-        and cbc_val not in self.utils.missing_code_list):            
+        and cbc_val not in self.utils.missing_code_set):            
             if ((gt == True and float(cbc_val) > threshold) or 
             (gt == False and float(cbc_val) < threshold)):
                 return f'Incorrect units used ({cbc_var} = {cbc_val})'
@@ -197,11 +209,128 @@ class FluidChecks(FormCheck):
                     row,forms,[barcode_var], error_message, output_changes)
                     self.final_output_list.append(error_output)
 
+    # Storage-location identifiers — these are SHARED across many subjects
+    # by design (a single freezer / rack / box holds many subjects' samples),
+    # so they will always produce false-positive cross-subject "duplicates"
+    # if checked. Confirmed directly from grouped_variables.json: this list
+    # is what was causing the check to flag essentially every subject.
+    _SHARED_LOCATION_VARS = frozenset({
+        'chrblood_freezerid',
+        'chrblood_rack_barcode',
+        'chrblood_bc1box',
+    })
+
+    # Hot-path constants for cross_subject_blood_duplicate_check. Both were
+    # being rebuilt from scratch on every per-row call (~280K calls × 2
+    # networks). Cache both at class level. `_PER_SUBJECT_VARS_CACHE` is
+    # populated lazily on first call; the key is `id(grouped_vars)` so a
+    # different grouped_vars dict (e.g., test harness) recomputes correctly.
+    _EXTRA_SKIP_STRINGS = frozenset({'', 'na', 'n/a', 'nan', 'nat', 'none', 'null'})
+    _PER_SUBJECT_VARS_CACHE = None
+    _PER_SUBJECT_VARS_KEY = None
+
+    def cross_subject_blood_duplicate_check(self, row):
+        """
+        Flags per-vial blood ID / barcode values that appear on more than
+        one subject. Uses class-level registries (`_seen_blood_id_vals`,
+        `_seen_blood_barcode_vals`) that accumulate across per-row
+        FluidChecks instances so a value on the current row can be compared
+        against values already seen on prior subjects. Storage-location IDs
+        (freezer / rack / box) are excluded — those are intentionally shared
+        across many subjects' samples and would all collide.
+        """
+        forms = ['blood_sample_preanalytic_quality_assurance']
+        output_changes = {"reports":
+            ['Main Report', 'Blood Report', 'Fluids Report']}
+
+        # `id_variables` and `barcode_variables` overlap heavily (most
+        # per-vial vars appear in BOTH). Without dedup, every cross-subject
+        # collision produces TWO error rows (one labeled "blood ID", one
+        # "blood barcode") with different error_message text — which then
+        # become two separate merge keys in calculate_resolved_errors, so
+        # reviewer comments split across them. Take the union and use a
+        # single label. Cached per process — see class-level
+        # `_PER_SUBJECT_VARS_CACHE` comment for cache invalidation rules.
+        cls = FluidChecks
+        if cls._PER_SUBJECT_VARS_KEY != id(self.grouped_vars):
+            blood_var_groups = self.grouped_vars['blood_vars']
+            id_vars = blood_var_groups.get('id_variables', [])
+            barcode_vars = blood_var_groups.get('barcode_variables', [])
+            cls._PER_SUBJECT_VARS_CACHE = tuple(sorted(
+                (set(id_vars) | set(barcode_vars)) - cls._SHARED_LOCATION_VARS
+            ))
+            cls._PER_SUBJECT_VARS_KEY = id(self.grouped_vars)
+        per_subject_vars = cls._PER_SUBJECT_VARS_CACHE
+
+        # Single registry for the unioned set (was two; the split was
+        # producing the double-flag issue described above). The legacy
+        # `_seen_blood_barcode_vals` class attribute is left in place but
+        # unused so any external introspection code doesn't break.
+        registry = cls._seen_blood_id_vals
+        label = 'blood ID/barcode'
+
+        # Class-level frozenset (was rebuilt on every call).
+        extra_skip_strings = cls._EXTRA_SKIP_STRINGS
+
+        for var in per_subject_vars:
+            if not hasattr(row, var):
+                continue
+            val = getattr(row, var)
+            if val in self.utils.missing_code_set:
+                continue
+            # Normalize to a canonical key so 12345 / "12345" / "12345.0"
+            # / " 12345 " all hash to the same registry slot. Without
+            # this, the same blood ID exported as int in one row and as
+            # string in another would not be detected as a duplicate.
+            val_str = str(val).strip()
+            if val_str.lower() in extra_skip_strings:
+                continue
+            if self.utils.can_be_float(val_str):
+                # Integer-shaped IDs: collapse "12345.0" -> "12345".
+                try:
+                    as_float = float(val_str)
+                    if as_float.is_integer():
+                        val_str = str(int(as_float))
+                except (ValueError, OverflowError):
+                    pass
+            # Blood team treats PRONET-prefixed values as non-IDs (see
+            # barcode_format_check).
+            if 'pronet' in val_str.lower():
+                continue
+
+            prior_entries = registry.get(val_str, [])
+            conflicts = [(s, v, tp) for (s, v, tp) in prior_entries
+                         if s != row.subjectid]
+            if conflicts:
+                # Sort for determinism — registry insertion order
+                # depends on row processing order, which depends on
+                # network ordering and CSV row order. Without sorting,
+                # the same conflict produces a different error_message
+                # across runs, breaking the merge-key match in
+                # calculate_resolved_errors and losing reviewer comments.
+                conflicts_sorted = sorted(set(conflicts))
+                conflict_str = ', '.join(
+                    f"{s} ({v} at {tp})" for (s, v, tp) in conflicts_sorted)
+                error_message = (
+                    f"Duplicate {label} value ({var} = {val_str})"
+                    f" also found on other subject(s): {conflict_str}.")
+                error_output = self.create_row_output(
+                    row, forms, [var], error_message, output_changes)
+                self.final_output_list.append(error_output)
+
+            # ALWAYS register (outside the conflicts branch), so the first
+            # occurrence of any value is recorded for subsequent rows to
+            # match against. Previously this was nested inside `if conflicts`
+            # after a refactor, which silently broke the entire check by
+            # never recording first occurrences.
+            registry.setdefault(val_str, []).append(
+                (row.subjectid, var, self.timepoint))
+
     def height_weight_unit_checks(self):
         height_val = getattr(row, 'chrchs_height') 
         height_units = getattr(row,'chrchs_height_units')
         if all(self.utils.can_be_float(var_val) and var_val not
-        in self.utils.missing_code_list for
+        in self.utils.missing_code_set for
         var_val in [height_val, height_units]):
             if float(height_val) < 10 and float(height_units) in [1,2]:
                 print('error')

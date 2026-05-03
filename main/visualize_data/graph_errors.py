@@ -13,10 +13,6 @@ class GraphErrors():
     """
 
     def __init__(self):
-        self.tracker_abs_path = \
-        '/PHShome/ob001/anaconda3/new_forms_qc/QC/site_outputs'
-
-        self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
         self.utils = Utils()
         self.site_errors = {}
 

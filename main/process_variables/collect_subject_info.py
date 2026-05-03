@@ -37,6 +37,7 @@ class CollectSubjectInfo():
         self.collect_screening_info()
         self.collect_baseline_info()
         self.collect_floating_info()
+        self.collect_conversion_info()
 
         return self.subject_info
 
@@ -71,11 +72,11 @@ class CollectSubjectInfo():
                 f'_{network.replace("PRONET","ProNET")}-day1to1.csv'),
                 keep_default_na = False)
             col_list = ['subjectid','visit_status_string',
-            'chrcrit_part', 'chrcrit_included']
+            'chrcrit_part', 'chrcrit_included',
+            'chrpsychs_scr_interview_date',
+            'chric_actigraphy','chric_passive','chrpharm_interview_date']
             col_list = [col for col in col_list if col in combined_df.columns]
-            combined_df = combined_df[['subjectid','visit_status_string',
-            'chrcrit_part', 'chrcrit_included','chrpsychs_scr_interview_date',
-            'chric_actigraphy','chric_passive','chrpharm_interview_date']]
+            combined_df = combined_df[col_list]
             for row in combined_df.itertuples():
                 sub = row.subjectid
                 self.subject_info.setdefault(sub, {})
@@ -138,11 +139,11 @@ class CollectSubjectInfo():
                 self.subject_info.setdefault(sub, {})
                 self.subject_info[sub][
                 'screenfail'] = self.translate_var_vals(
-                self.var_translations['chr_statusform_screenfail'], 
+                self.var_translations['chr_statusform_screenfail'],
                 row.chr_statusform_screenfail)
                 self.subject_info[sub][
                 'completed_study'] = self.translate_var_vals(
-                self.var_translations['chr_subject_eos'], 
+                self.var_translations['chr_subject_eos'],
                 row.chr_subject_eos)
                 self.subject_info[sub][
                 'curr_pharm_date'] = row.chrpharm_date_first
@@ -151,5 +152,63 @@ class CollectSubjectInfo():
                 self.subject_info[sub][
                 'chrpharm_date_mod_2'] = row.chrpharm_date_mod_2
 
+    def collect_conversion_info(self):
+        """
+        Collect per-subject conversion status from the floating-forms CSV
+        and stamp it onto subject_info[sub]['converted'].
 
-    
+        The conversion form (chrconv_conv) is filed at the floating
+        timepoint, but the resulting status is consumed by per-row checks
+        (`conversion_criteria_check` and `marked_converted_no_criteria_check`
+        in clinical_checks_main.py) at every timepoint. Collecting it here
+        lets those checks read it directly off subject_info without
+        re-opening the floating CSV.
+
+        chrconv_conv == 1 → marked converted. Anything else (blank,
+        missing-coded, 0, etc.) → not converted. Subjects without a
+        floating-CSV row simply don't get the key; the consumer uses
+        `subject_info.get(sid, {}).get('converted', False)` as default.
+
+        Loops over both networks so PRESCIENT subjects are covered too;
+        wraps the read in try/FileNotFoundError so a missing floating
+        CSV for one network just skips that network with a warning rather
+        than aborting all of process_variables.
+        """
+        tp = 'floating'
+        converted_codes = self.utils.all_dtype([1])
+        for network in ['PRONET', 'PRESCIENT']:
+            csv_path = (
+                f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'
+            )
+            try:
+                combined_df = pd.read_csv(csv_path, keep_default_na=False)
+            except FileNotFoundError:
+                print(
+                    f"[collect_subject_info] floating CSV not found for "
+                    f"{network}: {csv_path}. Skipping conversion-status "
+                    f"collection for this network."
+                )
+                continue
+            if 'chrconv_conv' not in combined_df.columns:
+                print(
+                    f"[collect_subject_info] {network} floating CSV has no "
+                    f"chrconv_conv column. Skipping conversion-status "
+                    f"collection for this network."
+                )
+                continue
+            col_list = [c for c in ['subjectid', 'chrconv_conv']
+                        if c in combined_df.columns]
+            combined_df = combined_df[col_list]
+            for row in combined_df.itertuples():
+                sub = row.subjectid
+                self.subject_info.setdefault(sub, {})
+                val = getattr(row, 'chrconv_conv', '')
+                if val in converted_codes:
+                    self.subject_info[sub]['converted'] = True
+                else:
+                    self.subject_info[sub].setdefault('converted', False)
+
+
+

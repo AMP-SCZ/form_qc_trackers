@@ -37,6 +37,7 @@ class GeneralChecks(FormCheck):
             "withdrawn_enabled" : True},
             bl_filtered_vars=[guid_var],filter_excl_vars=True,
             checked_guid_var=guid_var)
+        self.missing_data_form_consistency_check(row)
 
         #self.missing_code_check(row)
 
@@ -118,8 +119,8 @@ class GeneralChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ):  
-        if  (getattr(row, all_vars[0]) 
-        in self.utils.missing_code_list or
+        if  (getattr(row, all_vars[0])
+        in self.utils.missing_code_set or
         str(getattr(row, all_vars[0])).replace(' ','') == 'NaN'):
             return "Variable is a missing code."
         return 
@@ -157,13 +158,17 @@ class GeneralChecks(FormCheck):
                 or form in self.general_check_vars["excluded_forms"][
                 self.network]):
                     continue
-                compl_var = self.important_form_vars[form]['completion_var']   
+                compl_var = self.important_form_vars[form]['completion_var']
                 if self.network == 'PRESCIENT':
                     compl_var += '_rpms'
                     # rpms compl variables same for both cohorts
-                    compl_var = compl_var.replace('_hc','') 
+                    compl_var = compl_var.replace('_hc','')
                     if 'informed_consent' in compl_var:
-                        return
+                        # Skip ONLY this form, not the whole loop —
+                        # `return` here previously aborted check_form_completion
+                        # for every form ordered after informed_consent in
+                        # `curr_tp_forms`, silently dropping completion checks.
+                        continue
                 if (hasattr(row, compl_var) and 
                 getattr(row, compl_var) not in self.utils.all_dtype([2,3,4])):
                     error_message = (f"{form} not marked as complete, but"
@@ -190,7 +195,7 @@ class GeneralChecks(FormCheck):
         if not hasattr(row,checked_guid_var):
             return
         guid = str(getattr(row,checked_guid_var))
-        if guid == '' or guid in self.utils.missing_code_list:
+        if guid == '' or guid in self.utils.missing_code_set:
             return
         if not re.search(r"^NDAR[A-Z0-9]+$", guid):
             error_message = f"GUID in incorrect format. GUID was reported to be {guid}."
@@ -207,7 +212,7 @@ class GeneralChecks(FormCheck):
             return
         var_val = getattr(row, range_var)
         if (self.utils.can_be_float(var_val) and
-        var_val not in self.utils.missing_code_list):
+        var_val not in self.utils.missing_code_set):
             if float(var_val) < lower or float(var_val) > upper:
                 error_message = f'{range_var} value ({var_val}) is out of range'
                 error_output = self.create_row_output(
@@ -228,6 +233,144 @@ class GeneralChecks(FormCheck):
             return "Age is Unknown."
         elif self.utils.can_be_float(age) and age < 12 or age > 30:
             return f"Age ({age}) is out of range."
+
+    # missing_data form trigger variables (per missing_data_form_info.csv).
+    # All four are radio fields with single choice value 1; set to 1 means
+    # missingness of that scope has been recorded on the missing_data form.
+    # Time/withdrawn/discon imply the WHOLE TP (and beyond, for the latter
+    # two) is missing. domain implies only specific assessment domains
+    # listed in chrmiss_domain_type___1..7 are missing.
+    _WHOLE_TP_TRIGGER_VARS = (
+        'chrmiss_time', 'chrmiss_withdrawn', 'chrmiss_discon',
+    )
+    _DOMAIN_TRIGGER_VAR = 'chrmiss_domain'
+    _MISSING_DATA_TRIGGER_VARS = (
+        _WHOLE_TP_TRIGGER_VARS + (_DOMAIN_TRIGGER_VAR,)
+    )
+
+    def missing_data_form_consistency_check(self, row):
+        """
+        Flags contradictions between the missing_data form (chrmiss_*
+        triggers) and individual forms' missing-data buttons
+        (chr{form}_missing).
+
+        Three flag types:
+          A) Per form. chr{form}_missing=1 but none of the missing_data
+             triggers are set — the RA marked the form missing without
+             recording the reason on the missing_data form.
+          B-strict) Per form. A whole-TP trigger (chrmiss_time /
+             chrmiss_withdrawn / chrmiss_discon) is set, but the form's
+             missing button is not checked. When the whole TP/participant
+             is missing, every applicable form is expected to have its
+             missing button set.
+          B-coarse) Single summary. chrmiss_domain=1 (with no whole-TP
+             trigger) but no individual form has its missing button
+             checked. Domain-aware verification (matching
+             chrmiss_domain_type___N to forms in that domain) requires a
+             domain→form mapping not yet available; coarse "at least one"
+             check is the conservative substitute.
+
+        Gate: runs when the subject has moved past this TP OR any
+        chrmiss_* trigger is set. The OR is required because withdrawn /
+        discontinued participants will not progress past the withdrawal
+        TP, so check_if_next_tp alone would never evaluate exactly the
+        rows we most need to check.
+
+        Form applicability filters (mirrored from check_form_completion /
+        extra_form_conditions): forms in excluded_forms[network] and forms
+        whose extra conditions don't apply (axivity/mindlamp opt-out,
+        pubertal scale age cutoff) are excluded from Direction B-strict
+        to avoid flooding withdrawal rows with irrelevant flags.
+        """
+        cohort = self.subject_info[row.subjectid]['cohort']
+        if cohort.lower() not in ['hc', 'chr']:
+            return
+        # Skip if the missing_data form columns aren't present on this row
+        # (TP that doesn't include the missing_data form).
+        if not any(hasattr(row, v) for v in self._MISSING_DATA_TRIGGER_VARS):
+            return
+
+        triggered_chrmiss_vars = [
+            v for v in self._MISSING_DATA_TRIGGER_VARS
+            if hasattr(row, v)
+            and getattr(row, v) in self.utils.all_dtype([1])
+        ]
+        any_trigger_set = len(triggered_chrmiss_vars) > 0
+        whole_tp_triggered = [
+            v for v in triggered_chrmiss_vars
+            if v in self._WHOLE_TP_TRIGGER_VARS
+        ]
+        has_whole_tp_trigger = len(whole_tp_triggered) > 0
+        has_domain_trigger = self._DOMAIN_TRIGGER_VAR in triggered_chrmiss_vars
+
+        if self.check_if_next_tp(row) != True and not any_trigger_set:
+            return
+
+        excluded_forms = self.general_check_vars['excluded_forms'][self.network]
+        applicable_forms = []   # (form, missing_var) pairs eligible for B-strict
+        forms_marked_missing = []   # subset of applicable_forms with _missing=1
+        for form, vars in self.important_form_vars.items():
+            if form == 'missing_data':
+                continue
+            missing_var = vars.get('missing_var', '')
+            if missing_var == '':
+                continue
+            if not hasattr(row, missing_var):
+                continue
+            if form in excluded_forms:
+                continue
+            if self.extra_form_conditions(row, form) == False:
+                continue
+            applicable_forms.append((form, missing_var))
+            if getattr(row, missing_var) in self.utils.all_dtype([1]):
+                forms_marked_missing.append((form, missing_var))
+
+        # Direction A: per-form, _missing=1 but no triggers on missing_data.
+        if not any_trigger_set and forms_marked_missing:
+            for form, missing_var in forms_marked_missing:
+                error_message = (
+                    f"{form} marked as missing on the form, but the"
+                    " missing_data form has no missing-data triggers set"
+                    " for this timepoint."
+                )
+                error_output = self.create_row_output(
+                row, [form, 'missing_data'],
+                [missing_var] + list(self._MISSING_DATA_TRIGGER_VARS),
+                error_message, {'reports': ['Missingness Report']})
+                self.final_output_list.append(error_output)
+
+        # Direction B-strict: whole-TP trigger set but a form's missing
+        # button is not checked. One flag per applicable form.
+        if has_whole_tp_trigger:
+            marked_set = {f for f, _ in forms_marked_missing}
+            for form, missing_var in applicable_forms:
+                if form in marked_set:
+                    continue
+                error_message = (
+                    "missing_data form indicates whole-timepoint"
+                    f" missingness ({', '.join(whole_tp_triggered)} set),"
+                    f" but {form} does not have its missing-data button"
+                    " checked."
+                )
+                error_output = self.create_row_output(
+                row, [form, 'missing_data'],
+                [missing_var] + whole_tp_triggered,
+                error_message, {'reports': ['Missingness Report']})
+                self.final_output_list.append(error_output)
+
+        # Direction B-coarse: domain-only trigger, but no form is marked
+        # missing anywhere. Single summary flag attributed to missing_data.
+        if (has_domain_trigger and not has_whole_tp_trigger
+        and not forms_marked_missing):
+            error_message = (
+                "missing_data form indicates a domain is missing"
+                " (chrmiss_domain set), but no individual form has its"
+                " missing-data button checked for this timepoint."
+            )
+            error_output = self.create_row_output(
+            row, ['missing_data'], [self._DOMAIN_TRIGGER_VAR],
+            error_message, {'reports': ['Missingness Report']})
+            self.final_output_list.append(error_output)
 
     def missing_code_check(self, row):
         for form, vars in self.important_form_vars.items():

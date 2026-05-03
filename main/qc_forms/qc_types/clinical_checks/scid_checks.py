@@ -5,9 +5,9 @@ import json
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-4])
 sys.path.insert(1, parent_dir)
 from utils.utils import Utils
-from qc_forms.form_check import FormCheck
+from qc_forms.form_check import FormCheck, _compile_bl
 from datetime import datetime
-    
+
 class ScidChecks(FormCheck):
     """
     Class with all checks for Scid Form
@@ -52,10 +52,10 @@ class ScidChecks(FormCheck):
         ['chrscid_d28','chrscid_a70','chrscid_a91','chrscid_a108',
         'chrscid_a129','chrscid_a138'],
         changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
-        self.chrscid_d28_more_advanced_check(row, [form], 
+        self.chrscid_d28_more_advanced_check(row, [form],
          ['chrscid_a70','chrscid_a91','chrscid_a108',
-        'chrscid_a128'],
-        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)  
+        'chrscid_a138'],
+        changed_output, bl_filtered_vars=['chrscid_d28'],filter_excl_vars=False)
 
         self.major_depressive_episode_check(row, [form], 
         ['chrscid_d26','chrscid_a51','chrscid_a25',
@@ -86,9 +86,11 @@ class ScidChecks(FormCheck):
         disorder, fulfilled, extra_conditionals
     ):
         form = 'scid5_psychosis_mood_substance_abuse'
-        affected_vars = conditional_variables
+        # copy: conditional_variables comes from a cached JSON dict and is
+        # passed back in for both fulfilled=True and fulfilled=False, so
+        # appending in place duplicated `variable` on every subsequent call.
+        affected_vars = list(conditional_variables) + [variable]
         changed_output = {'reports': ['Main Report','Scid Report', 'Non Team Forms']}
-        affected_vars.append(variable)
         if fulfilled == True:
             for condition in conditional_variables:
                 if (hasattr(curr_row,condition) and 
@@ -96,24 +98,34 @@ class ScidChecks(FormCheck):
                     return 
             if extra_conditionals != '':
                 for conditional in extra_conditionals:
-                    if not eval(conditional):
+                    if not eval(_compile_bl(conditional)):
                         return 
             self.scid_diagnostic_criteria_check(curr_row, [form],
             affected_vars,changed_output, bl_filtered_vars=[],filter_excl_vars=False, 
             diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)                    
         else:
+            # Symmetric to the fulfilled=True branch above (which short-
+            # circuits and flags exactly once if all conditions pass): the
+            # not-fulfilled branch should flag exactly once if ANY
+            # conditional variable is non-3 OR any extra conditional is
+            # false. Previously this loop fired one flag per non-3 / per
+            # false-extra, producing N+M duplicate flags with the same
+            # error message.
+            should_flag = False
             for condition in conditional_variables:
-                if (hasattr(curr_row, condition) and 
+                if (hasattr(curr_row, condition) and
                 getattr(curr_row, condition) not in [3,3.0,'3','3.0']):
-                    self.scid_diagnostic_criteria_check(curr_row, [form],
-                    affected_vars, changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
-                    diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)      
-            if extra_conditionals != '':
+                    should_flag = True
+                    break
+            if not should_flag and extra_conditionals != '':
                 for conditional in extra_conditionals:
-                    if not eval(conditional):
-                        self.scid_diagnostic_criteria_check(curr_row, [form],
-                        affected_vars,changed_output,bl_filtered_vars=[],filter_excl_vars=False, 
-                        diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled) 
+                    if not eval(_compile_bl(conditional)):
+                        should_flag = True
+                        break
+            if should_flag:
+                self.scid_diagnostic_criteria_check(curr_row, [form],
+                affected_vars, changed_output, bl_filtered_vars=[], filter_excl_vars=False,
+                diagnostic_variable=variable, disorder=disorder, fulfilled=fulfilled)
 
 
     @FormCheck.standard_qc_check_filter 
@@ -218,10 +230,10 @@ class ScidChecks(FormCheck):
         filter_excl_vars=False
     ):  
         for var in ['chrscid_a70','chrscid_a91','chrscid_a108',
-        'chrscid_a128']:
+        'chrscid_a138']:
             if getattr(row,var) in self.utils.all_dtype([3]):
                 return
-            
+
         if row.chrscid_d28 in self.utils.all_dtype([1]):
             return 'chrscid_d28 cannot be 1 since no manic or hypomanic episode was fulfilled.'
 
@@ -246,13 +258,13 @@ class ScidChecks(FormCheck):
         filter_excl_vars=False
     ):
         if (self.utils.can_be_float(row.chrscid_a26_53) and row.chrscid_a26_53
-        not in self.utils.missing_code_list and 
+        not in self.utils.missing_code_set and
         float(row.chrscid_a26_53) < 1 and (row.chrscid_a25
         in [3,3.0,'3','3.0'] or row.chrscid_a51 in [3,3.0,'3','3.0'])):
             return ('has no indication of total mde episodes'
             ' fulfilled in life even though fulfills current major depression. a26_53, a51')
         elif (self.utils.can_be_float(row.chrscid_a26_53) and row.chrscid_a26_53
-        not in self.utils.missing_code_list and float(row.chrscid_a26_53) > 0
+        not in self.utils.missing_code_set and float(row.chrscid_a26_53) > 0
         and (row.chrscid_a25 not in [3,3.0,'3','3.0']
         and row.chrscid_a51 not in [3,3.0,'3','3.0'])):
             return ('fulfills more manic episodes than 0 but there'

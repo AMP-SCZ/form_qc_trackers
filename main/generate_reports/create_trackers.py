@@ -50,8 +50,8 @@ class CreateTrackers():
         self.all_prescient_sites = self.utils.all_prescient_sites
         self.all_sites = self.utils.all_sites
         self.site_translations = self.utils.site_full_name_translations
-        self.old_output_csv_path = f'{self.output_path}combined_outputs/old_output/combined_qc_flags.csv'
-        self.curr_output_csv_path = f'{self.output_path}combined_outputs/current_output/combined_qc_flags.csv'
+        self.old_output_csv_path = f'{self.output_path}combined_outputs/old_output/combined_qc_flags.parquet'
+        self.curr_output_csv_path = f'{self.output_path}combined_outputs/current_output/combined_qc_flags.parquet'
         self.formatted_outputs_path = f'{self.output_path}formatted_outputs/'
         if not os.path.exists(self.formatted_outputs_path):
             os.makedirs(self.formatted_outputs_path)
@@ -71,8 +71,7 @@ class CreateTrackers():
         self.master = pd.DataFrame()
         
     def run_script(self):
-        self.combined_tracker = pd.read_csv(self.curr_output_csv_path,
-        keep_default_na= False)
+        self.combined_tracker = pd.read_parquet(self.curr_output_csv_path).fillna('')
         print('stage 1')
         self.collect_new_reports()
         print('stage 2')
@@ -111,28 +110,56 @@ class CreateTrackers():
                     self.loop_sites(network, report, report_df)
 
     def loop_sites(self, network, report, report_df):
+        # Pre-validate the Participant column once: any subject whose first
+        # two characters do not match a known site code in this network would
+        # silently land in the WRONG site's tracker (a PHI access-control
+        # concern: data-entry typos route a subject's flags to RAs at a
+        # different site). Log them and exclude from per-site trackers; they
+        # still appear in the network combined tracker.
+        valid_site_codes = set(self.all_sites[network])
+        prefixes = report_df['Participant'].astype(str).str[:2]
+        unknown_prefix_mask = ~prefixes.isin(valid_site_codes)
+        if unknown_prefix_mask.any():
+            unknown_subjects = sorted(
+                report_df.loc[unknown_prefix_mask, 'Participant'].astype(str).unique()
+            )
+            print(f"[create_trackers] WARNING: {len(unknown_subjects)} subject(s)"
+                  f" in network {network} have a Participant prefix that does"
+                  f" not match any known site code; excluding from per-site"
+                  f" trackers (still in network combined): {unknown_subjects[:10]}"
+                  f"{'...' if len(unknown_subjects) > 10 else ''}")
+
         for site_abr in self.all_sites[network]:
             if site_abr in self.utils.site_full_name_translations.keys():
                 site = self.utils.site_full_name_translations[site_abr]
             else:
                 site = site_abr
             if report != 'Main Report' and site_abr != 'ME':
-                continue 
+                continue
             if report != 'Non Team Forms' and site_abr == 'ME':
-                continue 
+                continue
             if site_abr == 'ME':
                 self.loop_ras(network, site, report, report_df)
             site_path = f'{self.dropbox_output_path}{network}/{site}/'
             if not os.path.exists(site_path):
                 os.makedirs(site_path)
-            site_df = report_df[report_df['Participant'].str[:2] == site_abr]
+            # Exact-prefix match against THIS site's code only — combined
+            # with the unknown-prefix log above, this guarantees a subject
+            # only ever lands in the correct site's file.
+            site_df = report_df[prefixes == site_abr]
             self.format_excl_sheet(site_df,
             report,site_path,
             f'{network}_{site_abr}_Output_V2.xlsx')
 
     def loop_ras(self, network, site, report, report_df):
         for ra, subjects in self.melbourne_ras.items():
-            ra_path = f'{self.dropbox_output_path}{network}/{site}/{ra.replace(" ","_")}/'
+            # Sanitize RA name before using as a path component. The source
+            # is `RAname` from raw PRESCIENT CSVs (free-text). Without
+            # stripping path separators, a value containing `/` or `..`
+            # could escape the intended directory and overwrite a sibling
+            # RA's tracker. Allow only word chars + dashes; cap length.
+            safe_ra = re.sub(r'[^\w\-]', '_', str(ra))[:64] or 'unknown_ra'
+            ra_path = f'{self.dropbox_output_path}{network}/{site}/{safe_ra}/'
             ra_df = report_df[report_df['Participant'].isin(subjects)]
             self.format_excl_sheet(ra_df,
             report, ra_path,
@@ -140,12 +167,30 @@ class CreateTrackers():
 
     def upload_trackers(self):
         fullpath = self.output_path + '/formatted_outputs/dropbox_files/'
+        # Collect dropbox credentials ONCE for the whole upload pass.
+        # Previously `save_to_dropbox` re-built a fresh `dropbox.Dropbox()`
+        # client on every file (~456 trackers × refresh-token roundtrip),
+        # which both hammered Dropbox's auth endpoint and made transient
+        # auth failures abort mid-run with no recovery.
+        dbx = self.utils.collect_dropbox_credentials()
+        upload_failures = []
         for root, dirs, files in os.walk(fullpath):
             for file in files:
                 if file.endswith('Output.xlsx') or file.endswith('V2.xlsx'):
                     full_path = root + '/' + file
                     local_path = root.replace(fullpath,'') + '/' + file
-                    self.save_to_dropbox(full_path,local_path)
+                    try:
+                        self.save_to_dropbox(full_path, local_path, dbx=dbx)
+                    except Exception as e:
+                        # Don't let one upload failure abort the rest —
+                        # log and continue, then surface the list at end.
+                        upload_failures.append((local_path, str(e)))
+                        print(f"[create_trackers] upload failed for {local_path}: {e}")
+        if upload_failures:
+            print(f"[create_trackers] WARNING: {len(upload_failures)} tracker(s)"
+                  f" failed to upload — Dropbox is in a partially-updated state."
+                  f" Re-run upload_trackers or investigate: {upload_failures[:5]}"
+                  f"{'...' if len(upload_failures) > 5 else ''}")
 
     def format_excl_sheet(self, df, report, folder, filename):
         print('formatting')
@@ -285,10 +330,17 @@ class CreateTrackers():
         columns_names = self.formatted_column_names[network]["combined"]
         columns_to_match = ['subject','displayed_timepoint','displayed_form',
                             'currently_resolved','manually_resolved']
+        # `currently_resolved` round-trips through parquet + a frame-wide
+        # `.fillna('')` upstream (line 74), which can demote the column to
+        # object dtype mixed with empty strings. `== True` then misses the
+        # string `'True'` form. Match the truthy pattern used elsewhere
+        # (compare_old_new_outputs:250).
+        truthy = (True, 'True', 'true', 'TRUE', 1, '1')
+        is_resolved = raw_df['currently_resolved'].isin(truthy)
         raw_df.loc[:, 'date_resolved'] = ''
-        raw_df.loc[raw_df['currently_resolved'] == True, 'date_resolved'] = (
-            raw_df.loc[raw_df['currently_resolved'] == True, 'dates_resolved']
-            .apply(lambda x: x.split(' | ')[-1])
+        raw_df.loc[is_resolved, 'date_resolved'] = (
+            raw_df.loc[is_resolved, 'dates_resolved']
+            .apply(lambda x: str(x).split(' | ')[-1])
         )
         agg_args = {}
         for col in raw_df.columns:
@@ -323,8 +375,12 @@ class CreateTrackers():
         result = pd.concat([df, moving_df], ignore_index=True)
         return result
 
-    def save_to_dropbox(self, fullpath, local_path):
-        dbx = self.utils.collect_dropbox_credentials()
+    def save_to_dropbox(self, fullpath, local_path, dbx=None):
+        # Allow caller to pass a pre-built dropbox client (avoids per-file
+        # OAuth refresh in batch upload paths). Falls back to building one
+        # for any standalone callers that haven't been migrated.
+        if dbx is None:
+            dbx = self.utils.collect_dropbox_credentials()
         with open(fullpath, 'rb') as f:
             dbx.files_upload(f.read(), self.dropbox_path + local_path,\
             mode=dropbox.files.WriteMode.overwrite)
@@ -442,4 +498,4 @@ class CreateTrackers():
                 merged = merged.drop(columns=[rec_col])
 
         # 6. write back
-        merged.to_csv(self.curr_output_csv_path, index=False)
+        merged.to_parquet(self.curr_output_csv_path, index=False)

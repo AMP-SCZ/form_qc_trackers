@@ -73,14 +73,18 @@ class MultiTPDataCollector():
                 else:
                     multi_tp_df = multi_tp_df.merge(modified_df,
                     on = 'subjectid', how = 'outer')
-                self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
-                'earliest_latest_dates_per_tp.json')
-                self.utils.save_dependency_json(self.variable_type_distributions,
-                'variable_type_distributions.json')
 
             multi_tp_df.to_csv(
             f'{self.depend_path}multi_tp_{network}_combined.csv',
             index = False)
+
+        # Hoisted out of the per-tp loop: these dicts accumulate across
+        # every (network, tp) pass, so writing them inside the loop wrote
+        # the same growing dict ~16 times per run.
+        self.utils.save_dependency_json(self.earliest_latest_dates_per_tp,
+        'earliest_latest_dates_per_tp.json')
+        self.utils.save_dependency_json(self.variable_type_distributions,
+        'variable_type_distributions.json')
 
     def collect_earliest_latest_dates(self,
         combined_df : pd.DataFrame, tp: str,
@@ -116,17 +120,19 @@ class MultiTPDataCollector():
                         and self.utils.check_if_val_date_format(int_date)):
                             int_date_str = str(int_date).split(' ')[0]
                             int_date_datetime = datetime.strptime(str(int_date).split(' ')[0], "%Y-%m-%d")
-                            self.earliest_latest_dates_per_tp.setdefault(subject, {})
+                            self.earliest_latest_dates_per_tp.setdefault(subject,{})
                             self.earliest_latest_dates_per_tp[subject].setdefault(tp,
-                            {'earliest':int_date_str,'latest':int_date_str})
+                            {'earliest':int_date_str,'latest':int_date_str,'earliest_form':form,'latest_form':form})
                             curr_early = self.earliest_latest_dates_per_tp[
                             subject][tp]['earliest']
-                            curr_late = curr_early = self.earliest_latest_dates_per_tp[
+                            curr_late = self.earliest_latest_dates_per_tp[
                             subject][tp]['latest']
-                            if int_date_datetime < datetime.strptime(curr_early, "%Y-%m-%d"):
+                            if int_date_datetime <= datetime.strptime(curr_early, "%Y-%m-%d"):
                                 self.earliest_latest_dates_per_tp[subject][tp]['earliest'] = int_date_str
-                            if int_date_datetime > datetime.strptime(curr_late, "%Y-%m-%d"):
+                                self.earliest_latest_dates_per_tp[subject][tp]['earliest_form'] = form
+                            if int_date_datetime >= datetime.strptime(curr_late, "%Y-%m-%d"):
                                 self.earliest_latest_dates_per_tp[subject][tp]['latest'] = int_date_str
+                                self.earliest_latest_dates_per_tp[subject][tp]['latest_form'] = form
 
     def collect_earliest_date(self, 
         combined_df : pd.DataFrame
@@ -311,7 +317,7 @@ class MultiTPDataCollector():
                 var_val = getattr(row,var)
                 self.variable_type_distributions.setdefault(var, {'missing_code':0,
                 'num':0,'date':0,'blank':0,'string':0, 'other':0})
-                if var_val in self.utils.missing_code_list:
+                if var_val in self.utils.missing_code_set:
                     self.variable_type_distributions[var]['missing_code'] +=1
                 elif self.utils.can_be_float(var_val):
                     self.variable_type_distributions[var]['num'] +=1

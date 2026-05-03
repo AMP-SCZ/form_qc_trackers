@@ -19,13 +19,6 @@ class PlotDataVolume():
 
         self.missing_code_list =  ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
         '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,'-99.0']
-
-        unique_form_vars_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/unique_form_vars.json'
-
-        self.combined_csv_path = '/data/predict1/data_from_nda/formqc/'
-        self.combined_csv_path = '/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/'
-        self.old_csv_path = '/PHShome/ob001/anaconda3/email_notifications/old_combined_csvs/'
-
         self.absolute_path = '/PHShome/ob001/anaconda3/email_notifications/'
 
         self.change_his_path = '/PHShome/ob001/anaconda3/email_notifications/change_history.csv'

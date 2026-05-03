@@ -2,8 +2,6 @@ import pandas as pd
 
 from datetime import datetime 
 
-new_df = pd.read_csv('/home/ob001/refactored_qc/form_qc_trackers/main/analyze_flags/recovered_flags_new_pronet.csv')
-orig_df = pd.read_csv('/home/ob001/refactored_qc/form_qc_trackers/main/analyze_flags/recovered_flags_orig_pronet.csv')
 df = pd.concat([new_df, orig_df], ignore_index=True)
 df["General Flag"] = df["General Flag"].str.split(" :").str[0]
 df.columns = df.columns.str.replace(" ", "_")

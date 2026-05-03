@@ -4,17 +4,49 @@ import json
 import re
 import dropbox
 from datetime import datetime
+
+# Module-level cache for dependency JSONs. The pipeline instantiates Utils()
+# (and thus loads `important_form_vars.json` + `variables_added_later.json`)
+# inside every per-row FormCheck subclass — at ~10K subjects × 14 timepoints
+# × 2 networks × 5 checker classes that's ~1.4M Utils() constructions per
+# run, each previously doing 2 fresh disk reads + JSON parses. With this
+# cache, subsequent loads are O(1) dict lookups. Keyed by (dep_path, filename)
+# so test environments with a different dependencies dir don't get crossed.
+_DEPENDENCY_JSON_CACHE = {}
+
+# config.json is loaded read-only at runtime. Without this cache, every
+# Utils() construction re-opens and re-parses it. Keyed by absolute_path
+# so a different project root (test harness) recomputes correctly.
+_CONFIG_CACHE = {}
+
+
+def _load_config(absolute_path):
+    cached = _CONFIG_CACHE.get(absolute_path)
+    if cached is None:
+        with open(f'{absolute_path}/config.json', 'r') as file:
+            cached = json.load(file)
+        _CONFIG_CACHE[absolute_path] = cached
+    return cached
+
+
 class Utils():
     def __init__(self):
         self.missing_code_list = \
         ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
         '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,\
-        '-99.0',999,999.0,'999','999.0'] 
+        '-99.0',999,999.0,'999','999.0']
+
+        # O(1) membership-test alias for the hot path. The list above is
+        # kept as-is so concatenation patterns like
+        # `self.missing_code_list + ['']` (used at many call sites) and
+        # pandas calls like `df.replace(self.missing_code_list, 0)` /
+        # `Series.isin(self.missing_code_list + [''])` continue to receive
+        # a list with the original ordering.
+        self.missing_code_set = frozenset(self.missing_code_list)
 
         self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 
-        with open(f'{self.absolute_path}/config.json','r') as file:
-            self.config_info = json.load(file)
+        self.config_info = _load_config(self.absolute_path)
 
         self.output_path = self.config_info['paths']['output_path']
 
@@ -213,12 +245,28 @@ class Utils():
         """
     
         depend_path = self.config_info['paths']['dependencies_path']
-        for file in os.listdir(f"{depend_path}data_dictionary"):
-            # loops through directory to search for current data dictionary
-            if match_str in file:
-                data_dictionary_df = pd.read_csv(
-                f"{depend_path}data_dictionary/{file}",
-                keep_default_na=False) # setting this to false preserves empty strings
+        # Deterministic selection: collect all matches, then pick the
+        # lexicographically last one (typically the most recent dated
+        # filename). Previously the loop overwrote on every match without
+        # `break`, returning the *last-listed-by-OS* match (order varies
+        # across platforms and is not stable). If multiple files match,
+        # warn — the operator probably left a backup behind.
+        matches = sorted(
+            f for f in os.listdir(f"{depend_path}data_dictionary")
+            if match_str in f
+        )
+        if not matches:
+            raise FileNotFoundError(
+                f"No data dictionary file matching '{match_str}' found in"
+                f" {depend_path}data_dictionary")
+        if len(matches) > 1:
+            print(f"[utils.read_data_dictionary] WARNING: multiple data"
+                  f" dictionary files match '{match_str}': {matches}."
+                  f" Using {matches[-1]}. Remove old copies to avoid drift.")
+        chosen = matches[-1]
+        data_dictionary_df = pd.read_csv(
+            f"{depend_path}data_dictionary/{chosen}",
+            keep_default_na=False)  # setting this to false preserves empty strings
 
         return data_dictionary_df
     
@@ -248,17 +296,23 @@ class Utils():
         dep_path = self.config_info["paths"]["dependencies_path"]
         with open(f'{dep_path}{filename}',
         'w') as json_file:
-            json.dump(data, json_file, indent=4)  
+            json.dump(data, json_file, indent=4)
+        # Invalidate the cache so any subsequent load_dependency_json call
+        # in this process picks up the freshly-written content.
+        _DEPENDENCY_JSON_CACHE.pop((dep_path, filename), None)
 
     def load_dependency_json(self, filename):
         dep_path = self.config_info["paths"]["dependencies_path"]
-
+        cache_key = (dep_path, filename)
+        if cache_key in _DEPENDENCY_JSON_CACHE:
+            return _DEPENDENCY_JSON_CACHE[cache_key]
         try:
             with open(f'{dep_path}{filename}','r') as json_file:
-                json_data = json.load(json_file) 
-                return json_data 
+                json_data = json.load(json_file)
         except json.JSONDecodeError:
             return {}
+        _DEPENDENCY_JSON_CACHE[cache_key] = json_data
+        return json_data
 
 
     def all_dtype(self, inp_list):
@@ -379,7 +433,7 @@ class Utils():
         """
         recent_date_var = ''
         for date_var, date in dates.items():
-            if date in self.missing_code_list:
+            if date in self.missing_code_set:
                 continue
             curr_date = datetime.strptime(date, "%Y-%m-%d")
             if curr_date > datetime.today():

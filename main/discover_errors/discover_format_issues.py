@@ -40,13 +40,14 @@ class FormatIssueFinder():
 
     def loop_csvs(self):
         tp_list = self.utils.create_timepoint_list()
-        for network in ['PRESCIENT','PRONET']:3
+        for network in ['PRESCIENT','PRONET']:
             print(self.withdrawn_subs)
             for tp in tp_list:
                 print(tp)
                 combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
-                f'{tp.replace("month","month_").replace("floating","floating_forms")}_{network}-day1to1.csv'),
+                f'{tp.replace("month","month_").replace("floating",'
+                "floating_forms")}_{network}-day1to1.csv'),
                 keep_default_na = False)
                 self.find_whitespace(combined_df, tp)
 
@@ -54,14 +55,13 @@ class FormatIssueFinder():
         all_vars = list(combined_df.columns)
         for row in combined_df.itertuples():
             for var in all_vars:
-                val = getattr(row,var)
+                val = getattr(row, var)
                 if row.subjectid == 'SL15064' and var == 'chrsofas_currscore12mo':
                     print('-----------------------')
                     print(val)
                     print(var)
                     print(len(val))
                     print(getattr(row,'subjectid'))
-
                 if str(val) != (str(val)).strip():
                     print('-----------------------')
                     print(val)
