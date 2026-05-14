@@ -11,6 +11,7 @@ from utils.utils import Utils
 from qc_forms.form_check import FormCheck
 from qc_forms.qc_types.clinical_checks.scid_checks import ScidChecks
 from qc_forms.qc_types.clinical_checks.pharm_checks import PharmChecks
+from qc_forms.qc_types.clinical_checks.conversion_checks import ConversionChecks
 
 class ClinicalChecksMain(FormCheck):
     """
@@ -36,6 +37,59 @@ class ClinicalChecksMain(FormCheck):
             ],
         }
 
+        self.score_range_check_vars = {
+            "sofas_screening": {
+                "vars": [
+                    "chrsofas_premorbid",
+                    "chrsofas_currscore12mo",
+                    "chrsofas_currscore",
+                    "chrsofas_lowscore",
+                ],
+                "min": 0,
+                "max": 100,
+            },
+            "sofas_followup": {
+                "vars": [
+                    "chrsofas_currscore_fu",
+                    "chrsofas_currscore12mo_fu",
+                ],
+                "min": 0,
+                "max": 100,
+            },
+            "global_functioning_role_scale": {
+                "vars": [
+                    "chrgfr_gf_role_low",
+                    "chrgfr_gf_role_scole",
+                    "chrgfr_gf_role_high",
+                ],
+                "min": 0,
+                "max": 10,
+            },
+            "global_functioning_role_scale_followup": {
+                "vars": [
+                    "chrgfrfu_gf_role_scole",
+                ],
+                "min": 0,
+                "max": 10,
+            },
+            "global_functioning_social_scale": {
+                "vars": [
+                    "chrgfs_gf_social_low",
+                    "chrgfs_gf_social_scale",
+                    "chrgfs_gf_social_high",
+                ],
+                "min": 0,
+                "max": 10,
+            },
+            "global_functioning_social_scale_followup": {
+                "vars": [
+                    "chrgfsfu_gf_social_scale",
+                ],
+                "min": 0,
+                "max": 10,
+            },
+        }
+
         self.excluded_21_day_forms = [
             "cbc_with_differential",
             "gcp_cbc_with_differential",
@@ -46,68 +100,12 @@ class ClinicalChecksMain(FormCheck):
             "sociodemographics",
         ]
 
-        self.gt_var_val_pairs = {
-            "chrbprs_bprs_somc": 5,
-            "chrbprs_bprs_guil": 5,
-            "chrbprs_bprs_gran": 5,
-            "chrbprs_bprs_susp": 5,
-            "chrbprs_bprs_hall": 5,
-            "chrbprs_bprs_unus": 5,
-            "chrbprs_bprs_bizb": 5,
-            "chrbprs_bprs_conc": 5,
-        }
-
-        self.eq_var_val_pairs = {
-            "chrpsychs_fu_1c0": 6,
-            "chrpsychs_fu_1d0": 6,
-            "chrpsychs_fu_2c0": 6,
-            "chrpsychs_fu_2d0": 6,
-            "chrpsychs_fu_3c0": 6,
-            "chrpsychs_fu_3d0": 6,
-            "chrpsychs_fu_4c0": 6,
-            "chrpsychs_fu_4d0": 6,
-            "chrpsychs_fu_5c0": 6,
-            "chrpsychs_fu_5d0": 6,
-            "chrpsychs_fu_6c0": 6,
-            "chrpsychs_fu_6d0": 6,
-            "chrpsychs_fu_7c0": 6,
-            "chrpsychs_fu_7d0": 6,
-            "chrpsychs_fu_8c0": 6,
-            "chrpsychs_fu_8d0": 6,
-            "chrpsychs_fu_9c0": 6,
-            "chrpsychs_fu_9d0": 6,
-            "chrpsychs_fu_10c0": 6,
-            "chrpsychs_fu_10d0": 6,
-            "chrpsychs_fu_11c0": 6,
-            "chrpsychs_fu_11d0": 6,
-            "chrpsychs_fu_12c0": 6,
-            "chrpsychs_fu_12d0": 6,
-            "chrpsychs_fu_13c0": 6,
-            "chrpsychs_fu_13d0": 6,
-            "chrpsychs_fu_14c0": 6,
-            "chrpsychs_fu_14d0": 6,
-            "chrpsychs_fu_15c0": 6,
-            "chrpsychs_fu_15d0": 6,
-            "chrscid_c10": 3,
-            "chrscid_c26": 3,
-            "chrscid_c14": 3,
-            "chrscid_c37": 3,
-            "chrscid_c44": 3,
-            "chrscid_d47_d52": 1,
-            "chrscid_d63": 1,
-            "chrscid_c71": 3,
-            "chrscid_c78": 3,
-            "chrscid_c11": 1,
-            "chrscid_c21": 1,
-            "chrscid_c47": 1,
-            "chrscid_c28": 1,
-            "chrscid_c50": 3,
-            "chrscid_c51": 8,
-        }
         scid_checks = ScidChecks(row, timepoint, network, form_check_info)
         self.final_output_list = scid_checks()
         med_checks = PharmChecks(row, timepoint, network, form_check_info)
         self.final_output_list.extend(med_checks())
+        conv_checks = ConversionChecks(row, timepoint, network, form_check_info)
+        self.final_output_list.extend(conv_checks())
 
         self.call_checks(row)
 
@@ -116,15 +114,56 @@ class ClinicalChecksMain(FormCheck):
 
     def call_checks(self, row):
         self.call_global_function_checks(row)
+        self.call_score_range_checks(row)
         self.call_oasis_checks(row)
         self.call_cssrs_checks(row)
         self.call_twenty_one_day_check(row)
         self.call_tbi_checks(row)
         self.call_bprs_checks(row)
-        self.call_conversion_check(row)
         self.call_premorbid_adjustment_checks(row)
         self.call_age_comparisons(row)
         self.call_pps_checks(row)
+
+    def call_score_range_checks(self, row):
+        report_list = ["Main Report", "Non Team Forms"]
+        for form, range_info in self.score_range_check_vars.items():
+            for var in range_info["vars"]:
+                self.score_range_check(
+                    row,
+                    [form],
+                    [var],
+                    {"reports": report_list},
+                    bl_filtered_vars=[],
+                    filter_excl_vars=True,
+                    score_min=range_info["min"],
+                    score_max=range_info["max"],
+                )
+
+    @FormCheck.standard_qc_check_filter
+    def score_range_check(
+        self,
+        row,
+        filtered_forms,
+        all_vars,
+        changed_output_vals,
+        bl_filtered_vars=[],
+        filter_excl_vars=True,
+        score_min=0,
+        score_max=0,
+    ):
+        var = all_vars[0]
+        val = getattr(row, var)
+        # missing codes not allowed for now
+        #if val in self.utils.missing_code_set or val == "":
+        #    return
+        if not self.utils.can_be_float(val):
+            return
+        fval = float(val)
+        if fval < score_min or fval > score_max:
+            return (
+                f"{var} ({val}) is outside the valid range "
+                f"[{score_min}, {score_max}]."
+            )
 
     def call_pps_checks(self, row):
         forms = ["psychosis_polyrisk_score"]
@@ -208,116 +247,6 @@ class ClinicalChecksMain(FormCheck):
             ["chrpas_pmod_adult3v3", "chrpas_pmod_adult3v1"],
             reports,
         )
-
-    def call_conversion_check(self, row):
-        for var, threshold in self.gt_var_val_pairs.items():
-            form = self.grouped_vars["var_forms"][var]
-            if not hasattr(row, var):
-                continue
-            var_val = getattr(row, var)
-            # Missing codes (e.g. 999, -3) are numeric and would otherwise
-            # satisfy `> threshold` here, producing false "conversion criteria"
-            # flags for every subject with missing data on a chrbprs_* var.
-            if var_val in self.utils.missing_code_set:
-                continue
-            if self.utils.can_be_float(var_val) and float(var_val) > threshold:
-                self.conversion_criteria_check(
-                    row,
-                    [form],
-                    [var],
-                    {"reports": ["Conversion Report"]},
-                )
-
-        for var, threshold in self.eq_var_val_pairs.items():
-            form = self.grouped_vars["var_forms"][var]
-            if not hasattr(row, var):
-                continue
-            var_val = getattr(row, var)
-            # Defensive: even though == against thresholds 1/3/6/8 is unlikely
-            # to match a missing code, filter for consistency with the gt path.
-            if var_val in self.utils.missing_code_set:
-                continue
-            if self.utils.can_be_float(var_val) and float(var_val) == threshold:
-                self.conversion_criteria_check(
-                    row,
-                    [form],
-                    [var],
-                    {"reports": ["Conversion Report"]},
-                )
-
-        # Reverse of the per-var loops above: catches rows that ARE
-        # marked converted but where no criteria variable supports it.
-        self.marked_converted_no_criteria_check(row)
-
-    def marked_converted_no_criteria_check(self, row):
-        """
-        Mirror of `call_conversion_check`. The forward loops above flag
-        rows where a criteria variable meets its threshold but the
-        participant is not marked converted. This method flags the
-        opposite: rows where the participant IS marked converted but no
-        criteria variable on this row supports it — i.e., the conversion
-        marking lacks any supporting data point on this row.
-
-        Emits one row-level flag (not per-var) because "no criteria
-        variable meets its threshold" is a single observation about the
-        row; emitting one flag per criteria variable would produce
-        ~50 duplicate flags per converted row.
-
-        Cohort gate: only CHR can convert. An HC row carrying
-        `visit_status_string == "converted"` is a data-entry error of a
-        different class and is intentionally not flagged here.
-        """
-        sub_info = self.subject_info.get(row.subjectid, {})
-        # Conversion status is sourced from `chrconv_conv` on the
-        # conversion form (collected by collect_subject_info into
-        # subject_info['converted']) rather than `visit_status_string`,
-        # so this check fires at every timepoint for any subject the
-        # operator has marked converted via chrconv_conv == 1.
-        if not sub_info.get('converted', False):
-            return
-
-        if sub_info.get("cohort", "").lower() != "chr":
-            return
-
-        # If any single criteria variable on this row clears (gt) or
-        # matches (eq) its threshold, the conversion marking has at
-        # least one supporting data point — no flag. Missing-coded
-        # values do not count, mirroring the forward check above.
-        for var, threshold in self.gt_var_val_pairs.items():
-            if not hasattr(row, var):
-                continue
-            var_val = getattr(row, var)
-            if var_val in self.utils.missing_code_set:
-                continue
-            if self.utils.can_be_float(var_val) and float(var_val) > threshold:
-                return
-        for var, threshold in self.eq_var_val_pairs.items():
-            if not hasattr(row, var):
-                continue
-            var_val = getattr(row, var)
-            if var_val in self.utils.missing_code_set:
-                continue
-            if self.utils.can_be_float(var_val) and float(var_val) == threshold:
-                return
-
-        affected_vars = (
-            ["chrconv_consensus_outcome"]
-            + list(self.gt_var_val_pairs.keys())
-            + list(self.eq_var_val_pairs.keys())
-        )
-        error_message = (
-            "Participant is marked as converted, but no conversion-criteria "
-            "variable on this row meets its threshold. Confirm the "
-            "conversion marking or update the criteria values."
-        )
-        error_output = self.create_row_output(
-            row,
-            ["conversion_form"],
-            affected_vars,
-            error_message,
-            {"reports": ["Conversion Report"]},
-        )
-        self.final_output_list.append(error_output)
 
     def call_bprs_checks(self, row):
         changed_output = {"reports": ["Main Report"]}
@@ -701,30 +630,6 @@ class ClinicalChecksMain(FormCheck):
                     {"reports": reports},
                 )
                 self.final_output_list.append(error_output)
-
-    @FormCheck.standard_qc_check_filter
-    def conversion_criteria_check(
-        self,
-        row,
-        filtered_forms,
-        all_vars,
-        changed_output_vals,
-        bl_filtered_vars=[],
-        filter_excl_vars=True,
-    ):
-        # Conversion status is sourced from the conversion form's
-        # `chrconv_conv` variable (filed at the floating timepoint), not
-        # from `visit_status_string`. The status is collected once into
-        # subject_info by process_variables/collect_subject_info.py so
-        # it is available at every timepoint. Default False if the key
-        # is absent (subject has no floating row, process_variables
-        # hasn't been re-run since this change, etc.).
-        sub_info = self.subject_info.get(row.subjectid, {})
-        if not sub_info.get('converted', False):
-            return (
-                f"{all_vars[0]} is {getattr(row, all_vars[0])}, "
-                "but participant is not marked as converted."
-            )
 
     @FormCheck.standard_qc_check_filter
     def pas_marriage_check(

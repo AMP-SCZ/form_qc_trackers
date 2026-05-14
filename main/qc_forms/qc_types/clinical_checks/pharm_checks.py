@@ -31,7 +31,7 @@ class PharmChecks(FormCheck):
     """
 
     ACUTE_INJECTION_CODES = {
-        724, 725, 257, 727, 123, 703, 11, 726, 271, 76, 245, 13,
+        724, 725, 257, 727, 123, 151, 11, 726, 271, 76, 245, 13,
     }
 
     # Offset sentinel meaning "ongoing" for medication courses.
@@ -162,6 +162,7 @@ class PharmChecks(FormCheck):
                     [name_var] + provided_vars,
                     f"{name_var} is coded as 888 (no information), but other course-level fields "
                     f"contain data ({', '.join(provided_vars)}). Please check whether 777 would be more appropriate.",
+                    priority_item=True,
                 )
 
     def det_med_name_improper_value(self, row, past=False, forms=None):
@@ -182,16 +183,14 @@ class PharmChecks(FormCheck):
                     [name_var],
                     f"{name_var} is coded as blinded medication ({name_val}). "
                     "Please check the medication name and update it if the medication is known now.",
+                    priority_item=True,
                 )
 
     def check_pharm_interview_dates(self, row, forms, changed_output_vals):
         # MED-QC-01
-        if self.network == "PRESCIENT":
-            return
-
-        excluded_interview_date_vars = {
-            "chrmiss_interview_date",
-        }
+        # PRESCIENT pharm flags route to Secondary Report rather than the
+        # default Main Report / Non Team Forms.
+        network_reports = ["Secondary Report"] if self.network == "PRESCIENT" else None
 
         mod_vars = ["chrpharm_date_mod", "chrpharm_date_mod_2"]
         mod_dates = []
@@ -202,40 +201,57 @@ class PharmChecks(FormCheck):
         if not mod_dates:
             return
 
-        latest_assessment_var = None
+        # Source the latest assessment date from the cross-timepoint aggregate
+        # in earliest_latest_dates_per_tp.json (loaded as self.tp_date_ranges)
+        # rather than scanning interview_date_vars on the current row, so the
+        # comparison sees the subject's true latest assessment regardless of
+        # which timepoint's row is currently being checked.
+        subject_dates = self.tp_date_ranges.get(row.subjectid, {})
+        if not subject_dates:
+            return
+
         latest_assessment_dt = None
-        for form, form_info in self.important_form_vars.items():
-            int_date_var = form_info.get("interview_date_var", "")
-            if not int_date_var or not hasattr(row, int_date_var):
+        latest_assessment_tp = None
+        latest_assessment_form = None
+        for tp, info in subject_dates.items():
+            latest_str = info.get("latest", "")
+            if not self._valid_date(latest_str):
                 continue
-            if int_date_var in excluded_interview_date_vars:
-                continue
-            int_date_val = getattr(row, int_date_var)
-            if not self._valid_date(int_date_val):
-                continue
-            parsed = self._parse_date(int_date_val)
+            parsed = self._parse_date(latest_str)
             if latest_assessment_dt is None or parsed > latest_assessment_dt:
                 latest_assessment_dt = parsed
-                latest_assessment_var = int_date_var
+                latest_assessment_tp = tp
+                latest_assessment_form = info.get("latest_form", "")
 
         if latest_assessment_dt is None:
             return
 
         latest_mod_var, latest_mod_dt = max(mod_dates, key=lambda x: x[1])
         if latest_assessment_dt > latest_mod_dt:
+            vars_to_flag = [latest_mod_var]
+            latest_int_date_var = ""
+            if latest_assessment_form and latest_assessment_form in self.important_form_vars:
+                latest_int_date_var = self.important_form_vars[latest_assessment_form].get(
+                    "interview_date_var", ""
+                )
+            if latest_int_date_var and hasattr(row, latest_int_date_var):
+                vars_to_flag.insert(0, latest_int_date_var)
             self._append_qc(
                 row,
                 forms,
-                [latest_assessment_var, latest_mod_var],
+                vars_to_flag,
                 f"Latest modification date ({latest_mod_var} = {latest_mod_dt.strftime('%Y-%m-%d')}) "
-                f"is before the latest assessment date ({latest_assessment_var} = {latest_assessment_dt.strftime('%Y-%m-%d')}). "
+                f"is before the latest assessment date "
+                f"({latest_assessment_form} at {latest_assessment_tp} = {latest_assessment_dt.strftime('%Y-%m-%d')}). "
                 "Please update the pharmaceutical treatment modification date to reflect the most recent assessment.",
+                reports=network_reports,
             )
 
     def check_current_med_dates_not_after_mod_date(self, row, forms=None):
         # MED-QC-03
-        if self.network == "PRESCIENT":
-            return
+        # PRESCIENT pharm flags route to Secondary Report rather than the
+        # default Main Report / Non Team Forms.
+        network_reports = ["Secondary Report"] if self.network == "PRESCIENT" else None
 
         if forms is None:
             forms = []
@@ -272,6 +288,7 @@ class PharmChecks(FormCheck):
                         f"{med_date_var} ({self._date_to_str(med_date_val)}) is later than "
                         f"{mod_var} ({mod_dt.strftime('%Y-%m-%d')}). Medication onset/offset dates "
                         "cannot occur after the form modification date.",
+                        reports=network_reports,
                     )
 
     def check_onset_after_offset(self, row, past=False, forms=None):
@@ -304,6 +321,7 @@ class PharmChecks(FormCheck):
                     f"{onset_var} ({self._date_to_str(onset_val)}) is later than "
                     f"{offset_var} ({self._date_to_str(offset_val)}). A medication course cannot "
                     "end before it starts.",
+                    priority_item=True,
                 )
 
     def check_duplicate_medication_courses(self, row, past=False, forms=None):
@@ -338,10 +356,14 @@ class PharmChecks(FormCheck):
 
                 name_1 = getattr(row, name_var_1)
                 name_2 = getattr(row, name_var_2)
+                reports=["Main Report"]
                 if self._is_missing_val(name_1) or self._is_missing_val(name_2):
                     continue
                 if str(name_1).strip() != str(name_2).strip():
                     continue
+                if self._normalize_med_code(name_1) in {"777", "888", "999"} or self._normalize_med_code(name_2) in {"777", "888", "999"}:
+                    reports=["Secondary Report"]
+
 
                 use_1 = getattr(row, use_var_1)
                 use_2 = getattr(row, use_var_2)
@@ -382,6 +404,8 @@ class PharmChecks(FormCheck):
                         f"{name_var_2} ({onset_2_str} to {offset_2_str}) have the same medication name "
                         f"({str(name_1).strip()}), overlapping date ranges, and both courses are marked as simultaneously used "
                         f"({use_var_1} = 1 and {use_var_2} = 1). Please check for a duplicate medication course.",
+                        reports = reports,
+                        priority_item=True,
                     )
 
     def check_no_medication_overlap(self, row, past=False, forms=None):
@@ -456,6 +480,7 @@ class PharmChecks(FormCheck):
                         f"({other_med['name_var']}: {other_onset_str} to {other_offset_str}). "
                         "A no-medication period can touch another course on the same start/end date, "
                         "but it should not overlap beyond that boundary.",
+                        priority_item=True,
                     )
 
     def check_no_medication_missing_offset(self, row, past=False, forms=None):
@@ -516,6 +541,7 @@ class PharmChecks(FormCheck):
                         f"but {offset_var} is missing or coded as ongoing "
                         f"while another medication course ({other_name_var}) starts later on "
                         f"{self._date_to_str(other_onset_val)}. Please end the no-medication period or review the later medication course.",
+                        priority_item=True,
                     )
                     break
 
@@ -602,6 +628,7 @@ class PharmChecks(FormCheck):
                     f"{offset_var} ({self._date_to_str(offset_val)}) is before "
                     f"{past_form_date_var} ({self._date_to_str(past_form_date_val)}). "
                     "A current-form medication course should not end before the past pharmaceutical treatment assessment date.",
+                    priority_item=True,
                 )
 
     def check_no_medication_code_with_info(self, row, past=False, forms=None):
@@ -626,7 +653,23 @@ class PharmChecks(FormCheck):
                 self._med_var(med_num, "comp", past=past),
             ]
 
-            provided_vars = self._has_nonmissing_info(row, vars_to_check)
+            # In the 999/no-medication context, zero-like numeric values
+            # (0, 0.0, "0", "0.0") are routed to the Secondary Report rather
+            # than the main flag so they surface for review without competing
+            # with real contradicting data.
+            provided_vars = []
+            zero_vars = []
+            for var in vars_to_check:
+                if not hasattr(row, var):
+                    continue
+                val = getattr(row, var)
+                if self._is_missing_val(val):
+                    continue
+                if self.utils.can_be_float(val) and float(val) == 0.0:
+                    zero_vars.append(var)
+                    continue
+                provided_vars.append(var)
+
             if provided_vars:
                 self._append_qc(
                     row,
@@ -634,6 +677,18 @@ class PharmChecks(FormCheck):
                     [name_var] + provided_vars,
                     f"{name_var} is coded as 999 (no medication), but other course-level fields "
                     f"contain data ({', '.join(provided_vars)}). Please check whether this period was really no medication.",
+                    priority_item=True,
+                )
+
+            if zero_vars:
+                self._append_qc(
+                    row,
+                    forms,
+                    [name_var] + zero_vars,
+                    f"{name_var} is coded as 999 (no medication), but other course-level fields "
+                    f"contain zero values ({', '.join(zero_vars)}). Please check whether this period was really no medication.",
+                    reports=["Secondary Report"],
+                    priority_item=True,
                 )
 
     def pharm_firstdose_check(
@@ -674,6 +729,7 @@ class PharmChecks(FormCheck):
                     f"{onset_var} ({onset_date}) does not match the date portion of "
                     f"{firstdose_var} ({firstdose_date}). The first-dose datetime should "
                     "have the same calendar date as the medication onset date.",
+                    priority_item=True,
                 )
 
     def check_pharm_date_chronologies(self, row, forms):
@@ -701,6 +757,7 @@ class PharmChecks(FormCheck):
                 ["chrpharm_interview_date", "chrpharm_date_first"],
                 f"Past pharmaceutical treatment date ({past_pharm_date}) is more than 20 days later than "
                 f"current pharmaceutical treatment date ({curr_pharm_date}).",
+                priority_item=True,
             )
 
     def check_compliance_range(self, row, past=False, forms=None):
@@ -723,6 +780,7 @@ class PharmChecks(FormCheck):
                     forms,
                     [comp_var],
                     f"{comp_var} is {comp_val}, but compliance must be between 0 and 100 inclusive.",
+                    priority_item=True,
                 )
 
     def check_frequency_missing_code(self, row, past=False, forms=None):
@@ -745,6 +803,7 @@ class PharmChecks(FormCheck):
                     forms,
                     [freq_var],
                     f"{freq_var} is {freq_val}. Values below 0 are only allowed when coded as -3 for missingness.",
+                    priority_item=True,
                 )
 
     def check_acute_injection_longer_than_two_weeks(self, row, past=False, forms=None):
@@ -791,6 +850,7 @@ class PharmChecks(FormCheck):
                     f"but the course lasts {duration_days} days "
                     f"({onset_var} = {self._date_to_str(onset_val)}, {offset_var} = {self._date_to_str(offset_val)}), "
                     "which is longer than two weeks. Please review whether this course is truly an acute injection.",
+                    priority_item=True,
                 )
 
     # ---------------------------------------------------------------------
@@ -930,7 +990,7 @@ class PharmChecks(FormCheck):
                 med_nums.append(med_num)
         return med_nums
 
-    def _append_qc(self, row, forms, vars_list, message):
+    def _append_qc(self, row, forms, vars_list, message, reports=None, priority_item=False):
         # For flags pertaining only to the past pharmaceutical treatment form,
         # require only that the form is marked complete. The full
         # standard_form_filter also runs check_if_missing, which for this form
@@ -963,12 +1023,19 @@ class PharmChecks(FormCheck):
         if not filtered_vars:
             return
 
+        if reports is None:
+            reports = ["Main Report", "Non Team Forms"]
+
+        output_changes = {"reports": reports}
+        if priority_item:
+            output_changes["priority_item"] = True
+
         error_output = self.create_row_output(
             row,
             forms,
             filtered_vars,
             message,
-            {"reports": ["Main Report", "Non Team Forms"]},
+            output_changes,
         )
         self.final_output_list.append(error_output)
 

@@ -83,7 +83,7 @@ class QCFormsMain():
         tp_durations = []
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRONET','PRESCIENT']:
+        for network in ['PRESCIENT', 'PRONET']:
             multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
             """
             multi_tp_df = pd.read_csv(multi_tp_path,

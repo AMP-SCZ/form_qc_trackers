@@ -50,6 +50,15 @@ class GeneralChecks(FormCheck):
             filter_excl_vars=True,range_var = var,
             lower = min,upper = max)
 
+    # Blank-check flags on these forms are surfaced as priority items so they
+    # don't get buried — pharm course-level data is hand-entered and the
+    # missing-field count tends to be high.
+    _PRIORITY_BLANK_FORMS = {
+        'current_pharmaceutical_treatment_floating_med_125',
+        'current_pharmaceutical_treatment_floating_med_2650',
+        'past_pharmaceutical_treatment',
+    }
+
     def check_blank_values(self, row):
         #TODO:optimize performance of this part
         for report in ['Main Report', 'Secondary Report']:
@@ -63,12 +72,15 @@ class GeneralChecks(FormCheck):
                 for team, forms in self.forms_per_report.items():
                     if form in forms:
                         report_list.append(team)
+                output_changes = {"reports" : report_list}
+                if form in self._PRIORITY_BLANK_FORMS:
+                    output_changes["priority_item"] = True
                 if self.standard_form_filter(row, form):
                     for var in blank_check_forms[form]:
                         if self.prescient_scid_filter(var, row) == True:
                             continue
                         self.check_if_blank(row, [form], [var],
-                        {"reports" : report_list},[var])
+                        output_changes,[var])
 
     def check_missing_code_values(self, row):
         #TODO:optimize performance of this part
