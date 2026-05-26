@@ -38,6 +38,7 @@ class CollectSubjectInfo():
         self.collect_baseline_info()
         self.collect_floating_info()
         self.collect_conversion_info()
+        self.collect_conversion_criteria_info()
 
         return self.subject_info
 
@@ -210,5 +211,107 @@ class CollectSubjectInfo():
                 else:
                     self.subject_info[sub].setdefault('converted', False)
 
+    def collect_conversion_criteria_info(self):
+        """
+        Aggregate cross-timepoint psychs / scid conversion-criteria
+        flags onto subject_info. Consumed by
+        `clinical_checks_main.marked_converted_no_criteria_check` at
+        the floating row, where chrconv_method picks which set of
+        criteria the operator used to determine conversion.
 
+        The criteria values themselves can appear at any timepoint
+        (psychs / scid forms aren't floating-only), so we sweep every
+        per-tp combined CSV for both networks and OR-accumulate
+        booleans onto:
+          subject_info[sub]['has_psychs_criteria']
+          subject_info[sub]['has_scid_criteria']
 
+        We additionally track conversion-tp-only versions, which only
+        flip True from rows in the `conversion` tp CSV, consumed by
+        `marked_converted_no_conv_tp_criteria_check`:
+          subject_info[sub]['has_psychs_criteria_at_conversion_tp']
+          subject_info[sub]['has_scid_criteria_at_conversion_tp']
+
+        Threshold spec is sourced from
+        dependencies/conversion_criteria_thresholds.json so the
+        consumer in clinical_checks_main reads the same file.
+        """
+        criteria = self.utils.load_dependency_json(
+            'conversion_criteria_thresholds.json'
+        )
+        psychs_thresholds = criteria['psychs']
+        scid_thresholds = criteria['scid']
+
+        tp_list = self.utils.create_timepoint_list()
+        tp_list.extend(['floating', 'conversion'])
+
+        for network in ['PRONET', 'PRESCIENT']:
+            for tp in tp_list:
+                csv_path = (
+                    f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                    f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                    f'_{network.replace("PRONET","ProNET")}-day1to1.csv'
+                )
+                try:
+                    combined_df = pd.read_csv(csv_path, keep_default_na=False)
+                except FileNotFoundError:
+                    continue
+                if 'subjectid' not in combined_df.columns:
+                    continue
+
+                psychs_cols = [c for c in psychs_thresholds
+                               if c in combined_df.columns]
+                scid_cols = [c for c in scid_thresholds
+                             if c in combined_df.columns]
+                col_list = ['subjectid'] + psychs_cols + scid_cols
+                combined_df = combined_df[col_list]
+
+                for row in combined_df.itertuples():
+                    sub = row.subjectid
+                    self.subject_info.setdefault(sub, {})
+                    self.subject_info[sub].setdefault(
+                        'has_psychs_criteria', False)
+                    self.subject_info[sub].setdefault(
+                        'has_scid_criteria', False)
+                    self.subject_info[sub].setdefault(
+                        'has_psychs_criteria_at_conversion_tp', False)
+                    self.subject_info[sub].setdefault(
+                        'has_scid_criteria_at_conversion_tp', False)
+
+                    psychs_hit = False
+                    if not self.subject_info[sub]['has_psychs_criteria'] \
+                            or (tp == 'conversion' and not
+                                self.subject_info[sub][
+                                    'has_psychs_criteria_at_conversion_tp']):
+                        for var in psychs_cols:
+                            var_val = getattr(row, var, '')
+                            if var_val in self.utils.missing_code_set:
+                                continue
+                            if (self.utils.can_be_float(var_val)
+                                and float(var_val) == psychs_thresholds[var]):
+                                psychs_hit = True
+                                break
+                    if psychs_hit:
+                        self.subject_info[sub]['has_psychs_criteria'] = True
+                        if tp == 'conversion':
+                            self.subject_info[sub][
+                                'has_psychs_criteria_at_conversion_tp'] = True
+
+                    scid_hit = False
+                    if not self.subject_info[sub]['has_scid_criteria'] \
+                            or (tp == 'conversion' and not
+                                self.subject_info[sub][
+                                    'has_scid_criteria_at_conversion_tp']):
+                        for var in scid_cols:
+                            var_val = getattr(row, var, '')
+                            if var_val in self.utils.missing_code_set:
+                                continue
+                            if (self.utils.can_be_float(var_val)
+                                and float(var_val) == scid_thresholds[var]):
+                                scid_hit = True
+                                break
+                    if scid_hit:
+                        self.subject_info[sub]['has_scid_criteria'] = True
+                        if tp == 'conversion':
+                            self.subject_info[sub][
+                                'has_scid_criteria_at_conversion_tp'] = True

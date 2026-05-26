@@ -22,6 +22,7 @@ from main.process_variables.collect_raw_csv_info import RawCSVCollector
 from main.process_variables.define_ranges import RangeDefiner
 from main.process_variables.find_duplicates import DuplicateFinder
 
+from main.process_variables.map+antipsychotic_meds import APMedMapper
 
 class ProcessVariables():
     """
@@ -64,6 +65,10 @@ class ProcessVariables():
 
         organize_reports = OrganizeReports()
         organize_reports.run_script()
+
+        ap_med_mappings = APMedMapper()
+        self.utils.save_dependency_json(ap_med_mappings(), 'ap_med_mappings.json')
+
         
         ra_subs = RaSubjects()
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
