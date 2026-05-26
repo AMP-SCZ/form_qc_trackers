@@ -22,7 +22,7 @@ from main.process_variables.collect_raw_csv_info import RawCSVCollector
 from main.process_variables.define_ranges import RangeDefiner
 from main.process_variables.find_duplicates import DuplicateFinder
 
-from main.process_variables.map+antipsychotic_meds import APMedMapper
+from main.process_variables.map_antipsychotic_meds import APMedMapper
 
 class ProcessVariables():
     """
