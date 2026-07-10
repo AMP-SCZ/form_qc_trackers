@@ -83,7 +83,8 @@ class QCFormsMain():
         tp_durations = []
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRESCIENT', 'PRONET']:
+        for network in ['PRONET','PRESCIENT']:
+            network_cross_tp_rows=[]
             multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
             """
             multi_tp_df = pd.read_csv(multi_tp_path,
@@ -96,6 +97,8 @@ class QCFormsMain():
                 final_output.extend(multi_tp_checks())
             """
             for tp in tp_list:
+                print("[DEBUG] finished all timepoints")
+                print(f"[DEBUG] total collected rows: {len(network_cross_tp_rows)}")
                 tp_start = time.perf_counter() if debug_perf else None
                 print(tp)
                 print(tp_list)
@@ -181,12 +184,21 @@ class QCFormsMain():
                 #combined_df = combined_df.iloc[80:120]
                 #combined_df = combined_df.sample(n=20)
                 #combined_df = combined_df.sample(n=100, random_state=42)
-                for row in combined_df.itertuples():
+                
+                all_rows = list(combined_df.itertuples())
+                for row in all_rows:
+                    network_cross_tp_rows.append((row, tp, network))
+                   # print(f"[DEBUG] collected so far after {tp}: {len(network_cross_tp_rows)}")
+
+                for row in all_rows:
+                    if row.subjectid not in self.form_check_info['subject_info']:
+                        continue
+                #for row in combined_df.itertuples():
                     #print(row.Index)
                     #TODO: Add tracker for all subjects not existing here 
-                    if (row.subjectid not
-                    in self.form_check_info['subject_info']):
-                        continue
+                    # if (row.subjectid not
+                    # in self.form_check_info['subject_info']):
+                    #     continue
                     #print(row.Index)
                     gen_checks = GeneralChecks(row, tp,
                     network, self.form_check_info)
@@ -206,30 +218,49 @@ class QCFormsMain():
                 if debug_perf:
                     tp_durations.append((
                         network, tp,
-                        time.perf_counter() - tp_start,
+                        time.perf_counter() -tp_start,
                         int(len(combined_df)),
                     ))
 
-        if debug_perf:
-            print("[DEBUG_PERF] per-timepoint timings (network, tp, seconds, rows):")
-            for entry in tp_durations:
-                print(f"  {entry}")
-            try:
-                reg = FluidChecks._seen_blood_id_vals
-                top = sorted(
-                    ((len(v), k) for k, v in reg.items()),
-                    reverse=True)[:5]
-                print(
-                    f"[DEBUG_PERF] blood-dup registry: "
-                    f"{len(reg)} unique values, "
-                    f"top-5 by collision count: {top}")
-            except Exception as e:
-                print(f"[DEBUG_PERF] registry introspection failed: {e}")
+            if len(network_cross_tp_rows) > 0:
+                print("=== ABOUT TO RUN CROSS-TIMEPOINT CHECKS ===")
+                print(f"Rows collected: {len(network_cross_tp_rows)}")
+
+                sample_row, sample_tp, sample_network = network_cross_tp_rows[0]
+
+                cross_tp_checks = GeneralChecks(
+                    sample_row,
+                    "multiple_timepoints",
+                    sample_network,
+                    self.form_check_info,
+                    run_row_checks=False
+                )
+
+                cross_tp_checks.call_cross_timepoint_checks(network_cross_tp_rows)
+                final_output.extend(cross_tp_checks())
+                
+        
+        # if debug_perf:
+        #     print("[DEBUG_PERF] per-timepoint timings (network, tp, seconds, rows):")
+        #     for entry in tp_durations:
+        #         print(f"  {entry}")
+        #     try:
+        #         reg = FluidChecks._seen_blood_id_vals
+        #         top = sorted(
+        #             ((len(v), k) for k, v in reg.items()),
+        #             reverse=True)[:5]
+        #         print(
+        #             f"[DEBUG_PERF] blood-dup registry: "
+        #             f"{len(reg)} unique values, "
+        #             f"top-5 by collision count: {top}")
+        #     except Exception as e:
+        #         print(f"[DEBUG_PERF] registry introspection failed: {e}")
 
         # Write the combined output once after all networks/timepoints have
         # been processed. Previously this lived inside the inner loop and
         # rewrote the same file (with an ever-growing dataframe) on every
         # iteration — O(N^2) writes for N timepoints * 2 networks.
+        
         if len(final_output) == 0:
             # Zero flags across all networks/timepoints almost certainly
             # means QC checks did not actually run (input CSV missing,

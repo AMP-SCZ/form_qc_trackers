@@ -271,10 +271,123 @@ class FormCheck():
             else:
                 return False
               
+    # def create_row_output(
+    #     self, curr_row : tuple, forms: list,
+    #     variables : list, error_message : str,
+    #     output_changes : dict = {}
+    # ) -> dict:
+    #     """
+    #     Creates row for combined output 
+    #     for a single error
+
+    #     Parameters
+    #     -------------
+    #     curr_row : tuple
+    #         current row from dataframe
+    #     forms : list 
+    #         list of all forms 
+    #         involved in error
+    #     varaibles : list
+    #         list of all variables 
+    #         involved in error
+
+    #     Returns 
+    #     ----------
+    #     row_output : dict
+    #         dictionary of current row in
+    #         output
+    #     """
+        
+    #     subject = curr_row.subjectid
+    #     if curr_row.visit_status_string == 'removed':
+    #         removed_status = True
+    #     else:
+    #         removed_status = False
+
+    #     incl_status = self.subject_info[subject]["inclusion_status"]
+
+    #     row_output = {
+    #         "network" : self.network,
+    #         "subject" : subject,
+    #         "affected_timepoints" : [self.timepoint],
+    #         "subject_current_timepoint" : self.subject_info[subject]["visit_status"],
+    #         "affected_forms": forms,
+    #         "affected_variables" : variables,
+    #         "displayed_form" : forms[0],
+    #         "displayed_timepoint" : self.timepoint,
+    #         "displayed_variable" : variables[0],
+    #         "var_translations" : [],
+    #         "error_message" : error_message,
+    #         "error_removed" : False,
+    #         "reports" : ["Main Report"],
+    #         "withdrawn_status" : removed_status,
+    #         "inclusion_status" : incl_status,
+    #         "excluded_enabled" : False,
+    #         "withdrawn_enabled" : False,
+    #         "nda_excluder" : False,
+    #         "priority" : False,
+    #         "priority_item" : False,
+    #         "dates_detected" : str(datetime.today().date()).split(' ')[0],
+    #         "time_since_last_detection":"",
+    #         "dates_resolved" : "",
+    #         "currently_resolved": False,
+    #         "manually_resolved" : "",
+    #         "comments" : "",
+    #         "site_comments" : ""
+    #     }
+
+    #     if "Main Report" in row_output["reports"]:
+    #         row_output["nda_excluder"] = True
+
+    #     var_translations = self.grouped_vars['var_translations']
+
+    #     for var in variables:
+    #         if var in var_translations.keys():
+    #             row_output["var_translations"].append(
+    #             self.grouped_vars['var_translations'][var]) 
+
+    #     if self.timepoint == 'screening':
+    #         row_output["priority"] = True
+        
+    #     row_output['error_message'] = row_output[
+    #     'displayed_variable'] + ' : ' + row_output['error_message']
+
+    #     if output_changes != {}:
+    #         for key, val in output_changes.items():
+    #             row_output[key] = val
+
+    #     # if priority form or tp set priority_item to True 
+    #     if (any(form in self.priority_forms
+    #     for form in row_output['affected_forms'])
+    #     or any(tp in self.priority_timepoints
+    #     for tp in row_output['affected_timepoints'])):
+    #         row_output['priority_item'] = True
+
+    #     if (row_output['withdrawn_enabled'] == False
+    #     and removed_status == True and
+    #     self.config_info["withdrawn_enabled"] == False):
+    #         row_output['reports'] = []
+        
+    #     if (curr_row.recruitment_status_v2 == 'recruited' and
+    #     self.config_info["recruited_only"] == True):
+    #         row_output['reports'] = []
+
+    #     if (row_output['excluded_enabled'] == False
+    #     and (incl_status.lower() != 'included' or
+    #     curr_row.recruitment_status_v2 == 'negative_screen')):
+    #         row_output['reports'] = []
+                
+    #     for key in row_output.keys():
+    #         if isinstance(row_output[key], list): 
+    #             row_output[key] = ' | '.join(row_output[key]) 
+
+    #     return row_output
+
     def create_row_output(
         self, curr_row : tuple, forms: list,
         variables : list, error_message : str,
-        output_changes : dict = {}
+        output_changes : dict = {},
+        apply_filters: bool = True
     ) -> dict:
         """
         Creates row for combined output 
@@ -363,25 +476,29 @@ class FormCheck():
         for tp in row_output['affected_timepoints'])):
             row_output['priority_item'] = True
 
-        if (row_output['withdrawn_enabled'] == False
-        and removed_status == True and
-        self.config_info["withdrawn_enabled"] == False):
-            row_output['reports'] = []
-        
-        if (curr_row.recruitment_status_v2 == 'recruited' and
-        self.config_info["recruited_only"] == True):
-            row_output['reports'] = []
+        if apply_filters:
+            if (row_output['withdrawn_enabled'] == False
+            and removed_status == True and
+            self.config_info["withdrawn_enabled"] == False):
+                row_output['reports'] = []
+            
+            if (curr_row.recruitment_status_v2 == 'recruited' and
+            self.config_info["recruited_only"] == True):
+                row_output['reports'] = []
 
-        if (row_output['excluded_enabled'] == False
-        and (incl_status.lower() != 'included' or
-        curr_row.recruitment_status_v2 == 'negative_screen')):
-            row_output['reports'] = []
+            if (row_output['excluded_enabled'] == False
+            and (incl_status.lower() != 'included' or
+            curr_row.recruitment_status_v2 == 'negative_screen')):
+                row_output['reports'] = []
                 
         for key in row_output.keys():
             if isinstance(row_output[key], list): 
                 row_output[key] = ' | '.join(row_output[key]) 
 
         return row_output
+
+
+
     
     def format_lists(self, 
         dict_to_format : dict

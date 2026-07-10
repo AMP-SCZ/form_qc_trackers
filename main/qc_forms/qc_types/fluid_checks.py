@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import sys
 import json
+import re
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 sys.path.insert(1, parent_dir)
 
@@ -32,6 +33,30 @@ class FluidChecks(FormCheck):
 
     def call_checks(self, row):
         self.call_blood_checks(row)
+        self.chrsaliva_id_check(row)
+        self.call_blood_pressure_check(row)
+
+    def call_blood_pressure_check(self, row):
+        report_list = ["Fluids Report", "Main Report"]
+
+        self.blood_pressure_check(
+            row,
+            ["current_health_status"],
+            ["chrchs_systolic", "chrchs_diastolic"],
+            {"reports": report_list},
+        )
+
+    # def call_chrsaliva_id_check(self, row):
+
+    #     report_list = ["Fluids Report"]
+
+    #     self.chrsaliva_id_check(
+    #         row,
+    #         ["daily_activity_and_saliva_sample_collection"],
+    #         ["chrsaliva_id1a", "chrsaliva_id1b", "chrsaliva_id2a", "chrsaliva_id2b", "chrsaliva_id3a", "chrsaliva_id3b"],
+    #         {"reports": report_list},
+    #     )
+
         
     def call_blood_checks(self,row):
         form = 'blood_sample_preanalytic_quality_assurance'
@@ -337,7 +362,85 @@ class FluidChecks(FormCheck):
 
     def height_bmi_check(self):
         bmi_var = 'chrchs_bmi' 
+
+
+    @FormCheck.standard_qc_check_filter
+    def blood_pressure_check(
+        self, row, filtered_forms, all_vars,changed_output_vals,
+        bl_filtered_vars=[], filter_excl_vars=True, conditions={}
+    ):
+
+        if all(
+            hasattr(row, var)
+            for var in ["chrchs_systolic", "chrchs_diastolic"]
+        ):
+
+            systolic = getattr(row, "chrchs_systolic")
+            diastolic = getattr(row, "chrchs_diastolic")
+
+            if(
+                systolic in self.utils.missing_code_list
+                or diastolic in self.utils.missing_code_list
+            ):
+                return
+
+            if (
+                self.utils.can_be_float(systolic)
+                and self.utils.can_be_float(diastolic)
+            ):
+
+                systolic = float(systolic)
+                diastolic = float(diastolic)
+
+                if systolic <= diastolic:
+                    return (
+                        f"Systolic blood pressure ({systolic}) should be greater "
+                        f"than diastolic blood pressure ({diastolic})."
+                    )
         
 
+    def chrsaliva_id_check(self, row):
+        forms = ["daily_activity_and_saliva_sample_collection"]
+        reports = ["Fluids Report", "Main Report"]
 
-            
+        id_vars = [
+            "chrsaliva_id1a",
+            "chrsaliva_id1b",
+            "chrsaliva_id2a",
+            "chrsaliva_id2b",
+            "chrsaliva_id3a",
+            "chrsaliva_id3b",
+        ]
+
+        output_changes = {"reports": reports}
+        pattern = re.compile(r"^[A-Za-z0-9]{10,13}$")
+
+        for var in id_vars:
+            if not hasattr(row, var):
+                continue
+
+            value = getattr(row, var)
+
+            if (
+                value in self.utils.missing_code_list
+                or str(value).strip().upper() == "N/A"
+                or str(value).strip() == ""
+                ):
+                continue
+
+            value = str(value).strip()
+
+            if not pattern.fullmatch(value):
+                error_message = (
+                    f"{var} has an invalid value ({value}). "
+                    f"It must contain 10-13 alphanumeric characters."
+                    f"Special characters and spaces are not allowed."
+                )
+
+                error_output = self.create_row_output(
+                    row, forms,[var], error_message, output_changes,
+                )
+
+                self.final_output_list.append(error_output)
+
+                

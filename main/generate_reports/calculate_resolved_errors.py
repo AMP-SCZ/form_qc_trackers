@@ -111,7 +111,7 @@ class CalculateResolvedErrors():
         dbx = self.utils.collect_dropbox_credentials()
         current_df = self._read_current()
         for network in dbx.files_list_folder(self.dropbox_path).entries:
-            if network.name not in ['PRONET','PRESCIENT']:
+            if network.name not in ['PRESCIENT', 'PRONET']:
                 continue
             network_dir = self.dropbox_path + f'{network.name}'
             combined_output = network_dir + f'/combined/{network.name}_Output_V2.xlsx'
