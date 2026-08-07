@@ -20,14 +20,14 @@ class CalcQCer:
         self.absolute_path = self.utils.absolute_path
         with open(f"{self.absolute_path}/config.json", "r") as file:
             self.config_info = json.load(file)
-        self.comb_csv_path = "/home/ob001/refactored_qc/dependencies/comb_csvs_3_30_2026/PROTECTED/"
+        self.comb_csv_path = "/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/"
         self.output_path = self.config_info["paths"]["output_path"]
         self.depend_path = self.config_info["paths"]["dependencies_path"]
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
         self.form_per_var = self.grouped_vars["var_forms"]
         self.important_form_vars = self.utils.load_dependency_json(
         'important_form_vars.json')
-        self.all_data_path = f"{self.depend_path}PNLYaleExtractTEST_DATA_2026-04-11_1732.csv"
+        self.all_data_path = f"{self.depend_path}all_recalcs_combined.csv"
         self.all_data_df = pd.read_csv(
         self.all_data_path,
         keep_default_na = False)
@@ -53,7 +53,7 @@ class CalcQCer:
 
     def loop_csvs(self):
         tp_list = self.utils.create_timepoint_list()
-        for network in ['PRONET','PRESCIENT']:
+        for network in ['PRESCIENT']:
            for tp in tp_list:
                 tp = tp.replace("month","month_").replace("floating","floating_forms")
                 combined_df = pd.read_csv(
@@ -114,7 +114,7 @@ class CalcQCer:
                                 comb_val,'recalc_val':recalc_val})
 
             output_df = pd.DataFrame(self.revised_final_output_list)
-            output_df.to_csv('diffs_test_revised_new_module.csv',index = False)
+            output_df.to_csv('diffs_test_revised_new_module_prescient.csv',index = False)
 
 
     def compare_all_data(self, comb_df, tp):
@@ -295,7 +295,7 @@ class CalcQCer:
 
         output_df = pd.DataFrame(self.final_output_list)
         output_df.to_csv(
-        f'{self.output_path}calculation_mismatches.csv',
+        f'{self.output_path}calculation_mismatches_prescient.csv',
         index = False)
         print(f'saved to {self.output_path} ')
 

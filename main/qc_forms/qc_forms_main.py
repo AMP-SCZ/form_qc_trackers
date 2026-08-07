@@ -83,7 +83,7 @@ class QCFormsMain():
         tp_durations = []
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRESCIENT', 'PRONET']:
+        for network in ['PRONET','PRESCIENT']:
             multi_tp_path = f"{self.depen_path}multi_tp_{network}_combined.csv"
             """
             multi_tp_df = pd.read_csv(multi_tp_path,
@@ -99,6 +99,8 @@ class QCFormsMain():
                 tp_start = time.perf_counter() if debug_perf else None
                 print(tp)
                 print(tp_list)
+                if tp not in ['screen','screening','floating']:
+                    continue
                 csv_path = (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}'
                 f'_{network.replace("PRONET","ProNET")}-day1to1.csv')

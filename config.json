@@ -5,9 +5,9 @@
         "error_log_path" : "/home/ob001/refactored_qc/error_logs/",
         "output_path": "/home/ob001/output/"
     },
-    "testing_enabled" : "True",
+    "testing_enabled" : "False",
     "withdrawn_enabled" : "True",
-    "recruited_only": "True",
+    "recruited_only": "False",
     "longitudinal_anomaly": {
         "enabled": true,
         "merge_into_main_tracker": false,

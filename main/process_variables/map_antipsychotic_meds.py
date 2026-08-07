@@ -58,23 +58,32 @@ class APMedMapper():
 
         ap_form_meds = {}
         ap_med_list = []
+        ap_med_var_translations = {}
 
         for row in filtered_df.itertuples():
            # print(row.variable)
            # print(row.field_label)
             field_label = row.field_label
-            ap_med_str = field_label.split('Have you ever taken ')[-1]
-            ap_med_list.extend(re.findall(r"\b\w+\b", ap_med_str))
-            
-            #print(ap_med_list)
+            if 'Have you ever taken' in field_label:
+                ap_med_str = field_label.split('Have you ever taken ')[-1]
+                med_keywords = re.findall(r"\b\w+\b", ap_med_str)
+                ap_med_list.extend(med_keywords)
+                for keyword in med_keywords:
+                    ap_med_var_translations[keyword] = row.variable
+
+                print(ap_med_str)
+                print(ap_med_list)
+                print(ap_med_var_translations)
 
         for ap_med in ap_med_list:
-            ap_form_meds.setdefault(ap_med, [])
+            ap_form_meds.setdefault(ap_med, {'pharm_vals':[],'chrap_var':''})
             for med, med_num in med_option_dict.items():
                 med_list =  med.lower().replace('/',' ').replace('_',' ')
                 med_list = med_list.split(' ')
                 if ap_med.lower() in med_list and 'special' not in med.lower():
-                    ap_form_meds[ap_med].append(med_num)
+                    ap_form_meds[ap_med]['pharm_vals'].append(med_num)
+                    ap_form_meds[ap_med]['chrap_var'] = ap_med_var_translations[ap_med]
+        print(ap_form_meds)
 
         return ap_form_meds
         

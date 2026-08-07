@@ -156,7 +156,7 @@ class ClinicalChecksMain(FormCheck):
         # missing codes not allowed for now
         #if val in self.utils.missing_code_set or val == "":
         #    return
-        if not self.utils.can_be_float(val):
+        if not self.utils.can_be_float(val) or val in self.utils.all_dtype([-3,-9]):
             return
         fval = float(val)
         if fval < score_min or fval > score_max:

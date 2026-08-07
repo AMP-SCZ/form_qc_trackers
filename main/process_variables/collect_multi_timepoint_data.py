@@ -55,7 +55,7 @@ class MultiTPDataCollector():
         """
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRESCIENT','PRONET']:
+        for network in ['PRESCIENT']:
             multi_tp_df = pd.DataFrame()
             for tp in tp_list:
                 combined_df =pd.read_csv(

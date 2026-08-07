@@ -7,7 +7,7 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-3])
 sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
-from qc_forms.form_check import FormCheck
+from qc_forms.form_check import FormCheck, _compile_bl
 import re
 
 class GeneralChecks(FormCheck):  
@@ -75,12 +75,17 @@ class GeneralChecks(FormCheck):
                 output_changes = {"reports" : report_list}
                 if form in self._PRIORITY_BLANK_FORMS:
                     output_changes["priority_item"] = True
-                if self.standard_form_filter(row, form):
-                    for var in blank_check_forms[form]:
-                        if self.prescient_scid_filter(var, row) == True:
-                            continue
-                        self.check_if_blank(row, [form], [var],
-                        output_changes,[var])
+                form_passes_filter = self.standard_form_filter(row, form)
+                for var in blank_check_forms[form]:
+                    # pharm variables are blank-checked even when the form
+                    # is incomplete or marked missing
+                    if (not form_passes_filter and
+                    not var.startswith(self._PHARM_VAR_PREFIX)):
+                        continue
+                    if self.prescient_scid_filter(var, row) == True:
+                        continue
+                    self.check_if_blank(row, [form], [var],
+                    output_changes,[var])
 
     def check_missing_code_values(self, row):
         #TODO:optimize performance of this part
@@ -113,15 +118,54 @@ class GeneralChecks(FormCheck):
                     return True
         return False
 
-    @FormCheck.standard_qc_check_filter
+    # Pharm-form variables (all prefixed chrpharm_) bypass the filters in
+    # standard_qc_check_filter — cohort/timepoint/form-completion exclusion
+    # and excluded-variable lists — so blank pharm fields are always
+    # flagged. Branching logic is still honored so that fields whose
+    # branch never opened (e.g. med slots beyond the number of meds
+    # entered) are not flagged.
+    _PHARM_VAR_PREFIX = 'chrpharm_'
+
     def check_if_blank(self, row, filtered_forms,
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
-    ):  
+    ):
         """
         Standard check applied across all
         forms to see if form is blank
         """
+        if all_vars and str(all_vars[0]).startswith(self._PHARM_VAR_PREFIX):
+            self._check_if_blank_pharm(row, filtered_forms, all_vars,
+            changed_output_vals, bl_filtered_vars)
+            return
+        self._check_if_blank_filtered(row, filtered_forms, all_vars,
+        changed_output_vals, bl_filtered_vars, filter_excl_vars)
+
+    def _check_if_blank_pharm(self, curr_row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[]
+    ):
+        if not (hasattr(curr_row, all_vars[0])
+        and getattr(curr_row, all_vars[0]) == ''):
+            return
+        # converted branching logic expressions reference the local names
+        # `curr_row` and `instance` (see standard_qc_check_filter)
+        instance = self
+        for var in bl_filtered_vars:
+            if var in self.excl_bl.keys():
+                return
+            bl = self.conv_bl[var]["converted_branching_logic"]
+            if bl != "" and eval(_compile_bl(bl)) == False:
+                return
+        error_output = self.create_row_output(
+        curr_row, filtered_forms, all_vars, "Variable is blank.",
+        changed_output_vals)
+        self.final_output_list.append(error_output)
+
+    @FormCheck.standard_qc_check_filter
+    def _check_if_blank_filtered(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True
+    ):  
         if hasattr(row,all_vars[0]) and getattr(row, all_vars[0]) == '':
             return "Variable is blank."
         return 
@@ -158,6 +202,25 @@ class GeneralChecks(FormCheck):
             elif conditions["negative"] == 'True':
                 if getattr(row, var) not in conditions["checked_value_list"]:
                     return conditions['message']
+
+    @FormCheck.standard_qc_check_filter
+    def chrchs_weight_check(self, row, filtered_forms,
+        all_vars, changed_output_vals, bl_filtered_vars=[],
+        filter_excl_vars=True, conditions={}
+    ):
+        if (all(hasattr(row, weight_var) for weight_var in ['chrchs_weightunits',
+        'chrchs_weight','chrchs_weightkg'])): 
+            weight = getattr(row,'chrchs_weight')
+            weightkg = getattr(row,'chrchs_weightkg')
+            units = getattr(row,'chrchs_weightunits')
+            if (all(self.utils.can_be_float(var_val) and var_val not
+            in self.utils.missing_code_list for var_val in [weight,weightkg,units])):
+                if units in self.utils.all_dtype([1]):
+                    if float(weight) != float(weightkg):
+                        return (f"Weight units were defined as kilograms, but the"
+                        f" participant's recorded weight (chrchs_weight = {weight})"
+                        f"does not match their recorded weight in kilograms (chrchs_weightkg = {weightkg})")
+
                 
     def check_form_completion(self,row):
         cohort = self.subject_info[row.subjectid]['cohort']
