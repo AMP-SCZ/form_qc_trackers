@@ -9,6 +9,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     atomic_write_parquet,
     normalize_relative_to_threshold,
 )
@@ -144,6 +145,7 @@ class InternalConsistencyChecks:
         return {
             'input_rows': 0,
             'rules_loaded': 0,
+            'rules_with_unknown_variables': 0,
             'rules_evaluated': 0,
             'rule_evaluations_total': 0,
             'rule_evaluations_skipped_missing_inputs': 0,
@@ -160,10 +162,60 @@ class InternalConsistencyChecks:
         self._counters['rules_loaded'] = len(rules)
         long_df = self._load_inputs()
         self._counters['input_rows'] = len(long_df)
+        self._validate_rule_variables(rules, long_df)
         flagged = self._evaluate(long_df, rules)
         self._counters['flags_written'] = len(flagged)
         self._write_output(flagged)
         self._print_summary()
+
+    def _validate_rule_variables(
+        self, rules: list, long_df: pd.DataFrame,
+    ) -> None:
+        """
+        Confirm every variable name referenced by every rule actually
+        exists in the long parquet's variable universe. A typo'd rule
+        name would otherwise silently produce zero violations and the
+        operator would think the rule was satisfied. Warns rather than
+        raises so a partially-applicable rules file doesn't take down
+        the whole detector.
+        """
+        if 'variable' not in long_df.columns:
+            return
+        known_vars = set(
+            long_df['variable'].dropna().astype(str).unique())
+        for rule in rules:
+            kind = rule.get('kind')
+            name = rule.get('name', '<unnamed>')
+            referenced = []
+            if kind == 'numeric_range':
+                referenced.append(rule.get('variable'))
+            elif kind == 'bmi_formula':
+                referenced.extend([
+                    rule.get('bmi_var'),
+                    rule.get('height_cm_var'),
+                    rule.get('weight_kg_var'),
+                ])
+            elif kind == 'sum_equals':
+                referenced.append(rule.get('total_var'))
+                referenced.extend(rule.get('component_vars', []))
+            elif kind == 'ratio_range':
+                referenced.extend([
+                    rule.get('numerator_var'),
+                    rule.get('denominator_var'),
+                ])
+            missing = [
+                v for v in referenced
+                if v and v not in known_vars
+            ]
+            if missing:
+                self._counters['rules_with_unknown_variables'] += 1
+                print(
+                    f"[internal_consistency_checks] WARNING: rule "
+                    f"{name!r} references variable(s) not present in "
+                    f"the long parquet: {missing}. Rule will silently "
+                    f"produce 0 flags — check for typos in rule "
+                    f"definitions or in the producer's variable map."
+                )
 
     def _load_rules(self) -> list:
         if not os.path.exists(self.rules_path):
@@ -229,6 +281,7 @@ class InternalConsistencyChecks:
         # missingness detector's job).
         eligible = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         if len(eligible) == 0:
@@ -299,18 +352,62 @@ class InternalConsistencyChecks:
                 len(wide) - len(valid))
         if len(valid) == 0:
             return []
-        h_m = valid[h_var] / 100.0
-        expected_bmi = valid[w_var] / (h_m ** 2)
-        rel_err = (
-            (valid[bmi_var] - expected_bmi).abs()
-            / expected_bmi.replace(0, np.nan))
-        violators = valid[rel_err > rel_tol].copy()
-        if len(violators) == 0:
+        # Guard against zero/negative height or weight. Without this
+        # the division produces inf/NaN and the row silently drops
+        # from rel_err instead of surfacing as the obvious data
+        # error it is. Use the rule's declared min bounds if present
+        # (e.g. min_height_cm=80), else a conservative positive
+        # threshold.
+        min_h_cm = float(rule.get('min_height_cm', 1.0))
+        min_w_kg = float(rule.get('min_weight_kg', 0.1))
+        degenerate = (
+            (valid[h_var] < min_h_cm) | (valid[w_var] < min_w_kg))
+        valid_clean = valid[~degenerate].copy()
+        degenerate_rows = valid[degenerate]
+        if len(valid_clean) == 0 and len(degenerate_rows) == 0:
             return []
-        violators['_expected'] = expected_bmi.loc[violators.index]
-        violators['_rel_err'] = rel_err.loc[violators.index]
+        h_m = valid_clean[h_var] / 100.0
+        expected_bmi = valid_clean[w_var] / (h_m ** 2)
+        rel_err = (
+            (valid_clean[bmi_var] - expected_bmi).abs()
+            / expected_bmi.replace(0, np.nan))
+        violators = valid_clean[rel_err > rel_tol].copy()
+        if len(violators) > 0:
+            violators['_expected'] = expected_bmi.loc[violators.index]
+            violators['_rel_err'] = rel_err.loc[violators.index]
         rows = []
         today = str(datetime.today().date())
+        # Degenerate height / weight rows: emit as explicit
+        # data-error flags rather than silently dropping. These are
+        # almost always typos (height=0, weight=0, missing-code
+        # not tagged) — exactly what this detector exists for.
+        for _, r in degenerate_rows.iterrows():
+            rows.append(self._make_record(
+                rule=rule, today=today,
+                row_subject=r['subjectid'],
+                row_network=r['network'],
+                row_timepoint=r['timepoint'],
+                row_source_form=r.get('_source_form', ''),
+                primary_variable=bmi_var,
+                observed=float(r[bmi_var]),
+                expected=float('nan'),
+                metric=float(rel_tol * 10.0),
+                threshold=float(rel_tol),
+                error_msg=(
+                    f"{rule.get('name')}: height or weight value is "
+                    f"out of plausible range — cannot compute "
+                    f"BMI from {h_var}={r[h_var]} cm, "
+                    f"{w_var}={r[w_var]} kg (declared "
+                    f"{bmi_var}={r[bmi_var]}). Likely a typo or "
+                    f"untagged missing code."
+                ),
+                related=[bmi_var, h_var, w_var],
+                inputs={
+                    bmi_var: float(r[bmi_var]),
+                    h_var: float(r[h_var]),
+                    w_var: float(r[w_var]),
+                },
+            ))
         for _, r in violators.iterrows():
             rows.append(self._make_record(
                 rule=rule, today=today,
@@ -339,6 +436,8 @@ class InternalConsistencyChecks:
                     w_var: float(r[w_var]),
                 },
             ))
+        if not rows:
+            return []
         return rows
 
     # ---- Rule kind: numeric_range --------------------------------
@@ -662,6 +761,8 @@ class InternalConsistencyChecks:
         rows = [
             ("input rows", c['input_rows']),
             ("rules loaded", c['rules_loaded']),
+            ("rules with unknown variables (warning)",
+             c['rules_with_unknown_variables']),
             ("rules evaluated", c['rules_evaluated']),
             ("rule eval candidates total",
              c['rule_evaluations_total']),

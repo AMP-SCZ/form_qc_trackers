@@ -23,6 +23,7 @@ from main.process_variables.define_ranges import RangeDefiner
 from main.process_variables.find_duplicates import DuplicateFinder
 
 from main.process_variables.map_antipsychotic_meds import APMedMapper
+from main.process_variables.collect_plus_dosage_meds import PlusDosageMedCollector
 
 class ProcessVariables():
     """
@@ -39,7 +40,7 @@ class ProcessVariables():
         self.utils = Utils()
         print(self.utils.create_timepoint_list())
         self.absolute_path = self.utils.absolute_path
-        with open(f'{self.absolute_path}/config.json','r') as file:
+        with open(f'/home/ob001/formqc_new_copy_6_24/form_qc_trackers/config.json','r') as file:
             self.config_info = json.load(file)
 
     def run_script(self):
@@ -75,6 +76,10 @@ class ProcessVariables():
 
         raw_csv_conversions = RawCSVCollector()
         self.utils.save_dependency_json(raw_csv_conversions(), 'raw_csv_conversions.json')
+        plus_dosage_meds = PlusDosageMedCollector(data_dict_df)
+        self.utils.save_dependency_json(plus_dosage_meds(),
+        'plus_dosage_med_names.json')
+
 
         # must be called last as it uses dependencies 
         # from preceding classes

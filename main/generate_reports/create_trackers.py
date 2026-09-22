@@ -25,6 +25,16 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
+from generate_reports.date_report_sort import sort_date_report_rows
+from generate_reports.pronet_workbook import (
+    replace_sheet_from_workbook,
+    workbook_has_sheet,
+)
+from generate_reports.tracker_paths import sanitize_ra_folder_name
+from qc_forms.qc_types.date_check_logic import (
+    is_date_report_excluded_form,
+    is_date_report_excluded_variable,
+)
 import time
 from functools import wraps
 import tempfile
@@ -32,6 +42,295 @@ import shutil
 from io import BytesIO
 
 class CreateTrackers():
+
+    # Report (tab) name for the cross-timepoint backward-date flags.
+    # Must match DateChecks.DATE_REPORT in qc_types/date_checks.py (the
+    # report name is the contract between the qc_type and this tab, the
+    # same way 'Main Report' / 'Blood Report' are shared literals).
+    DATE_REPORT_NAME = 'Date Report'
+    CROSS_CHECK_REPORT_NAME = 'Cross Checks'
+    PROPOSED_CHECKS_REPORT_NAME = 'Proposed Checks'
+    MEDICATION_FLAGS_REPORT_NAME = 'Medication Flags'
+    PRONET_COMBINED_INSERT_AFTER = 'Secondary Report'
+    # PRONET's established live outputs are the combined V1 workbook and the
+    # same-named V1 workbook in each site folder. The pipeline owns only the
+    # Medication Flags sheet in each file; every other sheet is operator-owned.
+    PRONET_REPORT_NAMES = (MEDICATION_FLAGS_REPORT_NAME,)
+    PRONET_OUTPUT_FILENAME = 'PRONET_Output.xlsx'
+    PRONET_COMBINED_LOCAL_PATH = 'PRONET/combined/PRONET_Output.xlsx'
+    BLANK_ERROR_SUFFIX = ' : Variable is blank.'
+    MEDICATION_DATE_ERROR_SUFFIX = (
+        'Medication onset/offset dates cannot occur after the form '
+        'modification date.')
+    MEDICATION_DATE_CHECK_ID = 'MED-QC-03'
+    PROPOSED_EVIDENCE_LABEL = 'Variables & values v3:'
+    TRACKER_FILENAME_SUFFIX = '_Output_V2.xlsx'
+    ALWAYS_PRESENT_REPORTS = frozenset({
+        DATE_REPORT_NAME, CROSS_CHECK_REPORT_NAME,
+        PROPOSED_CHECKS_REPORT_NAME, MEDICATION_FLAGS_REPORT_NAME})
+    # Every tab this pipeline owns in a V2 workbook. A tab in this set that
+    # exists in a workbook on disk but was NOT rewritten this run is stale:
+    # the report loop only regenerates tabs whose token appears in the
+    # current tracker state, so a check family that stops emitting would
+    # otherwise ship its last-written rows verbatim forever (this masked the
+    # Aug-2026 production timepoint-skip incident — reviewers kept seeing
+    # month-old Date/Scid/Blood rows as if current). Sheets outside this set
+    # are never touched. Excludes MEDICATION_FLAGS_REPORT_NAME: that tab is a
+    # PRONET-workbook contract and the sweep only covers V2 workbooks.
+    KNOWN_REPORT_TABS = frozenset({
+        'Main Report', 'Secondary Report', 'Non Team Forms',
+        'Missingness Report', 'Conversion Report', 'Incomplete Forms',
+        DATE_REPORT_NAME, CROSS_CHECK_REPORT_NAME,
+        PROPOSED_CHECKS_REPORT_NAME,
+        'Scid Report', 'Cognition Report', 'Digital Report',
+        'Blood Report', 'Fluids Report', 'MRI Report', 'EEG Report'})
+
+    @staticmethod
+    def _routed_row_mask(df):
+        """Rows intentionally routed to at least one reviewer surface.
+
+        QC history retains rows for withdrawn/excluded/non-recruited subjects,
+        but FormCheck clears their reports field. The PRONET family whitelist
+        must not accidentally make those suppressed rows visible.
+        """
+        if 'reports' not in df.columns:
+            return pd.Series(False, index=df.index, dtype=bool)
+        return df['reports'].fillna('').astype(str).str.strip().ne('')
+
+    @staticmethod
+    def _report_token_mask(df, report):
+        """Rows routed to one exact pipe-delimited report name."""
+        if 'reports' not in df.columns:
+            return pd.Series(False, index=df.index, dtype=bool)
+        return df['reports'].fillna('').astype(str).map(
+            lambda value: report in value.split(' | '))
+
+    @classmethod
+    def _select_pronet_report_rows(cls, network_df, report):
+        """Select the two error families exposed in PRONET workbooks.
+
+        Selection uses stable check identity (with an exact historical message
+        fallback), not the old report token. This immediately moves reconciled
+        MED-QC-03 history to Medication Flags and collects blank checks that
+        historically lived on either Main or Secondary Report.
+        """
+        if 'error_message' not in network_df.columns:
+            return network_df.iloc[0:0].copy()
+
+        messages = (
+            network_df['error_message'].fillna('').astype(str).str.strip())
+        routed = cls._routed_row_mask(network_df)
+        if report == 'Main Report':
+            # Historical/corrupt canonical rows can already contain the same
+            # pipe-delimited message format used by workbook presentation.
+            # Checking only the tail of the full cell admits a mixed value such
+            # as ``Out of range. | field_b : Variable is blank.`` wholesale.
+            # Keep grouped all-blank history, but fail closed for mixed cells so
+            # every flag exposed on PRONET Main is genuinely a blank check.
+            message_parts = messages.map(
+                lambda value: re.split(r'\s*\|\s*', value))
+            family = message_parts.map(
+                lambda parts: bool(parts) and all(
+                    str(part).strip().endswith(cls.BLANK_ERROR_SUFFIX)
+                    for part in parts))
+        elif report == cls.MEDICATION_FLAGS_REPORT_NAME:
+            family = messages.str.endswith(cls.MEDICATION_DATE_ERROR_SUFFIX)
+            if 'check_id' in network_df.columns:
+                family |= (
+                    network_df['check_id'].fillna('').astype(str).str.strip()
+                    == cls.MEDICATION_DATE_CHECK_ID)
+        else:
+            return network_df.iloc[0:0].copy()
+
+        selected = network_df.loc[routed & family].copy()
+        # Reconciled history can carry the former Main/Secondary routes.
+        # Normalize only the presentation copy to the tab actually being built.
+        selected.loc[:, 'reports'] = report
+        if report == cls.MEDICATION_FLAGS_REPORT_NAME:
+            # Every Medication Flags row is a reviewer-priority item, including
+            # reconciled history whose canonical priority value predates this
+            # workbook contract. Keep this presentation-only so PRESCIENT and
+            # the canonical QC history are not changed.
+            selected = selected.assign(priority_item=True)
+        return selected
+
+    @staticmethod
+    def _normalize_tracker_frame(df):
+        """Fill text nulls without corrupting nullable numeric columns.
+
+        ``current_output`` includes optional integer evidence such as
+        ``date_gap_days`` and ``time_since_last_detection``. pandas rejects a
+        frame-wide ``fillna('')`` when one of those columns uses nullable Int64
+        (``ValueError: invalid literal for int() with base 10: ''``). Tracker
+        logic still expects absent text values to be empty strings, so fill only
+        genuinely textual columns and leave numeric missing values as pd.NA.
+        """
+        out = df.copy()
+        for col in out.columns:
+            ser = out[col]
+            if not (pd.api.types.is_object_dtype(ser.dtype)
+                    or pd.api.types.is_string_dtype(ser.dtype)):
+                continue
+            populated = ser.dropna()
+            if populated.empty or populated.map(
+                    lambda value: isinstance(value, str)).all():
+                out[col] = ser.fillna('')
+        return out
+
+    @staticmethod
+    def _date_report_metadata_items(value):
+        """Read list-like or serialized tracker metadata into exact tokens."""
+        if (not isinstance(value, (str, bytes, dict))
+                and pd.api.types.is_list_like(value)):
+            return [str(item).strip() for item in value]
+
+        raw = '' if pd.isna(value) else str(value).strip()
+        if not raw:
+            return []
+
+        # NumPy stringification omits commas (['a' 'b']), which ast treats as
+        # one pair of adjacent string literals. Recover quoted items first so
+        # historical CSV/Parquet transitions cannot concatenate form names.
+        if ((raw.startswith('[') and raw.endswith(']'))
+                or (raw.startswith('(') and raw.endswith(')'))):
+            quoted = [left or right for left, right in re.findall(
+                r"'([^']*)'|\"([^\"]*)\"", raw)]
+            if quoted:
+                return [item.strip() for item in quoted]
+
+        parsed = None
+        if raw[:1] in '[(' and raw[-1:] in '])':
+            try:
+                parsed = ast.literal_eval(raw)
+            except (SyntaxError, ValueError):
+                parsed = None
+        if (parsed is not None
+                and not isinstance(parsed, (str, bytes, dict))
+                and pd.api.types.is_list_like(parsed)):
+            return [str(item).strip() for item in parsed]
+        return [item.strip() for item in raw.split('|')]
+
+    @classmethod
+    def _contains_excluded_date_report_form(cls, value):
+        """Whether an affected/displayed-form cell names an excluded form."""
+        return any(
+            is_date_report_excluded_form(form)
+            for form in cls._date_report_metadata_items(value))
+
+    @classmethod
+    def _contains_excluded_date_report_variable(cls, value):
+        """Whether variable metadata identifies an excluded date source."""
+        return any(
+            (is_date_report_excluded_variable(variable)
+             or is_date_report_excluded_form(variable))
+            for variable in cls._date_report_metadata_items(value))
+
+    @staticmethod
+    def _message_contains_excluded_date_report_variable(value):
+        """Find excluded field/form tokens retained only in legacy messages."""
+        raw = '' if pd.isna(value) else str(value)
+        return any(
+            (is_date_report_excluded_variable(token)
+             or is_date_report_excluded_form(token))
+            for token in re.findall(r'[A-Za-z_][A-Za-z0-9_]*', raw))
+
+    @classmethod
+    def _exclude_date_report_form_rows(cls, df):
+        """Drop historical/current Date Report rows involving target forms."""
+        if df.empty:
+            return df.copy()
+        excluded = pd.Series(False, index=df.index, dtype=bool)
+        for column in ('affected_forms', 'displayed_form'):
+            if column in df.columns:
+                excluded |= df[column].map(
+                    cls._contains_excluded_date_report_form)
+        for column in ('affected_variables', 'displayed_variable'):
+            if column in df.columns:
+                excluded |= df[column].map(
+                    cls._contains_excluded_date_report_variable)
+        if 'error_message' in df.columns:
+            excluded |= df['error_message'].map(
+                cls._message_contains_excluded_date_report_variable)
+        return df.loc[~excluded].copy()
+
+    @classmethod
+    def _date_report_row_has_exact_variable_match(cls, row):
+        """Whether a Date Report row proves both dates use one exact field.
+
+        Current rows name the earlier field in the message and retain both
+        fields in ``affected_variables``. Require the message proof and reject
+        any contradictory metadata. Historical rows whose earlier field is
+        unknowable fail closed.
+        """
+        displayed = [item for item in cls._date_report_metadata_items(
+            row.get('displayed_variable', '')) if item]
+        affected = [item for item in cls._date_report_metadata_items(
+            row.get('affected_variables', '')) if item]
+        current_variable = displayed[0] if displayed else (
+            affected[0] if affected else '')
+
+        message = row.get('error_message', '')
+        message = '' if pd.isna(message) else str(message)
+        previous_match = re.search(
+            r'\bbefore\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(', message)
+        distinct_affected = set(affected)
+        if not current_variable:
+            return False
+        if distinct_affected and distinct_affected != {current_variable}:
+            return False
+        # A singleton legacy metadata field can identify only the current
+        # source. Require the standard message's earlier-field token as
+        # independent proof; unknowable historical rows fail closed.
+        return bool(
+            previous_match is not None
+            and previous_match.group(1) == current_variable)
+
+    @classmethod
+    def _exclude_cross_variable_date_report_rows(cls, df):
+        """Hide current or historical date rows that compare two fields."""
+        if df.empty:
+            return df.copy()
+        keep = df.apply(
+            cls._date_report_row_has_exact_variable_match, axis=1)
+        return df.loc[keep].copy()
+
+    @classmethod
+    def _select_date_report_rows(cls, df):
+        """Select the exact rows eligible for the Date Report surface."""
+        selected = df.loc[
+            cls._report_token_mask(df, cls.DATE_REPORT_NAME)].copy()
+        selected = cls._exclude_date_report_form_rows(selected)
+        return cls._exclude_cross_variable_date_report_rows(selected)
+
+    @classmethod
+    def _select_prescient_main_report_rows(cls, network_df):
+        """Add eligible Date Report rows to PRESCIENT's normal Main rows.
+
+        Main rows stay first so their reviewer metadata remains preferred by
+        the downstream aggregation. A temporary positional identity prevents
+        a row already routed to both reports from being included twice, even
+        when the source DataFrame itself has duplicate index labels.
+        """
+        position_col = '__tracker_source_position__'
+        while position_col in network_df.columns:
+            position_col = '_' + position_col
+
+        positioned = network_df.copy()
+        positioned[position_col] = np.arange(len(positioned))
+        main_rows = positioned.loc[
+            cls._report_token_mask(positioned, 'Main Report')]
+        date_rows = cls._select_date_report_rows(positioned)
+        positions = (
+            pd.concat([main_rows, date_rows], ignore_index=True)[position_col]
+            .drop_duplicates()
+            .astype(int)
+            .tolist()
+        )
+        return network_df.iloc[positions].copy()
+
+    @classmethod
+    def _read_combined_tracker(cls, path):
+        return cls._normalize_tracker_frame(pd.read_parquet(path))
 
     def __init__(self, formatted_col_names):
         self.utils = Utils()
@@ -43,8 +342,18 @@ class CreateTrackers():
             self.dropbox_path = f'/Apps/Automated QC Trackers/refactoring_tests/'
         else:
             self.dropbox_path = f'/Apps/Automated QC Trackers/'
-        self.all_reports = ['Main Report','Secondary Report']
-        self.site_reports = ['Main Report']
+        # Date Report is a first-class workbook contract, not merely a report
+        # name discovered from whichever rows happen to exist in this run.
+        # Seeding it guarantees that network and ordinary site trackers receive
+        # the tab even when the current result set is empty.
+        self.all_reports = [
+            'Main Report', 'Secondary Report', self.DATE_REPORT_NAME,
+            self.CROSS_CHECK_REPORT_NAME, self.PROPOSED_CHECKS_REPORT_NAME,
+            self.MEDICATION_FLAGS_REPORT_NAME]
+        self.site_reports = [
+            'Main Report', self.DATE_REPORT_NAME,
+            self.CROSS_CHECK_REPORT_NAME, self.PROPOSED_CHECKS_REPORT_NAME,
+            self.MEDICATION_FLAGS_REPORT_NAME]
         self.all_report_df = {}
         self.all_pronet_sites = self.utils.all_pronet_sites
         self.all_prescient_sites = self.utils.all_prescient_sites
@@ -67,21 +376,31 @@ class CreateTrackers():
         top=Side(style='thin'),bottom=Side(style='thin'))
         self.formatted_column_names = formatted_col_names
         self.melbourne_ras = self.utils.load_dependency_json('melbourne_ra_subs.json')
+        self.pronet_workbook_snapshots = {}
+        self.pronet_combined_output_path = None
 
         self.master = pd.DataFrame()
-        
+        # Workbook path -> set of sheet names written this run; consumed by
+        # blank_stale_sheets so no pipeline-owned tab can ship stale.
+        self._sheets_written_by_path = {}
+
     def run_script(self):
-        self.combined_tracker = pd.read_parquet(self.curr_output_csv_path).fillna('')
+        self.combined_tracker = self._read_combined_tracker(
+            self.curr_output_csv_path)
         print('stage 1')
         self.collect_new_reports()
         print('stage 2')
         self.generate_reports()
+        self.blank_stale_sheets()
         print('stage 3')
         self.upload_trackers()
         #self.append_recovered_comments('PRESCIENT')
  
     def collect_new_reports(self):
-        for row in self.combined_tracker.itertuples():
+        scoped_tracker = self.combined_tracker[
+            self.combined_tracker['network'].isin(
+                self.utils.pipeline_networks)]
+        for row in scoped_tracker.itertuples():
             if row.reports == '':
                 continue
             reports = (row.reports).split(' | ')
@@ -90,24 +409,131 @@ class CreateTrackers():
                     self.all_reports.append(report)
 
     def generate_reports(self):
-        for network in ['PRONET','PRESCIENT']:
+        for network in self.utils.pipeline_networks:
+            # PRONET's root and site workbooks already contain operator-owned
+            # report surfaces. Generate only the one sheet this pipeline owns;
+            # upload transplants it into each live V1 workbook. PRESCIENT keeps
+            # its full report catalog and V2 file layout.
+            if network == 'PRONET':
+                report_plan = self.PRONET_REPORT_NAMES
+            else:
+                report_plan = self.all_reports
             network_df = self.combined_tracker[
             self.combined_tracker['network']==network]
-            for report in self.all_reports:
-                report_df = network_df[
-                network_df['reports'].str.contains(report)]
-                self.all_report_df[report] = report_df
-                if report_df.empty:
+            for report in report_plan:
+                # Medication Flags is a PRONET-only workbook contract.
+                # PRONET rows can add this token to the shared discovered
+                # catalog, but it must never create a new PRESCIENT tab.
+                if (network != 'PRONET'
+                        and report == self.MEDICATION_FLAGS_REPORT_NAME):
                     continue
-                report_df = self.convert_to_shared_format(report_df, network)
-                if report in self.all_reports: 
-                    combined_path = f'{self.dropbox_output_path}{network}/combined/'
-                    if not os.path.exists(combined_path):
-                        os.makedirs(combined_path)
-                    self.format_excl_sheet(report_df, report,
-                    combined_path,
-                    f'{network}_Output_V2.xlsx')
-                    self.loop_sites(network, report, report_df)
+                if network == 'PRONET':
+                    print('PRONET ENABLED')
+                    report_df = self._select_pronet_report_rows(
+                        network_df, report)
+                elif (network == 'PRESCIENT'
+                        and report == 'Main Report'):
+                    # PRESCIENT reviewers need every eligible backward-date
+                    # finding on Main as well as on the retained Date Report.
+                    # Selecting here also migrates reconciled Date-only
+                    # history immediately without changing canonical routes.
+                    report_df = self._select_prescient_main_report_rows(
+                        network_df)
+                elif report == self.DATE_REPORT_NAME:
+                    report_df = self._select_date_report_rows(network_df)
+                else:
+                    # Report membership is a pipe-delimited token list.
+                    # Substring or regex matching can route a row into the
+                    # wrong tab when one report name contains another.
+                    report_df = network_df.loc[
+                        self._report_token_mask(network_df, report)]
+                self.all_report_df[report] = report_df
+                raw_row_count = len(report_df)
+                always_present = (
+                    report in self.ALWAYS_PRESENT_REPORTS
+                    or (network == 'PRONET'
+                        and report in self.PRONET_REPORT_NAMES))
+                if report_df.empty and not always_present:
+                    continue
+                if report_df.empty:
+                    # First-class reports get an explicit header-only sheet.
+                    # This distinguishes a clean run from generation failure
+                    # and replaces stale rows from an earlier workbook.
+                    report_df = self._header_only_report_df(network, report)
+                else:
+                    report_df = self.convert_to_shared_format(
+                        report_df, network)
+                # Order the backward-date tab greatest-to-least by days
+                # apart (presentation only). The magnitude is parsed from
+                # the flag message — see date_report_sort for why it is not
+                # a standalone column.
+                if report == self.DATE_REPORT_NAME:
+                    report_df = sort_date_report_rows(report_df)
+                    print(
+                        f"[create_trackers] {network} Date Report: "
+                        f"{raw_row_count} routed QC row(s), "
+                        f"{len(report_df)} workbook row(s)")
+                if network == 'PRONET':
+                    combined_path = (
+                        f'{self.dropbox_output_path}PRONET/combined/')
+                    combined_filename = self.PRONET_OUTPUT_FILENAME
+                else:
+                    combined_path = (
+                        f'{self.dropbox_output_path}{network}/combined/')
+                    combined_filename = f'{network}_Output_V2.xlsx'
+                if not os.path.exists(combined_path):
+                    os.makedirs(combined_path)
+                self.format_excl_sheet(report_df, report,
+                combined_path,
+                combined_filename)
+                self.loop_sites(network, report, report_df)
+
+    def _header_only_report_df(self, network, report):
+        report_columns = list(
+            self.formatted_column_names[network]["combined"].values())
+        if (report == self.DATE_REPORT_NAME
+                and 'Days Apart' not in report_columns):
+            report_columns.append('Days Apart')
+        if (report == self.CROSS_CHECK_REPORT_NAME
+                and 'Check ID' not in report_columns):
+            report_columns.append('Check ID')
+        return pd.DataFrame(columns=report_columns)
+
+    def blank_stale_sheets(self):
+        """Blank pipeline-owned tabs this run did not rewrite.
+
+        The report loop regenerates only tabs whose token appears in the
+        current tracker state, and format_excl_sheet writes into the
+        existing workbook with if_sheet_exists='replace' — so a tab whose
+        check family stopped emitting keeps its last-written rows forever.
+        A header-only sheet is truthful ("zero rows in this category this
+        run"); month-old rows masquerading as current are not. Scoped to
+        V2 workbooks only: PRONET's live files are operator-owned except
+        for the Medication Flags sheet, which is always rewritten.
+        """
+        for full_path in sorted(self._sheets_written_by_path):
+            written = self._sheets_written_by_path[full_path]
+            filename = os.path.basename(full_path)
+            if not filename.endswith(self.TRACKER_FILENAME_SUFFIX):
+                continue
+            if filename.casefold().startswith('pronet'):
+                continue
+            if not os.path.exists(full_path):
+                continue
+            workbook = load_workbook(full_path, read_only=True)
+            existing_sheets = set(workbook.sheetnames)
+            workbook.close()
+            folder = full_path[:len(full_path) - len(filename)]
+            for report in sorted(
+                    (existing_sheets & self.KNOWN_REPORT_TABS) - written):
+                print(
+                    f"[create_trackers] WARNING: blanking stale sheet "
+                    f"{report!r} in {full_path} — no rows were routed to it "
+                    f"this run, so its previous contents no longer reflect "
+                    f"current QC output.")
+                self.format_excl_sheet(
+                    self._header_only_report_df('PRESCIENT', report),
+                    report, folder, filename)
 
     def loop_sites(self, network, report, report_df):
         # Pre-validate the Participant column once: any subject whose first
@@ -134,9 +560,16 @@ class CreateTrackers():
                 site = self.utils.site_full_name_translations[site_abr]
             else:
                 site = site_abr
-            if report != 'Main Report' and site_abr != 'ME':
+            # Ordinary site workbooks receive each explicitly allowed site
+            # report. The old hard-coded Main-only rule made Date Report
+            # impossible in every PRONET site workbook (PRONET has no ME
+            # special-case site).
+            if report not in self.site_reports and site_abr != 'ME':
                 continue
-            if report != 'Non Team Forms' and site_abr == 'ME':
+            if (site_abr == 'ME'
+                    and report not in {
+                        'Non Team Forms', self.CROSS_CHECK_REPORT_NAME,
+                        self.PROPOSED_CHECKS_REPORT_NAME}):
                 continue
             if site_abr == 'ME':
                 self.loop_ras(network, site, report, report_df)
@@ -147,9 +580,12 @@ class CreateTrackers():
             # with the unknown-prefix log above, this guarantees a subject
             # only ever lands in the correct site's file.
             site_df = report_df[prefixes == site_abr]
-            self.format_excl_sheet(site_df,
-            report,site_path,
-            f'{network}_{site_abr}_Output_V2.xlsx')
+            if network == 'PRONET':
+                site_filename = self.PRONET_OUTPUT_FILENAME
+            else:
+                site_filename = f'{network}_{site_abr}_Output_V2.xlsx'
+            self.format_excl_sheet(
+                site_df, report, site_path, site_filename)
 
     def loop_ras(self, network, site, report, report_df):
         for ra, subjects in self.melbourne_ras.items():
@@ -158,7 +594,7 @@ class CreateTrackers():
             # stripping path separators, a value containing `/` or `..`
             # could escape the intended directory and overwrite a sibling
             # RA's tracker. Allow only word chars + dashes; cap length.
-            safe_ra = re.sub(r'[^\w\-]', '_', str(ra))[:64] or 'unknown_ra'
+            safe_ra = sanitize_ra_folder_name(ra)
             ra_path = f'{self.dropbox_output_path}{network}/{site}/{safe_ra}/'
             ra_df = report_df[report_df['Participant'].isin(subjects)]
             self.format_excl_sheet(ra_df,
@@ -176,9 +612,38 @@ class CreateTrackers():
         upload_failures = []
         for root, dirs, files in os.walk(fullpath):
             for file in files:
-                if file.endswith('Output.xlsx') or file.endswith('V2.xlsx'):
-                    full_path = root + '/' + file
-                    local_path = root.replace(fullpath,'') + '/' + file
+                # PRONET owns only its combined workbook and direct site-folder
+                # workbooks named PRONET_Output.xlsx. Exclude the stale root
+                # donor created by the earlier bad path, plus V2/site-specific
+                # PRONET filenames left by earlier runs.
+                full_path = os.path.join(root, file)
+                local_path = os.path.relpath(
+                    full_path, fullpath).replace(os.sep, '/')
+                path_parts = local_path.split('/')
+                # A scoped run must not upload stale workbooks left locally by
+                # another network's earlier run.
+                if (not path_parts
+                        or path_parts[0].strip().upper()
+                        not in self.utils.pipeline_networks):
+                    continue
+                is_pronet_combined = (
+                    local_path.casefold()
+                    == self.PRONET_COMBINED_LOCAL_PATH.casefold())
+                is_pronet_site = (
+                    len(path_parts) == 3
+                    and path_parts[0].casefold() == 'pronet'
+                    and path_parts[1].casefold() != 'combined'
+                    and file.casefold()
+                    == self.PRONET_OUTPUT_FILENAME.casefold())
+                is_pronet_live = is_pronet_combined or is_pronet_site
+                is_pronet_stale = (
+                    file.casefold().startswith('pronet_')
+                    or local_path.casefold().startswith('pronet/'))
+                should_upload = (
+                    is_pronet_live
+                    or (file.endswith(self.TRACKER_FILENAME_SUFFIX)
+                        and not is_pronet_stale))
+                if should_upload:
                     try:
                         self.save_to_dropbox(full_path, local_path, dbx=dbx)
                     except Exception as e:
@@ -187,49 +652,120 @@ class CreateTrackers():
                         upload_failures.append((local_path, str(e)))
                         print(f"[create_trackers] upload failed for {local_path}: {e}")
         if upload_failures:
-            print(f"[create_trackers] WARNING: {len(upload_failures)} tracker(s)"
-                  f" failed to upload — Dropbox is in a partially-updated state."
-                  f" Re-run upload_trackers or investigate: {upload_failures[:5]}"
-                  f"{'...' if len(upload_failures) > 5 else ''}")
+            message = (
+                f"[create_trackers] FATAL: {len(upload_failures)} tracker(s)"
+                f" failed to upload — Dropbox is in a partially-updated state."
+                f" Re-run the full reports pipeline to reconcile fresh "
+                f"Dropbox revisions, then investigate: {upload_failures[:5]}"
+                f"{'...' if len(upload_failures) > 5 else ''}")
+            print(message)
+            # A warning allowed the overall run to look successful while the
+            # user continued seeing an older Dropbox workbook with no Date
+            # Report. Finish all upload attempts, then fail so stale remote
+            # trackers cannot be mistaken for fresh output.
+            raise RuntimeError(message)
 
     def format_excl_sheet(self, df, report, folder, filename):
         print('formatting')
         full_path = folder + filename
         print(folder + filename)
+        # Lazy-init: tests construct this class via object.__new__ and call
+        # format_excl_sheet directly, bypassing __init__.
+        if not hasattr(self, '_sheets_written_by_path'):
+            self._sheets_written_by_path = {}
+        self._sheets_written_by_path.setdefault(full_path, set()).add(report)
         if not os.path.exists(folder):
             os.makedirs(folder)
 
         if not os.path.exists(folder + filename):
-            df.to_excel(folder + filename, sheet_name = report, index = False)
+            tmp_new = f"{full_path}.{os.getpid()}.new.tmp.xlsx"
+            try:
+                df.to_excel(tmp_new, sheet_name=report, index=False)
+                os.replace(tmp_new, full_path)
+            except Exception:
+                if os.path.exists(tmp_new):
+                    try:
+                        os.remove(tmp_new)
+                    except OSError:
+                        pass
+                raise
 
         with pd.ExcelWriter(full_path, mode='a',\
         engine='openpyxl',if_sheet_exists = 'replace') as writer:                
             df.to_excel(writer, sheet_name=report, index=False)
 
-        workbook = load_workbook(full_path)
+        # Load from an in-memory copy so openpyxl never retains a handle to the
+        # canonical path. A path-backed workbook prevented the atomic
+        # os.replace below on Windows even after Workbook.close().
+        with open(full_path, 'rb') as source_workbook:
+            workbook_buffer = BytesIO(source_workbook.read())
+        workbook = load_workbook(workbook_buffer)
         worksheet = workbook[report]
         worksheet = self.change_excel_colors(worksheet)
         worksheet = self.change_excel_column_sizes(worksheet)
-        workbook.save(full_path)
+        if report == self.PROPOSED_CHECKS_REPORT_NAME:
+            flags_col = self.find_col_letter(worksheet, 'Flags')
+            if flags_col is not None:
+                worksheet.column_dimensions[flags_col].width = 60
+                for cell in worksheet[flags_col][1:]:
+                    cell.alignment = Alignment(
+                        wrap_text=True, vertical='top')
+        # Check ID is a machine identity used to preserve reviewer state when
+        # a Cross Checks label/form is clarified.  Keep it in the workbook for
+        # round-trip safety but hide it from the normal reviewer surface so it
+        # is not mistaken for an editable field.
+        check_id_col = self.find_col_letter(worksheet, 'Check ID')
+        if check_id_col is not None:
+            worksheet.column_dimensions[check_id_col].hidden = True
+        # Atomic publish: save to PID-stamped tmp then replace, so a crash
+        # mid-write does not leave a truncated xlsx as the canonical tracker.
+        tmp_wb = f"{full_path}.{os.getpid()}.tmp.xlsx"
+        try:
+            workbook.save(tmp_wb)
+            # Release the source workbook before replacing it. POSIX permits
+            # replacing an open file, but Windows raises PermissionError and
+            # leaves the freshly generated tracker unpublished.
+            workbook.close()
+            workbook_buffer.close()
+            os.replace(tmp_wb, full_path)
+        except Exception:
+            try:
+                workbook.close()
+            except Exception:
+                pass
+            try:
+                workbook_buffer.close()
+            except Exception:
+                pass
+            if os.path.exists(tmp_wb):
+                try:
+                    os.remove(tmp_wb)
+                except OSError:
+                    pass
+            raise
 
         #if not os.path.exists(folder + filename):
         #df.to_excel(folder + filename, sheet_name = report, index = False)
 
     def change_excel_colors(self, worksheet):
+        # Build the {column_index: header_value} map ONCE per worksheet.
+        # Previously this loop and each of the four color helpers re-fetched
+        # the row-1 header cell per data cell via worksheet.cell(row=1, ...),
+        # ~5x per data cell across the whole sheet × ~456 tracker files.
+        header_by_col = {cell.column: cell.value for cell in worksheet[1]}
         for row in worksheet.iter_rows():
             cell_color = self.colors['grey']
             # the order of this list determines which colors
             # override others
-            for color in [self.time_based_color(row,worksheet),
-            self.color_priority_items(row,worksheet),
-            self.determine_resolved_color(row,worksheet,'Date Resolved','green'),
-            self.determine_resolved_color(row,worksheet,'Manually Resolved','blue')]:
+            for color in [self.time_based_color(row,worksheet,header_by_col),
+            self.color_priority_items(row,worksheet,header_by_col),
+            self.determine_resolved_color(row,worksheet,'Date Resolved','green',header_by_col),
+            self.determine_resolved_color(row,worksheet,'Manually Resolved','blue',header_by_col)]:
                 if color != None:
                     cell_color = color
             for cell in row:
                 cell.border = self.thin_border
-                header_value = worksheet.cell(row=1,
-                column=cell.column).value
+                header_value = header_by_col.get(cell.column)
                 if header_value in ['Flag Count','Flags','Form']:
                     cell.fill = cell_color
                 else:
@@ -237,10 +773,10 @@ class CreateTrackers():
 
         return worksheet
 
-    def time_based_color(self, excel_row, worksheet):
+    def time_based_color(self, excel_row, worksheet, header_by_col):
         for cell in excel_row:
-            header_value = worksheet.cell(row=1, column=cell.column).value
-            cell_val = str(cell.value)   
+            header_value = header_by_col.get(cell.column)
+            cell_val = str(cell.value)
             if cell_val == 'None':
                 cell_val = ''
             if header_value == 'Days Since Detected':
@@ -254,10 +790,10 @@ class CreateTrackers():
                         return self.colors['red']
         return None
 
-    def color_priority_items(self, excel_row, worksheet):
+    def color_priority_items(self, excel_row, worksheet, header_by_col):
         for cell in excel_row:
-            header_value = worksheet.cell(row=1, column=cell.column).value
-            cell_val = str(cell.value)   
+            header_value = header_by_col.get(cell.column)
+            cell_val = str(cell.value)
             if cell_val == 'None':
                 cell_val = ''
             if header_value == 'Priority Item':
@@ -265,12 +801,12 @@ class CreateTrackers():
                     return self.colors['pink']
         return None
 
-    def determine_resolved_color(self, excel_row, 
-    worksheet, col_to_check, color_to_return):
+    def determine_resolved_color(self, excel_row,
+    worksheet, col_to_check, color_to_return, header_by_col):
         for cell in excel_row:
             cell.fill = self.colors['grey']
-            header_value = worksheet.cell(row=1, column=cell.column).value
-            cell_val = str(cell.value)   
+            header_value = header_by_col.get(cell.column)
+            cell_val = str(cell.value)
             if cell_val == 'None':
                 cell_val = ''
             if header_value == col_to_check:
@@ -283,6 +819,7 @@ class CreateTrackers():
     def change_excel_column_sizes(self,worksheet):
         columns_sizes = {
             'Participant' : 10,
+            'Cohort' : 10,
             'Timepoint' : 10,
             'Flag Count' : 10,
             'Form' : 35,
@@ -292,7 +829,10 @@ class CreateTrackers():
             'Date Resolved': 20,
             'Manually Resolved' : 20,
             'Comments' : 20,
-            'Priority Item' : 20 
+            'Priority Item' : 20,
+            # "Date Report" tab only (harmless elsewhere — find_col_letter
+            # skips headers not present on a sheet).
+            'Days Apart' : 12
         }
         for header, length in columns_sizes.items():
             col_letter = self.find_col_letter(worksheet, header)
@@ -327,14 +867,62 @@ class CreateTrackers():
         return series.iloc[0]
 
     def convert_to_shared_format(self, raw_df, network):
-        columns_names = self.formatted_column_names[network]["combined"]
+        # Work with a copy: adding the Cross Checks machine identifier must not
+        # mutate the shared combined/sites mapping or current_col_names.json.
+        columns_names = dict(
+            self.formatted_column_names[network]["combined"])
+        # Guarantee a `cohort` column exists BEFORE the groupby/agg and the
+        # hard column-selection (`merged_df[list(columns_names.values())]`)
+        # below. current_output normally carries cohort, but a run against a
+        # pre-cohort current_output, or a zero-flag / stale new_output run
+        # (where reconciliation rebuilds the frame from the cohort-less old
+        # schema), would otherwise lack it and KeyError on 'Cohort' — crashing
+        # the whole reports stage. Placed above the agg_args loop so cohort is
+        # aggregated ('first'); assign() (not in-place) avoids SettingWithCopy
+        # on a possible slice.
+        if 'cohort' not in raw_df.columns:
+            raw_df = raw_df.assign(cohort='')
+        is_cross_checks_frame = (
+            'reports' in raw_df.columns
+            and not raw_df.empty
+            and raw_df['reports'].map(
+                lambda value: self.CROSS_CHECK_REPORT_NAME
+                in str(value).split(' | ')).all())
+        if is_cross_checks_frame:
+            extracted_check_id = (
+                raw_df['error_message'].astype(str).str.extract(
+                    r'\[(CROSS-QC-\d{3})\]', expand=False).fillna(''))
+            if 'check_id' in raw_df.columns:
+                existing_check_id = (
+                    raw_df['check_id'].fillna('').astype(str).str.strip())
+                raw_df = raw_df.assign(
+                    check_id=existing_check_id.where(
+                        existing_check_id.ne(''), extracted_check_id))
+            else:
+                raw_df = raw_df.assign(check_id=extracted_check_id)
+            columns_names['check_id'] = 'Check ID'
+        is_proposed_checks_frame = (
+            'reports' in raw_df.columns
+            and not raw_df.empty
+            and raw_df['reports'].map(
+                lambda value: self.PROPOSED_CHECKS_REPORT_NAME
+                in str(value).split(' | ')).all())
+        if (is_proposed_checks_frame
+                and 'proposed_variable_values' in raw_df.columns):
+            evidence = (
+                raw_df['proposed_variable_values']
+                .fillna('').astype(str).str.strip())
+            messages = raw_df['error_message'].fillna('').astype(str)
+            raw_df = raw_df.assign(
+                error_message=messages.where(
+                    evidence.eq(''),
+                    messages + '\n' + self.PROPOSED_EVIDENCE_LABEL + ' '
+                    + evidence))
         columns_to_match = ['subject','displayed_timepoint','displayed_form',
                             'currently_resolved','manually_resolved']
-        # `currently_resolved` round-trips through parquet + a frame-wide
-        # `.fillna('')` upstream (line 74), which can demote the column to
-        # object dtype mixed with empty strings. `== True` then misses the
-        # string `'True'` form. Match the truthy pattern used elsewhere
-        # (compare_old_new_outputs:250).
+        # Legacy CSV/Parquet history can contain either booleans or their
+        # string forms. `== True` misses the string `'True'` form, so match the
+        # truthy pattern used by resolved-state reconciliation as well.
         truthy = (True, 'True', 'true', 'TRUE', 1, '1')
         is_resolved = raw_df['currently_resolved'].isin(truthy)
         raw_df.loc[:, 'date_resolved'] = ''
@@ -349,6 +937,8 @@ class CreateTrackers():
             agg_args[col] = 'first'
         for splt_col in ['var_translations','error_message']:
             agg_args[splt_col] = self.merge_rows
+        if is_cross_checks_frame:
+            agg_args['check_id'] = self.merge_rows
         agg_args['time_since_last_detection'] = 'max'
         agg_args['priority_item'] = self.first_true
         #merged_df = raw_df.groupby(columns_to_match).agg(self.merge_rows).reset_index()
@@ -381,9 +971,120 @@ class CreateTrackers():
         # for any standalone callers that haven't been migrated.
         if dbx is None:
             dbx = self.utils.collect_dropbox_credentials()
+        normalized_local_path = local_path.replace('\\', '/').lstrip('/')
+        dropbox_base = self.dropbox_path.rstrip('/') + '/'
+        path_parts = normalized_local_path.split('/')
+        is_pronet_combined = (
+            normalized_local_path.casefold()
+            == self.PRONET_COMBINED_LOCAL_PATH.casefold())
+        is_pronet_site = (
+            len(path_parts) == 3
+            and path_parts[0].casefold() == 'pronet'
+            and path_parts[1].casefold() != 'combined'
+            and path_parts[2].casefold()
+            == self.PRONET_OUTPUT_FILENAME.casefold())
+        is_stale_pronet_root = (
+            len(path_parts) == 1
+            and path_parts[0].casefold()
+            == self.PRONET_OUTPUT_FILENAME.casefold())
+        is_any_pronet_path = (
+            path_parts[0].casefold() == 'pronet'
+            or path_parts[-1].casefold().startswith('pronet_'))
+        if is_pronet_combined:
+            allowed_combined_paths = {
+                (dropbox_base + relative_path).casefold()
+                for relative_path in (
+                    self.PRONET_COMBINED_LOCAL_PATH,
+                    self.PRONET_OUTPUT_FILENAME,
+                )
+            }
+            remote_path = getattr(
+                self, 'pronet_combined_output_path', None)
+            if not remote_path:
+                snapshot_paths = [
+                    str(path)
+                    for path in getattr(
+                        self, 'pronet_workbook_snapshots', {})
+                    if str(path).casefold() in allowed_combined_paths
+                ]
+                if len(snapshot_paths) > 1:
+                    raise RuntimeError(
+                        "FATAL: multiple combined ProNet snapshots are "
+                        f"available: {snapshot_paths!r}")
+                remote_path = (
+                    snapshot_paths[0] if snapshot_paths
+                    else dropbox_base + self.PRONET_COMBINED_LOCAL_PATH)
+            if remote_path.casefold() not in allowed_combined_paths:
+                raise RuntimeError(
+                    "FATAL: resolved combined ProNet path is outside the "
+                    f"allowed exact targets: {remote_path!r}")
+        else:
+            remote_path = dropbox_base + normalized_local_path
+        if is_pronet_combined or is_pronet_site:
+            snapshots = getattr(
+                self, 'pronet_workbook_snapshots', {})
+            snapshot = next(
+                (value for path, value in snapshots.items()
+                 if str(path).casefold() == remote_path.casefold()),
+                None)
+            if snapshot:
+                if (str(snapshot.get('path', '')).casefold()
+                        != remote_path.casefold()):
+                    raise RuntimeError(
+                        "FATAL: PRONET snapshot path does not match the upload "
+                        f"target: {snapshot.get('path')!r} != {remote_path!r}")
+                revision = snapshot.get('rev')
+                live_content = snapshot.get('content')
+            else:
+                # A differently formatted live tracker may not have been part
+                # of the reviewer-state reconciliation pass yet. It is safe to
+                # download the latest revision and ADD Medication Flags only
+                # when that sheet does not already exist. Replacing an existing
+                # sheet without reconciliation could erase reviewer edits.
+                metadata, response = dbx.files_download(remote_path)
+                revision = getattr(metadata, 'rev', None)
+                live_content = response.content
+                if workbook_has_sheet(
+                        live_content, self.MEDICATION_FLAGS_REPORT_NAME):
+                    raise RuntimeError(
+                        "FATAL: no reconciled PRONET_Output.xlsx snapshot is "
+                        f"available for {remote_path!r}, and the live workbook "
+                        "already contains Medication Flags; refusing to replace "
+                        "potential reviewer edits.")
+            if not revision:
+                raise RuntimeError(
+                    "FATAL: PRONET snapshot has no Dropbox revision.")
+            with open(fullpath, 'rb') as generated:
+                updated_bytes = replace_sheet_from_workbook(
+                    live_content,
+                    generated.read(),
+                    self.MEDICATION_FLAGS_REPORT_NAME,
+                    insert_after=(
+                        self.PRONET_COMBINED_INSERT_AFTER
+                        if is_pronet_combined else None),
+                )
+            dbx.files_upload(
+                updated_bytes,
+                remote_path,
+                mode=dropbox.files.WriteMode.update(revision),
+                autorename=False,
+                strict_conflict=True,
+            )
+            return
+        if is_stale_pronet_root:
+            raise RuntimeError(
+                "FATAL: refusing an obsolete root-staged PRONET_Output.xlsx "
+                "donor; stage the canonical donor under PRONET/combined so it "
+                "can be mapped to the resolved live workbook.")
+        if is_any_pronet_path:
+            raise RuntimeError(
+                "FATAL: refusing whole-file upload for unrecognized ProNet "
+                f"path {normalized_local_path!r}; every ProNet workbook must "
+                "use the sheet-only update path.")
         with open(fullpath, 'rb') as f:
-            dbx.files_upload(f.read(), self.dropbox_path + local_path,\
-            mode=dropbox.files.WriteMode.overwrite)
+            dbx.files_upload(
+                f.read(), remote_path,
+                mode=dropbox.files.WriteMode.overwrite)
             #self.recover_comments(self.dropbox_path + local_path)
             
     def recover_comments(self, path):
@@ -497,5 +1198,16 @@ class CreateTrackers():
                 merged[col] = merged[col].where(merged[col] != '', merged[rec_col])
                 merged = merged.drop(columns=[rec_col])
 
-        # 6. write back
-        merged.to_parquet(self.curr_output_csv_path, index=False)
+        # 6. write back (atomic — same pattern as calculate_resolved_errors)
+        path = self.curr_output_csv_path
+        tmp_path = f"{path}.{os.getpid()}.tmp"
+        try:
+            merged.to_parquet(tmp_path, index=False)
+            os.replace(tmp_path, path)
+        except Exception:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise

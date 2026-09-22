@@ -9,6 +9,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
@@ -122,7 +123,8 @@ class PairwiseRelationshipChecks:
     ]
 
     REQUIRED_INPUT_COLUMNS = [
-        'subjectid', 'network', 'timepoint', 'variable',
+        # Sprint 1 P0-3: 'cohort' added for stratification.
+        'subjectid', 'network', 'timepoint', 'cohort', 'variable',
         'source_form', 'value', 'value_numeric', 'is_missing_code',
     ]
 
@@ -148,6 +150,12 @@ class PairwiseRelationshipChecks:
             pr_cfg.get('min_correlation', 0.6))
         self.residual_z_threshold = float(
             pr_cfg.get('residual_z_threshold', 4.0))
+        # Per-form variable cap. Without this, a 200-variable form
+        # yields 20k pairs and the per-pair pandas overhead alone
+        # dominates runtime. Take the top-`max_vars` variables by
+        # cohort std (most signal) like the other multivariate
+        # detectors do.
+        self.max_vars = int(pr_cfg.get('max_vars', 40))
         # Per-pair cap: keep at most this many flags from a single
         # (variable_a, variable_b) pair so one over-firing pair can't
         # monopolize the sheet.
@@ -239,6 +247,7 @@ class PairwiseRelationshipChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -269,8 +278,12 @@ class PairwiseRelationshipChecks:
             return self._empty_output_df()
 
         records = []
-        for (network, source_form), grp in scoring.groupby(
-                ['network', 'source_form'], sort=False):
+        # Sprint 1 P0-3: cohort stratification.
+        scoring['cohort'] = (
+            scoring['cohort'].astype(object)
+            .fillna('').astype(str).str.lower())
+        for (network, source_form, _coh), grp in scoring.groupby(
+                ['network', 'source_form', 'cohort'], sort=False):
             if not source_form:
                 continue
             self._counters['form_groups_considered'] += 1
@@ -332,6 +345,15 @@ class PairwiseRelationshipChecks:
         var_list = sorted(wide.columns.tolist())
         if len(var_list) < 2:
             return []
+        # Cap variable count to keep runtime bounded. For a 200-var
+        # form, O(V²) pairs × pandas overhead per pair would dominate
+        # the discovery run. Take the top-max_vars by cohort std —
+        # those are the variables carrying the most signal.
+        if len(var_list) > self.max_vars:
+            stds = wide[var_list].std(skipna=True).sort_values(
+                ascending=False)
+            var_list = sorted(
+                stds.head(self.max_vars).index.tolist())
 
         records = []
         today = str(datetime.today().date())

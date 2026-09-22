@@ -40,7 +40,7 @@ class AnalyzeWithdrawalDates():
 
     def loop_csvs(self):
         tp_list = self.utils.create_timepoint_list()
-        for network in ['PRESCIENT','PRONET']:
+        for network in ['PRESCIENT']:
             combined_df_floating = pd.read_csv(
             (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
             f'{"floating_forms"}_{network}-day1to1.csv'),
@@ -94,7 +94,9 @@ class AnalyzeWithdrawalDates():
                         continue
                     if date_var.startswith('chrmiss'):
                         continue
+                    form = ''
                     if date_var in self.forms_per_var.keys():
+                        print(date_var)
                         form = self.forms_per_var[date_var]
                         missing_var = self.important_form_vars[form]['missing_var']
                         if (missing_var != "" and hasattr(row,missing_var) 

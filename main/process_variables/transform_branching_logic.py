@@ -12,7 +12,7 @@ class TransformBranchingLogic():
     def __init__(self, data_dictionary_df):
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
-        with open(f'{self.absolute_path}/config.json','r') as file:
+        with open(f'/home/ob001/formqc_new_copy_6_24/form_qc_trackers/config.json','r') as file:
             self.config_info = json.load(file)
         
         # variables with branching logic

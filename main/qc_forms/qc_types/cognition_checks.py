@@ -81,9 +81,7 @@ class CognitionChecks(FormCheck):
                     getattr(iq_row, var_to_convert))):
                         python_fsiq = float(getattr(iq_row, 'chriq_fsiq'))
                         if float(python_fsiq) != float(redcap_fsiq):
-                            print((f"FSIQ Miscalculated" 
-                            f" (Recorded as {redcap_fsiq}, but should be {python_fsiq})"))
-                            return (f"FSIQ Miscalculated" 
+                            return (f"FSIQ Miscalculated"
                             f" (Recorded as {redcap_fsiq}, but should be {python_fsiq})")
                         
     def standardized_score_check(self, row, filtered_forms,
@@ -116,26 +114,42 @@ class CognitionChecks(FormCheck):
             matrix_raw = getattr(row, 'chriq_matrix_raw')
             for iq_row in filtered_table.itertuples():
                 for test_type, scores in score_dict.items():
-                    conversion_sheet_score = self.utils.convert_range_to_list(
-                    getattr(iq_row, scores['col_name']))
+                    conversion_sheet_cell = getattr(
+                        iq_row, scores['col_name'])
+                    # WAIS-IV (and some WASI-II) raw→scaled conversion
+                    # tables collapse multiple raw scores into one
+                    # scaled-score cell, encoded as a range like
+                    # "11-12" or "5-7". `convert_range_to_list` returns
+                    # a list for range strings and the raw input
+                    # otherwise. The old direct `==` compare:
+                    #   (a) silently failed on range cells because a
+                    #       scalar `redcap_score` is never equal to a
+                    #       list; AND
+                    #   (b) was dtype-sensitive even on scalar cells
+                    #       — int 11 vs string "11" never matches.
+                    # Normalize both sides to whitespace-stripped
+                    # strings, expand the cell to a list of acceptable
+                    # values, and check membership.
+                    raw_converted = self.utils.convert_range_to_list(
+                        conversion_sheet_cell)
+                    if isinstance(raw_converted, list):
+                        accepted = raw_converted
+                    else:
+                        accepted = [raw_converted]
+                    accepted_strs = [
+                        str(v).strip() for v in accepted
+                        if str(v).strip() != '']
                     redcap_score = getattr(row, scores['raw'])
-                    if redcap_score == conversion_sheet_score:
+                    redcap_score_str = str(redcap_score).strip()
+                    if (redcap_score_str != ''
+                            and redcap_score_str in accepted_strs):
                         redcap_scaled = getattr(row, scores['scaled'])
                         qc_scaled = getattr(iq_row, iq_col_names[assessment])
-                        if (redcap_scaled not in self.utils.missing_code_set
-                        and qc_scaled not in self.utils.missing_code_set):
-                            print('-------')
-                            print(row.subjectid)
-                            print(conversion_sheet_score)
-                            print(redcap_score)
-                            print('-------')
                         if (redcap_scaled != qc_scaled and redcap_scaled
                         not in (self.utils.missing_code_list + [''])):
                             error_message = (f"Check scaled conversion for {test_type} IQ score."
                             f" Recorded as {redcap_scaled}, but should potentially be"
                             f" {qc_scaled} (may be false flag due to age estimates)")
-                            print(row.subjectid)
-                            print(error_message)
                             error_output = self.create_row_output(
                             row, filtered_forms, [scores['raw'], scores['scaled']],
                             error_message, reports)

@@ -45,15 +45,25 @@ def _load_config(absolute_path):
 
 class FormCheck():
 
+    # Process-wide cache of the canonical timepoint list. create_timepoint_list
+    # returns a constant 16-element sequence; rebuilding it on every per-row
+    # FormCheck construction (~8 per row × N rows) is wasted allocation. Cached
+    # the first time any FormCheck is built and shared thereafter. self.tp_list
+    # is read-only here (only .index() in check_if_next_tp), so sharing the same
+    # object is safe; callers that need a mutable copy must not mutate self.tp_list.
+    _tp_list_cache = None
+
     def __init__(self, timepoint : str,
         network : str, form_check_info : str
-    ): 
+    ):
         self.utils = Utils()
         self.timepoint = timepoint
         self.network = network   
         self.absolute_path = self.utils.absolute_path
         self.final_output_list = []
-        self.tp_list = self.utils.create_timepoint_list()
+        if FormCheck._tp_list_cache is None:
+            FormCheck._tp_list_cache = self.utils.create_timepoint_list()
+        self.tp_list = FormCheck._tp_list_cache
         self.subject_info = form_check_info['subject_info'] 
         self.general_check_vars = form_check_info['general_check_vars'] 
         self.important_form_vars = form_check_info['important_form_vars'] 
@@ -66,6 +76,8 @@ class FormCheck():
         self.raw_csv_converters = form_check_info['raw_csv_conversions']
         self.variable_ranges = form_check_info['variable_ranges']
         self.tp_date_ranges = form_check_info['earliest_latest_dates_per_tp']
+        self.missingness_domain_forms = form_check_info.get(
+            'missingness_domain_forms', {})
         self.cognition_csvs = form_check_info['cognition_csvs']
         self.missing_code_list = self.utils.missing_code_list
         
@@ -80,7 +92,13 @@ class FormCheck():
         self.module_b_vars = self.grouped_vars['scid_vars']['module_b_vars']
         self.module_c_vars = self.grouped_vars['scid_vars']['module_c_vars']
 
-        self.config_info = _load_config(self.absolute_path)
+        # QCFormsMain supplies the freshly loaded configuration snapshot for
+        # this run. Keep the loader fallback for standalone checks/tests, but
+        # do not let a separate FormCheck cache make recruited_only or other
+        # routing options stale during same-process reruns.
+        self.config_info = form_check_info.get('config_info')
+        if self.config_info is None:
+            self.config_info = _load_config(self.absolute_path)
 
 
     def call_checks(self):
@@ -309,6 +327,12 @@ class FormCheck():
         row_output = {
             "network" : self.network,
             "subject" : subject,
+            # HC vs CHR (or 'unknown' when chrcrit_part didn't translate).
+            # Collected in lockstep with inclusion_status in
+            # collect_subject_info.collect_screening_info, so it is present
+            # for any subject that reaches create_row_output; .get keeps a
+            # safe default. See generate_reports for how it is surfaced.
+            "cohort" : self.subject_info[subject].get("cohort", "unknown"),
             "affected_timepoints" : [self.timepoint],
             "subject_current_timepoint" : self.subject_info[subject]["visit_status"],
             "affected_forms": forms,
@@ -368,13 +392,20 @@ class FormCheck():
         self.config_info["withdrawn_enabled"] == False):
             row_output['reports'] = []
         
-        if (curr_row.recruitment_status_v2 == 'recruited' and
-        self.config_info["recruited_only"] == True):
+        # ``recruited_only=True`` means keep tracker routes only for recruited
+        # participants. The old condition did the inverse: it blanked reports
+        # for recruited participants while leaving every raw QC row in the
+        # parquet output. That made True/False appear to produce the same raw
+        # output even though recruited flags silently disappeared from Excel.
+        recruitment_status = str(
+            curr_row.recruitment_status_v2).strip().lower()
+        if (self.config_info["recruited_only"] is True
+                and recruitment_status != 'recruited'):
             row_output['reports'] = []
 
         if (row_output['excluded_enabled'] == False
         and (incl_status.lower() != 'included' or
-        curr_row.recruitment_status_v2 == 'negative_screen')):
+        recruitment_status == 'negative_screen')):
             row_output['reports'] = []
                 
         for key in row_output.keys():
@@ -428,6 +459,3 @@ class FormCheck():
         output_str = '|'.join(str(item) for item in inp_list)
 
         return output_str
-
-
-

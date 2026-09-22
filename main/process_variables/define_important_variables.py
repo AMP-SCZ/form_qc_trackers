@@ -93,7 +93,8 @@ class DefineEssentialFormVars():
         # col_to_check contains any string in strings_to_check
         filtered_df = self.data_dictionary_df[
             self.data_dictionary_df[col_to_check].str.contains(
-                '|'.join(strings_to_check), regex=True
+                '|'.join(strings_to_check), regex=True,
+                case=False, na=False
             )
         ]
 
@@ -408,4 +409,3 @@ class CollectMiscVariables():
 
 
         return pharm_vars_categorized
-

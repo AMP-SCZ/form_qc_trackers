@@ -10,12 +10,14 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
     is_excluded_variable,
     atomic_write_parquet,
     normalize_passthrough_severity,
+    _is_form_blank,
 )
 
 """
@@ -237,6 +239,7 @@ class DuplicateRecordChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -302,7 +305,7 @@ class DuplicateRecordChecks:
                 ['network', 'site_prefix', 'source_form',
                  'timepoint'], sort=False):
             self._counters['cross_subject_groups_considered'] += 1
-            if not form:
+            if _is_form_blank(form):
                 continue
             var_list = sorted(grp['variable'].unique().tolist())
             if len(var_list) < self.min_cols_for_fingerprint:
@@ -392,7 +395,7 @@ class DuplicateRecordChecks:
         records = []
         for (net, form, subj), grp in scoring.groupby(
                 ['network', 'source_form', 'subjectid'], sort=False):
-            if not form:
+            if _is_form_blank(form):
                 continue
             wide = grp.pivot_table(
                 index='timepoint', columns='variable',

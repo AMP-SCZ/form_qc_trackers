@@ -22,7 +22,7 @@ class AnalyzeIdentifiers():
 
     def __init__(self):
         self.utils = Utils()
-        with open(f'{self.utils.absolute_path}/config.json','r') as file:
+        with open(f'/home/ob001/formqc_new_copy_6_24/form_qc_trackers/config.json','r') as file:
             self.config_info = json.load(file)
         self.data_dict_df = self.utils.read_data_dictionary()
         identifiers_df = self.data_dict_df[self.data_dict_df[

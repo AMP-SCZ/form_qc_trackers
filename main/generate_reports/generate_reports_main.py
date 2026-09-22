@@ -26,6 +26,7 @@ class GenerateReports():
         self.formatted_column_names = {
             "PRONET" : {"combined": {
             "subject":"Participant",
+            "cohort":"Cohort",
             "displayed_timepoint":"Timepoint",
             "displayed_form" : "Form",
             "flag_count" : "Flag Count",
@@ -40,6 +41,7 @@ class GenerateReports():
 
             "PRESCIENT" :{"combined":{
             "subject":"Participant",
+            "cohort":"Cohort",
             "displayed_timepoint":"Timepoint",
             "displayed_form" : "Form",
             "flag_count" : "Flag Count",
@@ -85,5 +87,9 @@ class GenerateReports():
 
     def run_script(self):
         self.calc_resolved.run_script()
+        self.create_trackers.pronet_workbook_snapshots = (
+            self.calc_resolved.pronet_workbook_snapshots)
+        self.create_trackers.pronet_combined_output_path = (
+            self.calc_resolved.pronet_combined_output_path)
         self.create_trackers.run_script()
    

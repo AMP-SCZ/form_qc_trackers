@@ -241,7 +241,7 @@ class OrganizeReports():
         'chrscid_othersub_yn','chrscid_sedhypanx_yn',
         'chrscid_stimulant_yn','chrscid_hallucinogen_yn','chrscid_cannabis_yn',
         'chrpharm_date_first','chrpharm_med1_comp_2',
-        'chrpharm_med1_mo','chrpharm_interm_meds_1','chrtbi_subject_age'
+        'chrpharm_med1_mo','chrpharm_interm_meds_1','chrtbi_subject_age','chrtbi_sourceinfo','chrtbi_severe_inj'
         ])}
 
         for x in range(1,16):

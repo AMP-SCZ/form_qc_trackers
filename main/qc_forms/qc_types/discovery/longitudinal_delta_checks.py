@@ -9,6 +9,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
@@ -129,7 +130,12 @@ class LongitudinalDeltaChecks:
     ]
 
     REQUIRED_INPUT_COLUMNS = [
-        'subjectid', 'network', 'timepoint', 'variable',
+        # Sprint 1 P0-3: 'cohort' added. Visit-to-visit delta MADs
+        # are computed within each cohort so a CHR cohort whose
+        # symptom scale legitimately shows larger month-to-month
+        # variability doesn't compress the HC cohort's z-score
+        # scale (or vice versa).
+        'subjectid', 'network', 'timepoint', 'cohort', 'variable',
         'source_form', 'value', 'value_numeric', 'is_missing_code',
     ]
 
@@ -242,6 +248,7 @@ class LongitudinalDeltaChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -279,9 +286,14 @@ class LongitudinalDeltaChecks:
         if len(scoring) == 0:
             return self._empty_output_df()
 
+        # Sprint 1 P0-3: cohort stratification.
+        scoring['cohort'] = (
+            scoring['cohort'].astype(object)
+            .fillna('').astype(str).str.lower())
+
         scored_pieces = []
-        for (_net, _var), grp in scoring.groupby(
-                ['network', 'variable'], sort=False):
+        for (_net, _var, _coh), grp in scoring.groupby(
+                ['network', 'variable', 'cohort'], sort=False):
             self._counters['variables_considered'] += 1
 
             if len(grp) < self.min_observations_per_variable:

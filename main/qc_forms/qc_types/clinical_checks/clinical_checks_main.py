@@ -20,85 +20,89 @@ class ClinicalChecksMain(FormCheck):
 
     ONGOING_OFFSET_CODES = {"1901-01-01", "1909-03-03", "1909-09-09"}
 
-    def __init__(self, row, timepoint, network, form_check_info):
-        super().__init__(timepoint, network, form_check_info)
-        self.test_val = 0
+    # Per-run constants (no per-row data, never mutated — verified read-only:
+    # only iterated via .items()/`in`). Promoted from __init__ to class scope
+    # so they are built once at import instead of rebuilt on every per-row
+    # ClinicalChecksMain construction.
+    gf_score_check_vars = {
+        "global_functioning_role_scale": [
+            "chrgfr_gf_role_low",
+            "chrgfr_gf_role_scole",
+            "chrgfr_gf_role_high",
+        ],
+        "global_functioning_social_scale": [
+            "chrgfs_gf_social_low",
+            "chrgfs_gf_social_scale",
+            "chrgfs_gf_social_high",
+        ],
+    }
 
-        self.gf_score_check_vars = {
-            "global_functioning_role_scale": [
+    score_range_check_vars = {
+        "sofas_screening": {
+            "vars": [
+                "chrsofas_premorbid",
+                "chrsofas_currscore12mo",
+                "chrsofas_currscore",
+                "chrsofas_lowscore",
+            ],
+            "min": 0,
+            "max": 100,
+        },
+        "sofas_followup": {
+            "vars": [
+                "chrsofas_currscore_fu",
+                "chrsofas_currscore12mo_fu",
+            ],
+            "min": 0,
+            "max": 100,
+        },
+        "global_functioning_role_scale": {
+            "vars": [
                 "chrgfr_gf_role_low",
                 "chrgfr_gf_role_scole",
                 "chrgfr_gf_role_high",
             ],
-            "global_functioning_social_scale": [
+            "min": 0,
+            "max": 10,
+        },
+        "global_functioning_role_scale_followup": {
+            "vars": [
+                "chrgfrfu_gf_role_scole",
+            ],
+            "min": 0,
+            "max": 10,
+        },
+        "global_functioning_social_scale": {
+            "vars": [
                 "chrgfs_gf_social_low",
                 "chrgfs_gf_social_scale",
                 "chrgfs_gf_social_high",
             ],
-        }
+            "min": 0,
+            "max": 10,
+        },
+        "global_functioning_social_scale_followup": {
+            "vars": [
+                "chrgfsfu_gf_social_scale",
+            ],
+            "min": 0,
+            "max": 10,
+        },
+    }
 
-        self.score_range_check_vars = {
-            "sofas_screening": {
-                "vars": [
-                    "chrsofas_premorbid",
-                    "chrsofas_currscore12mo",
-                    "chrsofas_currscore",
-                    "chrsofas_lowscore",
-                ],
-                "min": 0,
-                "max": 100,
-            },
-            "sofas_followup": {
-                "vars": [
-                    "chrsofas_currscore_fu",
-                    "chrsofas_currscore12mo_fu",
-                ],
-                "min": 0,
-                "max": 100,
-            },
-            "global_functioning_role_scale": {
-                "vars": [
-                    "chrgfr_gf_role_low",
-                    "chrgfr_gf_role_scole",
-                    "chrgfr_gf_role_high",
-                ],
-                "min": 0,
-                "max": 10,
-            },
-            "global_functioning_role_scale_followup": {
-                "vars": [
-                    "chrgfrfu_gf_role_scole",
-                ],
-                "min": 0,
-                "max": 10,
-            },
-            "global_functioning_social_scale": {
-                "vars": [
-                    "chrgfs_gf_social_low",
-                    "chrgfs_gf_social_scale",
-                    "chrgfs_gf_social_high",
-                ],
-                "min": 0,
-                "max": 10,
-            },
-            "global_functioning_social_scale_followup": {
-                "vars": [
-                    "chrgfsfu_gf_social_scale",
-                ],
-                "min": 0,
-                "max": 10,
-            },
-        }
+    excluded_21_day_forms = [
+        "cbc_with_differential",
+        "gcp_cbc_with_differential",
+        "gcp_current_health_status",
+        "psychs_p1p8_fu",
+        "psychs_p1p8_fu_hc",
+        "chrpred_interview_date",
+        "sociodemographics",
+    ]
 
-        self.excluded_21_day_forms = [
-            "cbc_with_differential",
-            "gcp_cbc_with_differential",
-            "gcp_current_health_status",
-            "psychs_p1p8_fu",
-            "psychs_p1p8_fu_hc",
-            "chrpred_interview_date",
-            "sociodemographics",
-        ]
+    def __init__(self, row, timepoint, network, form_check_info):
+        super().__init__(timepoint, network, form_check_info)
+        self.test_val = 0
 
         scid_checks = ScidChecks(row, timepoint, network, form_check_info)
         self.final_output_list = scid_checks()
@@ -153,9 +157,10 @@ class ClinicalChecksMain(FormCheck):
     ):
         var = all_vars[0]
         val = getattr(row, var)
-        # missing codes not allowed for now
-        #if val in self.utils.missing_code_set or val == "":
-        #    return
+        # missing codes (-3/-9/-99/999) are legitimate REDCap entries, not
+        # out-of-range scores — never flag them here.
+        if val in self.utils.missing_code_set or val == "":
+            return
         if not self.utils.can_be_float(val):
             return
         fval = float(val)

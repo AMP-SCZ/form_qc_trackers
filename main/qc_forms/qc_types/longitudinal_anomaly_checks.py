@@ -7,6 +7,13 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
+from qc_types.discovery._common import (
+    DEFAULT_EXCLUDED_FORM_PATTERNS,
+    DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
+    is_excluded_form,
+    is_excluded_variable,
+    normalize_zscore_severity,
+)
 
 """
 Longitudinal anomaly detection (v1).
@@ -103,6 +110,18 @@ CONSTRAINTS HONORED:
 """
 
 
+# Floating / conversion are out-of-band timepoints, not scheduled
+# longitudinal visits. The discovery-tier detectors already exclude
+# them via this same constant; N1 mirroring that convention prevents
+# the conversion-event measurement (which is, by definition, the
+# extreme value the study cares about) from being folded into the
+# subject's own median and self-masking its residual. Pulling these
+# rows from the scoring pool also prevents inflated residuals on
+# surrounding scheduled tps whose median got dragged toward the
+# conversion value.
+_NON_LONGITUDINAL_TIMEPOINTS = frozenset({'floating', 'conversion'})
+
+
 class LongitudinalAnomalyChecks:
     """
     v1 within-subject longitudinal anomaly detector. Reads long-format
@@ -116,8 +135,16 @@ class LongitudinalAnomalyChecks:
         'source_form', 'value', 'value_numeric',
         'expected_value', 'observed_value',
         'algorithm', 'metric_name', 'metric_value',
-        'severity_score', 'threshold', 'error_message',
-        'dates_detected',
+        'severity_score', 'severity_normalized', 'threshold',
+        'error_message', 'dates_detected',
+        # Evidence timepoints (metadata-only — Patch 6).
+        # `evidence_timepoints` is a comma-joined list of canonical
+        # timepoints from this subject's scoring pool that were
+        # consulted in producing the residual / subject_median used
+        # for this flag. `evidence_max_timepoint` is the
+        # canonically-latest of those. Does NOT change which rows
+        # are flagged.
+        'evidence_timepoints', 'evidence_max_timepoint',
         # Tracker-compatible aliases (per Step 2 requirement 2 in
         # the revisions). Same values, different names — keeps the
         # eventual N2 merge into combined_qc_flags lossless without
@@ -128,7 +155,12 @@ class LongitudinalAnomalyChecks:
     ]
 
     REQUIRED_INPUT_COLUMNS = [
-        'subjectid', 'network', 'timepoint', 'variable',
+        # Sprint 1 P0-3: 'cohort' added. The within-subject median
+        # is cohort-independent (subject is its own reference), but
+        # the pooled-residual MAD that scales the z is now stratified
+        # by cohort so the threshold doesn't get pulled by mixing
+        # HC near-zero residuals with CHR-elevated ones.
+        'subjectid', 'network', 'timepoint', 'cohort', 'variable',
         'source_form', 'value', 'value_numeric', 'is_missing_code',
     ]
 
@@ -156,12 +188,44 @@ class LongitudinalAnomalyChecks:
         cap = lon_cfg.get('max_flags_to_write', None)
         self.max_flags_to_write = (
             int(cap) if cap is not None else None)
+        # Match the discovery-tier exclusions so N1 doesn't get
+        # dominated by digital_biomarkers_* (passive monitoring with
+        # huge inherent variance) or by junk variable name patterns.
+        self.excluded_source_form_patterns = tuple(
+            lon_cfg.get(
+                'excluded_source_form_patterns',
+                list(DEFAULT_EXCLUDED_FORM_PATTERNS)))
+        self.excluded_variable_patterns = tuple(
+            lon_cfg.get(
+                'excluded_variable_patterns',
+                list(DEFAULT_EXCLUDED_VARIABLE_PATTERNS)))
+
+        # Canonical timepoint ordering for the Patch 6
+        # `evidence_max_timepoint` metadata column. Falls back to an
+        # empty index when the Utils stub used in tests does not
+        # expose create_timepoint_list — unknown tps then all map to
+        # the same sentinel, and the canonical-sort just returns the
+        # input order, which is still deterministic.
+        if hasattr(self.utils, 'create_timepoint_list'):
+            try:
+                self._tp_order = list(
+                    self.utils.create_timepoint_list())
+            except Exception:
+                self._tp_order = []
+        else:
+            self._tp_order = []
+        self._tp_index = {
+            tp: i for i, tp in enumerate(self._tp_order)
+        }
 
         self._counters = self._fresh_counters()
 
     def _fresh_counters(self) -> dict:
         return {
             'input_rows': 0,
+            'rows_excluded_non_longitudinal_tp': 0,
+            'rows_excluded_by_form_pattern': 0,
+            'rows_excluded_by_variable_pattern': 0,
             'valid_scoring_rows': 0,
             'variables_considered': 0,
             'variables_skipped_insufficient_obs': 0,
@@ -233,13 +297,56 @@ class LongitudinalAnomalyChecks:
             long_df['value_numeric'].notna()
             & (~long_df['is_missing_code'])
         ].copy()
+
+        # Exclude floating/conversion rows so the conversion-event
+        # measurement does not enter subject_median (self-masking)
+        # or inflate the pooled MAD. Matches the discovery-tier
+        # `_NON_LONGITUDINAL_TIMEPOINTS` convention used in
+        # qc_types/discovery/*. Counter is bumped so the operator
+        # summary shows how many rows were dropped.
+        if len(scoring) > 0:
+            before = len(scoring)
+            scoring = scoring[
+                ~scoring['timepoint'].isin(
+                    _NON_LONGITUDINAL_TIMEPOINTS)
+            ].copy()
+            self._counters['rows_excluded_non_longitudinal_tp'] = (
+                before - len(scoring))
+
+        if self.excluded_source_form_patterns and len(scoring) > 0:
+            before = len(scoring)
+            mask = scoring['source_form'].apply(
+                lambda f: is_excluded_form(
+                    f, self.excluded_source_form_patterns))
+            scoring = scoring[~mask].copy()
+            self._counters['rows_excluded_by_form_pattern'] = (
+                before - len(scoring))
+        if self.excluded_variable_patterns and len(scoring) > 0:
+            before = len(scoring)
+            mask = scoring['variable'].apply(
+                lambda v: is_excluded_variable(
+                    v, self.excluded_variable_patterns))
+            scoring = scoring[~mask].copy()
+            self._counters['rows_excluded_by_variable_pattern'] = (
+                before - len(scoring))
+
         self._counters['valid_scoring_rows'] = len(scoring)
         if len(scoring) == 0:
             return self._empty_output_df()
 
+        # Sprint 1 P0-3: cohort stratification. Normalize the cohort
+        # column (NaN→''; categorical→str→lower) before the groupby
+        # so HC/CHR/HSC populations are scored separately. Without
+        # this, a CHR-elevated variable's HC subjects (whose values
+        # cluster near zero) pollute the pooled MAD and the
+        # CHR-elevated subjects' z's get attenuated.
+        scoring['cohort'] = (
+            scoring['cohort'].astype(object)
+            .fillna('').astype(str).str.lower())
+
         scored_pieces = []
-        for (_net, _var), grp in scoring.groupby(
-                ['network', 'variable'], sort=False):
+        for (_net, _var, _coh), grp in scoring.groupby(
+                ['network', 'variable', 'cohort'], sort=False):
             self._counters['variables_considered'] += 1
             scored, skip_reason = self._score_one_variable(grp)
             if skip_reason == 'insufficient_obs':
@@ -313,6 +420,24 @@ class LongitudinalAnomalyChecks:
         group['severity_score'] = group['metric_value'].abs()
         group['expected_value'] = group['subject_median']
         group['observed_value'] = group['value_numeric']
+        # Patch 6 — per-subject evidence_timepoints. For each row's
+        # flag, the evidence pool is every other scoring tp the same
+        # subject contributed to this (network, variable) group's
+        # subject_median. We build a comma-joined canonical-sorted
+        # list per subject and attach it to every row in that group.
+        evidence_per_subject = {}
+        for subj, subj_grp in group.groupby('subjectid', sort=False):
+            tps = sorted(
+                set(str(t) for t in subj_grp['timepoint']),
+                key=lambda tp: self._tp_index.get(tp, 1_000_000))
+            evidence_per_subject[subj] = tps
+        group['evidence_timepoints'] = group['subjectid'].map(
+            lambda s: ','.join(
+                evidence_per_subject.get(s, [])))
+        group['evidence_max_timepoint'] = group['subjectid'].map(
+            lambda s: (
+                evidence_per_subject[s][-1]
+                if evidence_per_subject.get(s) else ''))
         return group, None
 
     def _format_output(self, flagged: pd.DataFrame) -> pd.DataFrame:
@@ -339,10 +464,24 @@ class LongitudinalAnomalyChecks:
         out['metric_value'] = flagged['metric_value'].astype(float)
         out['severity_score'] = (
             flagged['severity_score'].astype(float))
+        # severity_normalized — Sprint 1 P0-7. Required by
+        # subject_summary aggregator (otherwise N1 flags get
+        # null-coalesced to 0 and rank last). Severity here is |z|;
+        # the standard zscore-shaped mapping (|z|*10 capped at 100)
+        # gives a |z|=10 ≈ 100, threshold |z|=3.5 ≈ 35.
+        out['severity_normalized'] = out['severity_score'].apply(
+            normalize_zscore_severity).astype(float)
         out['threshold'] = float(self.robust_z_threshold)
         out['error_message'] = out.apply(
             self._build_error_message, axis=1)
         out['dates_detected'] = today
+        # Patch 6 — evidence_timepoints metadata. Populated per-row
+        # in _score_one_variable; copy through. NaN-safe coercion
+        # to string keeps the parquet schema stable.
+        out['evidence_timepoints'] = (
+            flagged['evidence_timepoints'].fillna('').astype(str))
+        out['evidence_max_timepoint'] = (
+            flagged['evidence_max_timepoint'].fillna('').astype(str))
         # Tracker-compatible aliases — pure column-rename pass-throughs.
         out['subject'] = out['subjectid']
         out['displayed_variable'] = out['variable']
@@ -385,9 +524,14 @@ class LongitudinalAnomalyChecks:
             'metric_name': pd.Series(dtype='object'),
             'metric_value': pd.Series(dtype='float64'),
             'severity_score': pd.Series(dtype='float64'),
+            # Sprint 1 P0-7 — severity_normalized for subject_summary.
+            'severity_normalized': pd.Series(dtype='float64'),
             'threshold': pd.Series(dtype='float64'),
             'error_message': pd.Series(dtype='object'),
             'dates_detected': pd.Series(dtype='object'),
+            # Patch 6 — evidence_timepoints metadata.
+            'evidence_timepoints': pd.Series(dtype='object'),
+            'evidence_max_timepoint': pd.Series(dtype='object'),
             # Tracker-compatible aliases.
             'subject': pd.Series(dtype='object'),
             'displayed_variable': pd.Series(dtype='object'),
@@ -429,6 +573,12 @@ class LongitudinalAnomalyChecks:
         c = self._counters
         rows = [
             ("input rows", c['input_rows']),
+            ("rows excluded non-longitudinal tp",
+             c['rows_excluded_non_longitudinal_tp']),
+            ("rows excluded by form pattern",
+             c['rows_excluded_by_form_pattern']),
+            ("rows excluded by variable pattern",
+             c['rows_excluded_by_variable_pattern']),
             ("valid scoring rows",
              c['valid_scoring_rows']),
             ("variables considered (per-network)",

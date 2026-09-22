@@ -46,6 +46,7 @@ class FluidChecks(FormCheck):
         self.cbc_differential_check(row)
         self.check_blood_date(row,[form],
         ['chrblood_drawdate','chrblood_labdate'], {"reports":blood_reports})
+        #self.check_blood_interview_date_gap(row)
         self.barcode_format_check(row)
         # PRESCIENT disabled per operator request 2026-04-30. PRONET
         # rows still run the cross-subject duplicate detector. To
@@ -165,6 +166,8 @@ class FluidChecks(FormCheck):
         all_vars, changed_output_vals, bl_filtered_vars=[],
         filter_excl_vars=True
     ): 
+        # First branch: CBC form NOT marked complete + EDTA tube WAS
+        # sent + blood draw >5 days ago → missing CBC follow-up.
         if getattr(row, 'cbc_with_differential_complete') not in self.utils.all_dtype([2]):
             if (row.chrblood_cbc in self.utils.all_dtype([1]) and
             row.chrblood_interview_date not in (self.missing_code_list+[''])):
@@ -172,8 +175,16 @@ class FluidChecks(FormCheck):
                 str(datetime.today()))
                 if time_since_blood > 5:
                     return ('Blood form indicates EDTA tube was sent to lab for CBC'
-                    f', but CBC form has not been completed.')         
-        elif getattr(row, 'cbc_with_differential_complete') not in self.utils.all_dtype([2]):
+                    f', but CBC form has not been completed.')
+        # Second branch: CBC form IS marked complete + not flagged
+        # missing + blood form says tube NOT sent → contradictory
+        # state. Release-hardening (RH-3): the outer condition
+        # previously was a verbatim copy of the first branch
+        # (`not in self.utils.all_dtype([2])`), making this elif
+        # unreachable and silently suppressing this clinical-QC flag.
+        # Corrected to `in self.utils.all_dtype([2])` to match the
+        # error message text and the inner-clause logic.
+        elif getattr(row, 'cbc_with_differential_complete') in self.utils.all_dtype([2]):
             if self.check_if_missing(row,'cbc_with_differential') != True:
                 if row.chrblood_cbc not in self.utils.all_dtype([1]):
                     return ('Blood form indicates EDTA tube was not sent to lab for CBC'
@@ -325,6 +336,57 @@ class FluidChecks(FormCheck):
             # never recording first occurrences.
             registry.setdefault(val_str, []).append(
                 (row.subjectid, var, self.timepoint))
+
+    def check_blood_interview_date_gap(self, row):
+        """
+        Cross-timepoint check: the baseline and month 2 blood-draw form
+        interview dates should be within 90 days of each other, with the
+        month 2 date falling after the baseline date. Both dates are collected
+        per subject in process_variables/collect_subject_info.py
+        (blood_interview_date_baseline / blood_interview_date_month2), and are
+        only stored there when the blood form is not marked missing, so this
+        reads them off subject_info rather than the current row and does not
+        depend on which timepoint is being processed. Gated to the baseline
+        row so the flag is emitted once per subject (not at every timepoint).
+        """
+        if self.timepoint != 'baseline':
+            return
+        sub_info = self.subject_info.get(row.subjectid, {})
+        bl_date = sub_info.get('blood_interview_date_baseline', '')
+        m2_date = sub_info.get('blood_interview_date_month2', '')
+
+        # Strip any time component, then require both to be real,
+        # non-missing-code Y-M-D dates (drops blanks, -9/999, and the
+        # 1909-09-09 sentinel family, with or without a trailing time).
+        bl_day = str(bl_date).split(' ')[0]
+        m2_day = str(m2_date).split(' ')[0]
+        excluded = self.missing_code_list + ['']
+        if any(d in excluded for d in [bl_day, m2_day]):
+            return
+        if not all(self.utils.check_if_val_date_format(d)
+                   for d in [bl_day, m2_day]):
+            return
+
+        days_apart = (datetime.strptime(m2_day, '%Y-%m-%d')
+                      - datetime.strptime(bl_day, '%Y-%m-%d')).days
+        if days_apart < 0:
+            error_message = (
+                f"Month 2 blood interview date ({m2_day}) is before the "
+                f"baseline blood interview date ({bl_day}).")
+        elif days_apart > 90:
+            error_message = (
+                f"Baseline ({bl_day}) and month 2 ({m2_day}) blood interview "
+                f"dates are {days_apart} days apart (should be within 90 days).")
+        else:
+            return
+
+        forms = ['blood_sample_preanalytic_quality_assurance']
+        output_changes = {'reports':
+            ['Main Report', 'Blood Report', 'Fluids Report']}
+        error_output = self.create_row_output(
+            row, forms, ['chrblood_interview_date'], error_message,
+            output_changes)
+        self.final_output_list.append(error_output)
 
     def height_weight_unit_checks(self):
         height_val = getattr(row, 'chrchs_height') 

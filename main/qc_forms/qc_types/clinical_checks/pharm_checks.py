@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import re
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -37,6 +38,48 @@ class PharmChecks(FormCheck):
     # Offset sentinel meaning "ongoing" for medication courses.
     ONGOING_OFFSET_CODES = frozenset({"1901-01-01"})
 
+    # MED-QC-03 is the only pharmaceutical error exposed in PRONET trackers.
+    # Keep a machine identifier on the canonical row so report generation does
+    # not have to depend solely on human-readable wording for new flags.
+    MEDICATION_FLAGS_REPORT = "Medication Flags"
+    MED_QC_03_CHECK_ID = "MED-QC-03"
+
+    # MED-QC-17: medication codes whose human-readable name contains a "+"
+    # (combination meds). When a course uses one of these codes, the dosage
+    # field must record both component doses as "<num>+<num>". Includes
+    # Amitriptyline + Perphenazine.
+    # Code 400 (Adderall) is not a multi-component dose entry.
+    COMBINATION_MED_CODES = frozenset({110, 146, 280})
+    # MED-QC-18: clinical-use daily-dose cutoffs (mg). Course flagged when
+    # chrpharm_med{N}_dosage(_past) > cutoff. Codes 452 / 547 are LAIs, where
+    # the spec is a per-injection cutoff rather than a daily dose, but the
+    # value is read from the same dosage field.
+    DOSE_CUTOFFS_MG = {
+        "300": 8,     # Risperidone (daily)
+        "305": 30,    # Aripiprazole (daily)
+        "201": 20,    # Olanzapine (daily)
+        "238": 1200,  # Amisulpride (daily)
+        "235": 800,   # Quetiapine (daily)
+        "530": 20,    # Asenapine (daily)
+        "574": 4,     # Brexpiprazole (daily)
+        "721": 6,     # Cariprazine (daily)
+        "256": 500,   # Chlorpromazine (daily)
+        "69": 900,    # Clozapine (daily)
+        "122": 20,    # Haloperidol (daily)
+        "728": 42,    # Lumateperone (daily)
+        "540": 160,   # Lurasidone (daily)
+        "531": 6,     # Paliperidone (daily)
+        "75": 150,    # Prochlorperazine (daily)
+        "242": 1000,  # Promazine (daily)
+        "304": 160,   # Ziprasidone (daily)
+        "452": 120,   # Risperidone SC LAI (per-injection)
+        "547": 400,   # Aripiprazole LAI (per-injection)
+    }
+
+    # Matches "<num>+<num>" anywhere in the dosage string; both sides must be
+    # numeric (integer or decimal) so "10+", "+10", "abc+def" all fail.
+    _COMBO_DOSE_RE = re.compile(r"\d+(?:\.\d+)?\s*\+\s*\d+(?:\.\d+)?")
+
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
 
@@ -62,6 +105,23 @@ class PharmChecks(FormCheck):
             "999",
             "999.0",
         ]
+
+        # MED-QC-19 only runs at screening. Avoid rebuilding its lookup tables
+        # for every participant at every follow-up timepoint (the pipeline
+        # constructs PharmChecks once per row even when these forms cannot be
+        # scheduled there).
+        self._chrap_to_pharm_codes = {}
+        self._pharm_code_to_chrap_vars = {}
+        self._chrap_to_med_name = {}
+        if self.timepoint == "screening":
+            ap_mappings = self.utils.load_dependency_json(
+                "ap_med_mappings.json")
+            self._chrap_to_pharm_codes, self._pharm_code_to_chrap_vars = (
+                self._build_ap_lookups(ap_mappings)
+            )
+            # chrap_var -> medication name, parsed from data-dictionary Field
+            # Labels. _load_chrap_med_names has its own class-level cache.
+            self._chrap_to_med_name = self._load_chrap_med_names(self.utils)
 
         self.call_checks(row)
 
@@ -128,6 +188,19 @@ class PharmChecks(FormCheck):
             row, past=True, forms=past_forms
         )
 
+        """self.check_combination_med_dose_format(row, past=False, forms=curr_forms)
+        self.check_combination_med_dose_format(row, past=True, forms=past_forms)
+
+        self.check_med_dose_cutoffs(row, past=False, forms=curr_forms)
+        self.check_med_dose_cutoffs(row, past=True, forms=past_forms)"""
+
+        # MED-QC-19: cross-form AP consistency. Both forms live only at
+        # screening, so the check is naturally a screening-tp-only rule.
+        if self.timepoint == "screening":
+            self.check_ap_pharm_mismatch(
+                row, forms=["lifetime_ap_exposure_screen"] + past_forms
+            )
+
     def __call__(self):
         return self.final_output_list
 
@@ -160,8 +233,9 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [name_var] + provided_vars,
-                    f"{name_var} is coded as 888 (no information), but other course-level fields "
-                    f"contain data ({', '.join(provided_vars)}). Please check whether 777 would be more appropriate.",
+                    f"The medication name is coded as no-information ({name_var} = 888), but other "
+                    f"course-level fields contain data ({', '.join(provided_vars)}). "
+                    "Please check whether 777 would be more appropriate.",
                     priority_item=True,
                 )
 
@@ -181,7 +255,7 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [name_var],
-                    f"{name_var} is coded as blinded medication ({name_val}). "
+                    f"The medication name is a blinded-medication code ({name_var} = {name_val}). "
                     "Please check the medication name and update it if the medication is known now.",
                     priority_item=True,
                 )
@@ -249,9 +323,13 @@ class PharmChecks(FormCheck):
 
     def check_current_med_dates_not_after_mod_date(self, row, forms=None):
         # MED-QC-03
-        # PRESCIENT pharm flags route to Secondary Report rather than the
-        # default Main Report / Non Team Forms.
-        network_reports = ["Secondary Report"] if self.network == "PRESCIENT" else None
+        # PRONET exposes this one medication rule on its own reviewer tab.
+        # PRESCIENT retains its existing Secondary Report routing.
+        network_reports = (
+            ["Secondary Report"]
+            if self.network == "PRESCIENT"
+            else [self.MEDICATION_FLAGS_REPORT]
+        )
 
         if forms is None:
             forms = []
@@ -285,10 +363,11 @@ class PharmChecks(FormCheck):
                         row,
                         forms,
                         [med_date_var, mod_var],
-                        f"{med_date_var} ({self._date_to_str(med_date_val)}) is later than "
-                        f"{mod_var} ({mod_dt.strftime('%Y-%m-%d')}). Medication onset/offset dates "
-                        "cannot occur after the form modification date.",
+                        f"A medication date ({med_date_var} = {self._date_to_str(med_date_val)}) is later than "
+                        f"the form's modification date ({mod_var} = {mod_dt.strftime('%Y-%m-%d')}). "
+                        "Medication onset/offset dates cannot occur after the form modification date.",
                         reports=network_reports,
+                        check_id=self.MED_QC_03_CHECK_ID,
                     )
 
     def check_onset_after_offset(self, row, past=False, forms=None):
@@ -318,9 +397,9 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [onset_var, offset_var],
-                    f"{onset_var} ({self._date_to_str(onset_val)}) is later than "
-                    f"{offset_var} ({self._date_to_str(offset_val)}). A medication course cannot "
-                    "end before it starts.",
+                    f"This medication course ends before it starts ({onset_var} = "
+                    f"{self._date_to_str(onset_val)}, {offset_var} = {self._date_to_str(offset_val)}). "
+                    "Please correct the onset or offset date.",
                     priority_item=True,
                 )
 
@@ -400,10 +479,11 @@ class PharmChecks(FormCheck):
                             offset_var_2,
                             use_var_2,
                         ],
-                        f"{name_var_1} ({onset_1_str} to {offset_1_str}) and "
-                        f"{name_var_2} ({onset_2_str} to {offset_2_str}) have the same medication name "
-                        f"({str(name_1).strip()}), overlapping date ranges, and both courses are marked as simultaneously used "
-                        f"({use_var_1} = 1 and {use_var_2} = 1). Please check for a duplicate medication course.",
+                        f"Possible duplicate medication course: two courses record the same medication "
+                        f"({name_var_1} = {name_var_2} = {str(name_1).strip()}) with overlapping dates "
+                        f"({onset_1_str} to {offset_1_str} vs {onset_2_str} to {offset_2_str}), and both are "
+                        f"marked as simultaneously used ({use_var_1} = 1, {use_var_2} = 1). "
+                        "Please check for a duplicate medication course.",
                         reports = reports,
                         priority_item=True,
                     )
@@ -474,10 +554,9 @@ class PharmChecks(FormCheck):
                             other_med["onset_var"],
                             other_med["offset_var"],
                         ],
-                        f"{no_med['name_var']} contains 999 (no medication) from "
-                        f"{no_med_onset_str} to {no_med_offset_str}, but its date range "
-                        f"strictly overlaps with another medication course "
-                        f"({other_med['name_var']}: {other_onset_str} to {other_offset_str}). "
+                        f"A no-medication period ({no_med['name_var']} = 999, "
+                        f"{no_med_onset_str} to {no_med_offset_str}) overlaps another medication course "
+                        f"({other_med['name_var']}, {other_onset_str} to {other_offset_str}). "
                         "A no-medication period can touch another course on the same start/end date, "
                         "but it should not overlap beyond that boundary.",
                         priority_item=True,
@@ -537,10 +616,11 @@ class PharmChecks(FormCheck):
                         row,
                         forms,
                         [name_var, onset_var, offset_var, other_name_var, other_onset_var],
-                        f"{name_var} contains 999 (no medication) starting {self._date_to_str(onset_val)}, "
-                        f"but {offset_var} is missing or coded as ongoing "
-                        f"while another medication course ({other_name_var}) starts later on "
-                        f"{self._date_to_str(other_onset_val)}. Please end the no-medication period or review the later medication course.",
+                        f"A no-medication period has no end date ({name_var} = 999, "
+                        f"{onset_var} = {self._date_to_str(onset_val)}, {offset_var} missing or coded as ongoing), "
+                        f"but a later medication course starts after it "
+                        f"({other_name_var}, onset {self._date_to_str(other_onset_val)}). "
+                        "Please end the no-medication period or review the later medication course.",
                         priority_item=True,
                     )
                     break
@@ -561,8 +641,9 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [offset_var],
-                    f"{offset_var} is coded as ongoing (1901-01-01), but medication courses in the past "
-                    "pharmaceutical treatment form cannot be ongoing. Please add this medication in the current pharmaceutical treatment form.",
+                    f"A medication course is coded as ongoing ({offset_var} = 1901-01-01), but courses "
+                    "in the past pharmaceutical treatment form cannot be ongoing. "
+                    "Please add this medication in the current pharmaceutical treatment form.",
                 )
 
     def check_current_med_not_ongoing_but_has_offset(self, row, forms=None):
@@ -589,9 +670,10 @@ class PharmChecks(FormCheck):
                             row,
                             forms,
                             [ongoing_var, offset_var],
-                            f"{ongoing_var} is coded as 2, but {offset_var} is also populated with "
-                            f"{self._date_to_str(offset_val)} instead of the ongoing code. Please confirm "
-                            "whether this course is ongoing and reconcile the ongoing/intermittent flag with the offset date.",
+                            f"This course is flagged as ongoing/intermittent ({ongoing_var} = 2), but a real "
+                            f"end date is recorded ({offset_var} = {self._date_to_str(offset_val)}) rather than "
+                            "the ongoing code (1901-01-01). Please reconcile the ongoing/intermittent flag "
+                            "with the offset date.",
                         )
 
     def check_current_med_not_before_past_form(self, row, forms=None):
@@ -625,9 +707,10 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [offset_var, past_form_date_var],
-                    f"{offset_var} ({self._date_to_str(offset_val)}) is before "
-                    f"{past_form_date_var} ({self._date_to_str(past_form_date_val)}). "
-                    "A current-form medication course should not end before the past pharmaceutical treatment assessment date.",
+                    f"A current-form medication course ends ({offset_var} = {self._date_to_str(offset_val)}) "
+                    f"before the past pharmaceutical treatment assessment date "
+                    f"({past_form_date_var} = {self._date_to_str(past_form_date_val)}). "
+                    "A current-form medication course should not end before that assessment date.",
                     priority_item=True,
                 )
 
@@ -675,8 +758,9 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [name_var] + provided_vars,
-                    f"{name_var} is coded as 999 (no medication), but other course-level fields "
-                    f"contain data ({', '.join(provided_vars)}). Please check whether this period was really no medication.",
+                    f"This course is coded as no medication ({name_var} = 999), but other course-level "
+                    f"fields contain data ({', '.join(provided_vars)}). "
+                    "Please check whether this period was really no medication.",
                     priority_item=True,
                 )
 
@@ -685,8 +769,9 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [name_var] + zero_vars,
-                    f"{name_var} is coded as 999 (no medication), but other course-level fields "
-                    f"contain zero values ({', '.join(zero_vars)}). Please check whether this period was really no medication.",
+                    f"This course is coded as no medication ({name_var} = 999), but other course-level "
+                    f"fields contain zero values ({', '.join(zero_vars)}). "
+                    "Please check whether this period was really no medication.",
                     reports=["Secondary Report"],
                     priority_item=True,
                 )
@@ -726,9 +811,9 @@ class PharmChecks(FormCheck):
                     row,
                     filtered_forms,
                     [onset_var, firstdose_var],
-                    f"{onset_var} ({onset_date}) does not match the date portion of "
-                    f"{firstdose_var} ({firstdose_date}). The first-dose datetime should "
-                    "have the same calendar date as the medication onset date.",
+                    f"The medication onset date ({onset_var} = {onset_date}) does not match the date "
+                    f"portion of the first-dose datetime ({firstdose_var} = {firstdose_date}). "
+                    "These should be the same calendar date.",
                     priority_item=True,
                 )
 
@@ -755,8 +840,9 @@ class PharmChecks(FormCheck):
                 row,
                 forms,
                 ["chrpharm_interview_date", "chrpharm_date_first"],
-                f"Past pharmaceutical treatment date ({past_pharm_date}) is more than 20 days later than "
-                f"current pharmaceutical treatment date ({curr_pharm_date}).",
+                f"Past pharmaceutical treatment date ({past_pharm_date}) is more than 20 days after "
+                f"the current pharmaceutical treatment date ({curr_pharm_date}). "
+                "Please verify both interview dates.",
                 priority_item=True,
             )
 
@@ -779,7 +865,8 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [comp_var],
-                    f"{comp_var} is {comp_val}, but compliance must be between 0 and 100 inclusive.",
+                    f"Medication compliance is out of range ({comp_var} = {comp_val}). "
+                    "Compliance must be between 0 and 100 inclusive.",
                     priority_item=True,
                 )
 
@@ -802,7 +889,8 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [freq_var],
-                    f"{freq_var} is {freq_val}. Values below 0 are only allowed when coded as -3 for missingness.",
+                    f"Medication frequency is negative ({freq_var} = {freq_val}). "
+                    "Values below 0 are only allowed when coded as -3 for missingness.",
                     priority_item=True,
                 )
 
@@ -846,16 +934,242 @@ class PharmChecks(FormCheck):
                     row,
                     forms,
                     [name_var, onset_var, offset_var],
-                    f"{name_var} ({str(name_val).strip()}) is coded as an acute injection medication, "
-                    f"but the course lasts {duration_days} days "
+                    f"An acute-injection medication course ({name_var} = {str(name_val).strip()}) "
+                    f"lasts {duration_days} days "
                     f"({onset_var} = {self._date_to_str(onset_val)}, {offset_var} = {self._date_to_str(offset_val)}), "
                     "which is longer than two weeks. Please review whether this course is truly an acute injection.",
+                    priority_item=True,
+                )
+
+    def check_combination_med_dose_format(self, row, past=False, forms=None):
+        # MED-QC-17: combination meds (name label contains "+", e.g. Amitriptyline
+        # + Perphenazine) must record both component doses in chrpharm_med{N}_dosage
+        # as "<num>+<num>". Sites have been entering only one component, so the
+        # other (e.g. Perphenazine, the antipsychotic) goes uncaptured.
+        if forms is None:
+            forms = []
+
+        combo_codes = {str(c) for c in self.COMBINATION_MED_CODES}
+        if not combo_codes:
+            return
+
+        for med_num in self._iter_med_nums(row, past=past):
+            name_var = self._med_var(med_num, "name", past=past)
+            dosage_var = self._med_var(med_num, "dosage", past=past)
+            if not hasattr(row, name_var) or not hasattr(row, dosage_var):
+                continue
+
+            name_val = getattr(row, name_var)
+            if self._is_missing_val(name_val):
+                continue
+            if self._normalize_med_code(name_val) not in combo_codes:
+                continue
+
+            dosage_val = getattr(row, dosage_var)
+            if self._is_missing_val(dosage_val):
+                continue
+
+            dosage_str = str(dosage_val).strip()
+            if not dosage_str:
+                continue
+
+            if not self._COMBO_DOSE_RE.search(dosage_str):
+                self._append_qc(
+                    row,
+                    forms,
+                    [name_var, dosage_var],
+                    f"A combination medication ({name_var} = {self._normalize_med_code(name_val)}) "
+                    f"does not record both component doses ({dosage_var} = '{dosage_str}'). "
+                    "Please enter the two doses separated by '+' (e.g. '25+4').",
+                    priority_item=True,
+                )
+
+    def check_med_dose_cutoffs(self, row, past=False, forms=None):
+        # MED-QC-18: clinical-use daily-dose cutoffs. Flag when a course's
+        # chrpharm_med{N}_dosage(_past) strictly exceeds the per-medication
+        # cutoff in DOSE_CUTOFFS_MG. Skip silently when the dosage isn't a
+        # plain numeric value (e.g. combination-med strings like "10+5" —
+        # those are handled by check_combination_med_dose_format).
+        if forms is None:
+            forms = []
+
+        for med_num in self._iter_med_nums(row, past=past):
+            name_var = self._med_var(med_num, "name", past=past)
+            dosage_var = self._med_var(med_num, "dosage", past=past)
+            if not hasattr(row, name_var) or not hasattr(row, dosage_var):
+                continue
+
+            name_val = getattr(row, name_var)
+            if self._is_missing_val(name_val):
+                continue
+
+            code = self._normalize_med_code(name_val)
+            if code not in self.DOSE_CUTOFFS_MG:
+                continue
+
+            dosage_val = getattr(row, dosage_var)
+            if not self._valid_number(dosage_val):
+                continue
+
+            cutoff = self.DOSE_CUTOFFS_MG[code]
+            dose_mg = float(dosage_val)
+            if dose_mg > cutoff:
+                self._append_qc(
+                    row,
+                    forms,
+                    [name_var, dosage_var],
+                    f"The recorded dose for medication code {code} ({dosage_var} = {dose_mg:g} mg) "
+                    f"exceeds the clinical-use cutoff of {cutoff} mg. "
+                    "Please verify the dose is recorded correctly.",
+                    priority_item=True,
+                )
+
+    def check_ap_pharm_mismatch(self, row, forms=None):
+        # MED-QC-19: cross-form consistency between lifetime_ap_exposure_screen
+        # (chrap_X = 1 means lifetime use) and past_pharmaceutical_treatment
+        # (chrpharm_med{N}_name_past coded with an AP medication). One pass per
+        # antipsychotic: flag both "lifetime says yes, past pharm doesn't show it"
+        # and "past pharm shows it, lifetime says no".
+        if forms is None:
+            forms = []
+
+        if not self._past_pharm_marked_complete(row):
+            return
+        if not self._lifetime_ap_marked_complete(row):
+            return
+        if self._chrap_missing_marked(row):
+            return
+
+        past_med_codes = {}
+        for med_num in self._iter_med_nums(row, past=True):
+            name_var = self._med_var(med_num, "name", past=True)
+            if not hasattr(row, name_var):
+                continue
+            name_val = getattr(row, name_var)
+            if self._is_missing_val(name_val):
+                continue
+            code = self._normalize_med_code(name_val)
+            past_med_codes.setdefault(code, []).append(name_var)
+        past_codes_set = set(past_med_codes.keys())
+
+        for chrap_var, pharm_codes in self._chrap_to_pharm_codes.items():
+            if not hasattr(row, chrap_var):
+                continue
+            chrap_val = getattr(row, chrap_var)
+            if self._is_missing_val(chrap_val):
+                continue
+            if not self.utils.can_be_float(chrap_val):
+                continue
+
+            chrap_says_yes = float(chrap_val) == 1.0
+            matching_codes = pharm_codes & past_codes_set
+            med_name = self._chrap_to_med_name.get(chrap_var, "antipsychotic")
+
+            if chrap_says_yes and not matching_codes:
+                self._append_qc(
+                    row,
+                    forms,
+                    [chrap_var],
+                    f"Lifetime use of {med_name} is reported on lifetime_ap_exposure_screen "
+                    f"({chrap_var} = 1), but no matching {med_name} course is recorded in "
+                    f"past_pharmaceutical_treatment "
+                    f"(expected one of chrpharm_med{{N}}_name_past in {{{', '.join(sorted(pharm_codes))}}}). "
+                    "Please reconcile the two forms.",
+                    priority_item=True,
+                )
+            elif (not chrap_says_yes) and matching_codes:
+                matching_name_vars = []
+                for code in sorted(matching_codes):
+                    matching_name_vars.extend(past_med_codes.get(code, []))
+                self._append_qc(
+                    row,
+                    forms,
+                    [chrap_var] + matching_name_vars,
+                    f"No lifetime use of {med_name} is reported on lifetime_ap_exposure_screen "
+                    f"({chrap_var} = {chrap_val}, not 1), but past_pharmaceutical_treatment records a "
+                    f"matching {med_name} course "
+                    f"({', '.join(matching_name_vars)} = {', '.join(sorted(matching_codes))}). "
+                    "Please reconcile the two forms.",
                     priority_item=True,
                 )
 
     # ---------------------------------------------------------------------
     # Medication QC helpers
     # ---------------------------------------------------------------------
+
+    @staticmethod
+    def _build_ap_lookups(ap_mappings):
+        """Build forward (chrap_var -> {pharm code, ...}) and reverse
+        (pharm code -> {chrap_var, ...}) lookups from ap_med_mappings.json.
+        Entries with an empty chrap_var or empty pharm_vals (brand-name-only
+        rows with no canonical mapping) are skipped.
+        """
+        chrap_to_codes = {}
+        code_to_chraps = {}
+        for entry in ap_mappings.values():
+            chrap_var = (entry.get("chrap_var") or "").strip()
+            if not chrap_var:
+                continue
+            pharm_vals = entry.get("pharm_vals") or []
+            code_strs = {str(v).strip() for v in pharm_vals if str(v).strip()}
+            if not code_strs:
+                continue
+            chrap_to_codes.setdefault(chrap_var, set()).update(code_strs)
+            for code in code_strs:
+                code_to_chraps.setdefault(code, set()).add(chrap_var)
+        return chrap_to_codes, code_to_chraps
+
+    # Class-level cache: chrap_var -> medication name. PharmChecks is
+    # instantiated once per row, so the data dictionary CSV must only be
+    # read on the first instantiation.
+    _CHRAP_MED_NAME_CACHE = None
+
+    @classmethod
+    def _load_chrap_med_names(cls, utils):
+        """Parse chrap_var -> medication name from the data dictionary.
+        The lifetime-AP yes/no Field Labels follow the pattern
+        'Have you ever taken <med name>?' (e.g. 'Have you ever taken
+        Risperidone (Risperdal)?'), so the name is whatever follows the
+        prefix, minus the trailing '?'. Variables whose label doesn't match
+        the pattern (course/dose/date fields) are skipped.
+        """
+        if cls._CHRAP_MED_NAME_CACHE is None:
+            prefix = "have you ever taken"
+            names = {}
+            data_dict_df = utils.read_data_dictionary()
+            chrap_rows = data_dict_df[
+                data_dict_df["Variable / Field Name"].str.startswith("chrap_")
+            ]
+            for _, dd_row in chrap_rows.iterrows():
+                label = str(dd_row["Field Label"]).strip()
+                if not label.lower().startswith(prefix):
+                    continue
+                med_name = label[len(prefix):].strip().rstrip("?").strip()
+                if med_name:
+                    names[dd_row["Variable / Field Name"]] = med_name
+            cls._CHRAP_MED_NAME_CACHE = names
+        return cls._CHRAP_MED_NAME_CACHE
+
+    def _lifetime_ap_marked_complete(self, row):
+        form = "lifetime_ap_exposure_screen"
+        if form not in self.important_form_vars:
+            return False
+        compl_var = self.important_form_vars[form]["completion_var"]
+        if self.network == "PRESCIENT":
+            compl_var += "_rpms"
+        if not hasattr(row, compl_var):
+            return False
+        return getattr(row, compl_var) in self.utils.all_dtype([2])
+
+    def _chrap_missing_marked(self, row):
+        if not hasattr(row, "chrap_missing"):
+            return False
+        val = getattr(row, "chrap_missing")
+        if self._is_missing_val(val):
+            return False
+        if not self.utils.can_be_float(val):
+            return False
+        return float(val) == 1.0
 
     def _past_pharm_marked_complete(self, row):
         past_form = "past_pharmaceutical_treatment"
@@ -990,7 +1304,16 @@ class PharmChecks(FormCheck):
                 med_nums.append(med_num)
         return med_nums
 
-    def _append_qc(self, row, forms, vars_list, message, reports=None, priority_item=False):
+    def _append_qc(
+        self,
+        row,
+        forms,
+        vars_list,
+        message,
+        reports=None,
+        priority_item=False,
+        check_id=None,
+    ):
         # For flags pertaining only to the past pharmaceutical treatment form,
         # require only that the form is marked complete. The full
         # standard_form_filter also runs check_if_missing, which for this form
@@ -1029,6 +1352,8 @@ class PharmChecks(FormCheck):
         output_changes = {"reports": reports}
         if priority_item:
             output_changes["priority_item"] = True
+        if check_id is not None:
+            output_changes["check_id"] = check_id
 
         error_output = self.create_row_output(
             row,
