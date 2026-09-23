@@ -8,6 +8,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_forms.form_check import FormCheck
+from analyze_flags.canonicalize import escape_specific_flag_value
 from datetime import datetime
 
 class FluidChecks(FormCheck):
@@ -46,7 +47,7 @@ class FluidChecks(FormCheck):
         self.cbc_differential_check(row)
         self.check_blood_date(row,[form],
         ['chrblood_drawdate','chrblood_labdate'], {"reports":blood_reports})
-        #self.check_blood_interview_date_gap(row)
+        self.check_blood_interview_date_gap(row)
         self.barcode_format_check(row)
         # PRESCIENT disabled per operator request 2026-04-30. PRONET
         # rows still run the cross-subject duplicate detector. To
@@ -208,14 +209,19 @@ class FluidChecks(FormCheck):
                 barcode_val = str(getattr(row,barcode_var))
                 # blood team said to ignore these 
                 if 'pronet' in barcode_val.lower():
-                    continue    
+                    continue
+                rendered_barcode_val = escape_specific_flag_value(barcode_val)
                 if len(barcode_val) != 10:
-                    error_message = f"Barcode ({barcode_val}) length is not 10 characters."
+                    error_message = (
+                        f"Barcode ({rendered_barcode_val}) length is not "
+                        "10 characters.")
                     error_output = self.create_row_output(
                     row,forms,[barcode_var], error_message, output_changes)
                     self.final_output_list.append(error_output)
                 if any(not char.isdigit() for char in barcode_val):
-                    error_message = f"Barcode ({barcode_val}) contains non-numeric characters."
+                    error_message = (
+                        f"Barcode ({rendered_barcode_val}) contains "
+                        "non-numeric characters.")
                     error_output = self.create_row_output(
                     row,forms,[barcode_var], error_message, output_changes)
                     self.final_output_list.append(error_output)
@@ -321,9 +327,15 @@ class FluidChecks(FormCheck):
                 # calculate_resolved_errors and losing reviewer comments.
                 conflicts_sorted = sorted(set(conflicts))
                 conflict_str = ', '.join(
-                    f"{s} ({v} at {tp})" for (s, v, tp) in conflicts_sorted)
+                    f"{escape_specific_flag_value(s)} "
+                    f"({escape_specific_flag_value(v)} at "
+                    f"{escape_specific_flag_value(tp)})"
+                    for (s, v, tp) in conflicts_sorted)
+                rendered_var = escape_specific_flag_value(var)
+                rendered_val = escape_specific_flag_value(val_str)
                 error_message = (
-                    f"Duplicate {label} value ({var} = {val_str})"
+                    f"Duplicate {label} value ({rendered_var} = "
+                    f"{rendered_val})"
                     f" also found on other subject(s): {conflict_str}.")
                 error_output = self.create_row_output(
                     row, forms, [var], error_message, output_changes)
@@ -402,4 +414,4 @@ class FluidChecks(FormCheck):
         
 
 
-            
+

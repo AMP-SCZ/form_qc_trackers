@@ -18,8 +18,10 @@ class DuplicateSearcher():
         self.forms_per_tp = self.utils.load_dependency_json(f"forms_per_timepoint.json")
         self.sub_info = self.utils.load_dependency_json(f"subject_info.json")
         self.grouped_vars = self.utils.load_dependency_json(f"grouped_variables.json")
+        self.important_form_vars = self.utils.load_dependency_json(f"important_form_vars.json")
+        self.tp_date_ranges = self.utils.load_dependency_json(f"earliest_latest_dates_per_tp.json")
         self.form_per_var = self.grouped_vars["var_forms"]
-        
+
         self.final_output = []
 
     def run_script(self):
@@ -59,9 +61,20 @@ class DuplicateSearcher():
                     if hasattr(row, var):
                         var_val = getattr(row, var)
                         if str(var_val) not in self.utils.missing_code_list + (['','nan']):
+                            tp_range = self.tp_date_ranges.get(subject, {}).get(tp, {})
+                            tp_earliest = tp_range.get('earliest', '')
+                            tp_latest = tp_range.get('latest', '')
+                            form_date = ''
+                            form_info = self.important_form_vars.get(var_form, {})
+                            interview_date_var = form_info.get('interview_date_var', '')
+                            if interview_date_var and hasattr(row, interview_date_var):
+                                form_date = getattr(row, interview_date_var)
                             self.final_output.append({'subject':subject,'cohort':cohort,
                             'timepoint':tp,'network':network,
-                            'form':var_form, 'var': var, 'var_value': var_val})
+                            'form':var_form, 'var': var, 'var_value': var_val,
+                            'form_date': form_date,
+                            'tp_earliest_date': tp_earliest,
+                            'tp_latest_date': tp_latest})
 
         df = pd.DataFrame(self.final_output)
         df.to_csv(f'{self.output_path}forms_wrong_tp.csv',

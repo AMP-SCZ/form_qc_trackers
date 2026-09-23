@@ -5,7 +5,8 @@ import json
 parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-4])
 sys.path.insert(1, parent_dir)
 from utils.utils import Utils
-from qc_forms.form_check import FormCheck, _compile_bl
+from qc_forms.form_check import FormCheck
+from utils.branching_logic_eval import evaluate_branching_logic
 from datetime import datetime
 
 class ScidChecks(FormCheck):
@@ -98,7 +99,8 @@ class ScidChecks(FormCheck):
                     return 
             if extra_conditionals != '':
                 for conditional in extra_conditionals:
-                    if not eval(_compile_bl(conditional)):
+                    if not evaluate_branching_logic(
+                            conditional, curr_row=curr_row, instance=self):
                         return 
             self.scid_diagnostic_criteria_check(curr_row, [form],
             affected_vars,changed_output, bl_filtered_vars=[],filter_excl_vars=False, 
@@ -119,7 +121,8 @@ class ScidChecks(FormCheck):
                     break
             if not should_flag and extra_conditionals != '':
                 for conditional in extra_conditionals:
-                    if not eval(_compile_bl(conditional)):
+                    if not evaluate_branching_logic(
+                            conditional, curr_row=curr_row, instance=self):
                         should_flag = True
                         break
             if should_flag:

@@ -62,10 +62,10 @@ class GraphErrors():
         # so the curves match what that script would have produced from
         # the same revision history.
         self.spike_thresholds = {
-            'count_only': 500,           # any day with >= 300 resolutions
-            'count_short_mean': 300,     # >100 resolutions AND mean<7 days
+            'count_only': 300,           # any day with >= 300 resolutions
+            'count_short_mean': 100,     # >100 resolutions AND mean<7 days
             'short_mean_days': 7,
-            'count_low_std': 150,         # >50 resolutions AND stdev<4 days
+            'count_low_std': 50,         # >50 resolutions AND stdev<4 days
             'low_std': 4,
             'per_day_cap': 300,          # cap kept rows at this per day
         }

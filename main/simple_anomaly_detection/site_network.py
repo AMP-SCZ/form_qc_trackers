@@ -45,7 +45,8 @@ MIN_N_PER_SITE = 30
 SITE_MEDIAN_Z_THRESHOLD = 3.0
 SITE_IQR_LOG2_THRESHOLD = 1.0   # IQR off by >2x or <0.5x
 SITE_MISS_Z_THRESHOLD   = 3.0
-SITE_CORR_FISHER_DELTA  = 0.5
+SITE_CORR_FISHER_DELTA  = 0.6
+SITE_CORR_Z_THRESHOLD   = 3.5
 N_NUMERIC_FOR_CORR      = 30
 # The median-shift and missingness-shift sub-tests compute a robust scale
 # ACROSS the per-site medians / missingness rates via robust_center_scale,
@@ -59,8 +60,14 @@ MIN_SITES_FOR_CROSS_SCALE = 5
 
 
 def detect_all(per_slice: Dict, classify: Dict = None, **_) -> List[dict]:
-    """``classify`` is unused here -- this detector classifies the
-    network stack once, which is bounded already."""
+    """Compare sites within each timepoint, then collapse repeated issues.
+
+    Pooling visits made site timepoint mix and repeated subjects part of the
+    signal, and treated form columns absent at other visits as missing. Site
+    distributions are now estimated inside a single visit slice, on one row per
+    nonblank subject. ``classify`` reuses the runner's per-slice cache.
+    """
+    classify = classify or {}
     by_network: Dict[str, List] = {}
     for (network, tp), df in per_slice.items():
         if df is None or df.empty or "subjectid" not in df.columns:
@@ -73,13 +80,24 @@ def detect_all(per_slice: Dict, classify: Dict = None, **_) -> List[dict]:
     for network, items in by_network.items():
         try:
             stacked = stack_by_network(items)
-            cats = classify_columns(stacked)
-            site_col = "_site"
-            stacked[site_col] = stacked["subjectid"].astype(str).str[:2]
-            numerics = [c for c in cats["numeric"]
-                        if not matches_excluded_substrings(c, EXTRA_EXCLUDED_SUBSTRINGS)]
-            rows.extend(_per_site(stacked, numerics, network, site_col))
-            rows.extend(_per_site_pairs(stacked, numerics, network, site_col))
+            for tp, df in items:
+                sid = df["subjectid"].astype(str).str.strip()
+                work = df.loc[sid.ne("") & ~sid.str.lower().isin(
+                    {"nan", "none", "na", "n/a"})].copy()
+                work = work.drop_duplicates("subjectid", keep="first")
+                if work.empty:
+                    continue
+                cats = classify.get((network, tp)) or classify_columns(work)
+                site_col = "_site"
+                work[site_col] = work["subjectid"].astype(str).str[:2]
+                numerics = [c for c in cats["numeric"]
+                            if c in work.columns and not matches_excluded_substrings(
+                                c, EXTRA_EXCLUDED_SUBSTRINGS)]
+                rows.extend(_per_site(work, numerics, network, site_col, tp))
+                # Collapse correlation-drift fan-out (one variable decorrelating
+                # at a site trips a row per partner pair) before cross-site fold.
+                rows.extend(_collapse_corr_drift(
+                    _per_site_pairs(work, numerics, network, site_col, tp)))
             network_summaries[network] = stacked
         except Exception as e:
             print(f"  [site_network] WARN network {network}: {e}")
@@ -126,7 +144,7 @@ def _collapse_multisite(rows: List[dict]) -> List[dict]:
         return rows
     from collections import defaultdict
 
-    groups: Dict[Tuple[str, str, str], List[dict]] = defaultdict(list)
+    groups: Dict[Tuple[str, str, str, str], List[dict]] = defaultdict(list)
     passthrough: List[dict] = []
     for r in rows:
         site = str(r.get("site_id", "") or "")
@@ -135,8 +153,8 @@ def _collapse_multisite(rows: List[dict]) -> List[dict]:
         if not site or site.startswith("("):
             passthrough.append(r)
             continue
-        key = (str(r.get("network", "")), str(r.get("variable", "")),
-               str(r.get("method", "")))
+        key = (str(r.get("network", "")), str(r.get("timepoint", "")),
+               str(r.get("variable", "")), str(r.get("method", "")))
         groups[key].append(r)
 
     def _sev(g) -> float:
@@ -147,7 +165,7 @@ def _collapse_multisite(rows: List[dict]) -> List[dict]:
 
     SHOWN = 15
     out: List[dict] = []
-    for (network, variable, method), grp in groups.items():
+    for (network, _timepoint, variable, method), grp in groups.items():
         # One row per site within a (variable, method) group, so by_sev already
         # holds each site exactly once in severity-descending order. Reuse that
         # single order for sites / site_severities / observed_value / explanation.
@@ -181,40 +199,120 @@ def _collapse_multisite(rows: List[dict]) -> List[dict]:
     return out
 
 
-def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str, site_col: str) -> List[dict]:
+def _collapse_corr_drift(rows: List[dict]) -> List[dict]:
+    """Fold correlation-drift fan-out into one dominant-variable row per site.
+
+    ``_per_site_pairs`` emits one row per (site, correlated pair). When ONE
+    variable's correlation drifts against MANY partners at the SAME site, that is
+    a single finding ("this variable's relationships are off at this site"), not
+    N -- but ``_collapse_multisite`` groups by the pair label ``"a | b"``, so it
+    folds the same pair across sites and never folds the partners of a shared
+    dominant variable. This mirrors ``correlative._dedup_correlative``'s
+    dominant-leg collapse, keyed on (network, site) since these are site-level
+    rows: a variable that appears in >= 2 flagged pairs at a site collapses to
+    one row; pairs whose neither leg is shared pass through unchanged.
+
+    The dominant-variable row keeps a ``" | "`` marker in its ``variable`` label
+    (so ``SimpleAnomalyDetector._suppress_redundant_outliers`` still skips
+    correlation rows, as it did for the raw pair rows) and uses a label that is
+    STABLE across sites for the same dominant variable, so the downstream
+    ``_collapse_multisite`` can still fold that variable's drift across sites.
+    """
+    if not rows:
+        return rows
+    from collections import defaultdict
+
+    by_site: Dict[Tuple[str, str], List[dict]] = defaultdict(list)
+    passthrough: List[dict] = []
+    for r in rows:
+        parts = [p.strip() for p in str(r.get("variable", "")).split("|") if p.strip()]
+        if len(parts) != 2:
+            passthrough.append(r)
+            continue
+        by_site[(str(r.get("network", "")), str(r.get("site_id", "")))].append(r)
+
+    def _sev(r) -> float:
+        try:
+            return float(r.get("severity_score", 0) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    out: List[dict] = []
+    for (network, site), grp in by_site.items():
+        leg_partners: Dict[str, set] = defaultdict(set)
+        leg_rep: Dict[str, dict] = {}
+        pairs: List[Tuple[str, str, dict]] = []
+        for r in grp:
+            a, b = sorted(p.strip() for p in str(r.get("variable", "")).split("|") if p.strip())
+            pairs.append((a, b, r))
+            for leg, partner in ((a, b), (b, a)):
+                leg_partners[leg].add(partner)
+                cur = leg_rep.get(leg)
+                if cur is None or _sev(r) > _sev(cur):
+                    leg_rep[leg] = r
+        dom_legs = {leg for leg, ps in leg_partners.items() if len(ps) >= 2}
+        covered = set()
+        for leg in sorted(dom_legs):
+            parts = sorted(leg_partners[leg])
+            rep = dict(leg_rep[leg])
+            rep["variable"] = f"{leg} | (corr-drift)"   # site-stable, keeps '|'
+            rep["variables_involved"] = leg + " + " + ", ".join(parts[:12])
+            rep["corroborating_pairs"] = len(parts)
+            rep["explanation"] = (
+                f"At site {site}, {leg}'s correlation with {len(parts)} other "
+                f"variable(s) ({', '.join(parts[:6])}{'...' if len(parts) > 6 else ''}) "
+                f"drifts from the network; strongest Fisher-z delta {rep.get('raw_score')}. "
+                f"Drift against many partners -> {leg} itself is the likely site-specific issue."
+            )
+            out.append(rep)
+            for p in parts:
+                covered.add(frozenset((leg, p)))
+        for (a, b, r) in pairs:
+            if frozenset((a, b)) in covered:
+                continue
+            rr = dict(r)
+            rr.setdefault("corroborating_pairs", 1)
+            out.append(rr)
+    out.extend(passthrough)
+    return out
+
+
+def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str,
+              site_col: str, timepoint: str = "") -> List[dict]:
     out: List[dict] = []
     if not numerics:
         return out
-    site_counts = stacked[site_col].value_counts()
+    site_counts = stacked.groupby(site_col)["subjectid"].nunique()
     eligible_sites = site_counts[site_counts >= MIN_N_PER_SITE].index.tolist()
     if len(eligible_sites) < 3:
         return out
 
-    n_total = len(stacked)
     gated_cols = 0   # columns where <5 sites disabled median/missingness shift
     for col in numerics:
         num = to_numeric_clean(stacked[col])
-        if num.notna().sum() < MIN_N_PER_SITE * 3:
+        if num.notna().sum() < MIN_N_PER_SITE:
             continue
 
         per_site = {}
+        miss_by_site = {}
         for site in eligible_sites:
             mask = stacked[site_col] == site
             sub = num[mask]
             n = int(sub.notna().sum())
+            total = int(mask.sum())
+            # Missingness uses every site with enough SUBJECTS, even when the
+            # column has <MIN_N observed there (high missingness is the signal).
+            miss_by_site[site] = float(total - n) / max(total, 1)
             if n < MIN_N_PER_SITE:
                 continue
             med, _ = robust_center_scale(sub.dropna().to_numpy(dtype=float))
             q1, q3 = np.nanpercentile(sub.dropna(), [25, 75])
             iqr = float(q3 - q1)
-            miss_rate = float(mask.sum() - n) / max(int(mask.sum()), 1)
-            per_site[site] = (med, iqr, miss_rate, n)
-        if len(per_site) < 3:
-            continue
+            per_site[site] = (med, iqr, n)
 
         meds = np.array([v[0] for v in per_site.values()], dtype=float)
         iqrs = np.array([v[1] for v in per_site.values()], dtype=float)
-        misses = np.array([v[2] for v in per_site.values()], dtype=float)
+        misses = np.array(list(miss_by_site.values()), dtype=float)
 
         # Cross-site robust center/scale for the median- and missingness-shift
         # sub-tests needs >=5 sites (robust_center_scale NaNs sigma below that).
@@ -222,12 +320,17 @@ def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str, site_col
         i_med = float(np.nanmedian(iqrs)) if np.isfinite(iqrs).any() else float("nan")
         if len(per_site) >= MIN_SITES_FOR_CROSS_SCALE:
             m_med, m_sigma = robust_center_scale(meds)
+        else:
+            m_med = m_sigma = float("nan")
+        if len(miss_by_site) >= MIN_SITES_FOR_CROSS_SCALE:
             ms_med, ms_sigma = robust_center_scale(misses)
         else:
-            m_med = m_sigma = ms_med = ms_sigma = float("nan")
+            ms_med = ms_sigma = float("nan")
+        if (len(per_site) < MIN_SITES_FOR_CROSS_SCALE
+                or len(miss_by_site) < MIN_SITES_FOR_CROSS_SCALE):
             gated_cols += 1
 
-        for site, (med, iqr, miss, n) in per_site.items():
+        for site, (med, iqr, n) in per_site.items():
             # Median shift
             if np.isfinite(m_sigma) and m_sigma > 0:
                 z = abs(med - m_med) / m_sigma
@@ -236,7 +339,8 @@ def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str, site_col
                         anomaly_type=ANOMALY_TYPE,
                         severity_score=calibrate(z, SITE_MEDIAN_Z_THRESHOLD, 6.0),
                         raw_score=float(z),
-                        network=network, site_id=site, subjectid="(site-level)", variable=col,
+                        network=network, timepoint=timepoint, site_id=site,
+                        subjectid="(site-level)", variable=col,
                         observed_value=f"site median {med:.4g} (n={n})",
                         expected_value=f"cross-site median {m_med:.4g}, sigma {m_sigma:.4g}",
                         explanation=(
@@ -254,7 +358,8 @@ def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str, site_col
                         anomaly_type=ANOMALY_TYPE,
                         severity_score=calibrate(abs(r), SITE_IQR_LOG2_THRESHOLD, 3.0),
                         raw_score=abs(r),
-                        network=network, site_id=site, subjectid="(site-level)", variable=col,
+                        network=network, timepoint=timepoint, site_id=site,
+                        subjectid="(site-level)", variable=col,
                         observed_value=f"site IQR {iqr:.4g}",
                         expected_value=f"cross-site median IQR {i_med:.4g}",
                         explanation=(
@@ -265,7 +370,9 @@ def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str, site_col
                         method="log2 IQR ratio vs cross-site median IQR",
                     ).to_row())
 
-            # Missingness shift
+        # Missingness shift is intentionally separate from per_site: a site's
+        # low non-missing n must not remove it from the missingness comparison.
+        for site, miss in miss_by_site.items():
             if np.isfinite(ms_sigma) and ms_sigma > 0:
                 mz = abs(miss - ms_med) / ms_sigma
                 if mz >= SITE_MISS_Z_THRESHOLD and abs(miss - ms_med) > 0.05:
@@ -273,7 +380,8 @@ def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str, site_col
                         anomaly_type=ANOMALY_TYPE,
                         severity_score=calibrate(mz, SITE_MISS_Z_THRESHOLD, 6.0),
                         raw_score=float(mz),
-                        network=network, site_id=site, subjectid="(site-level)", variable=col,
+                        network=network, timepoint=timepoint, site_id=site,
+                        subjectid="(site-level)", variable=col,
                         observed_value=f"site missing rate {miss:.2%}",
                         expected_value=f"cross-site missing-rate median {ms_med:.2%}",
                         explanation=(
@@ -290,7 +398,8 @@ def _per_site(stacked: pd.DataFrame, numerics: List[str], network: str, site_col
     return out
 
 
-def _per_site_pairs(stacked: pd.DataFrame, numerics: List[str], network: str, site_col: str) -> List[dict]:
+def _per_site_pairs(stacked: pd.DataFrame, numerics: List[str], network: str,
+                    site_col: str, timepoint: str = "") -> List[dict]:
     """Find site-level correlation drift on the strongest globally-correlated pairs."""
     out: List[dict] = []
     if len(numerics) < 4:
@@ -301,7 +410,7 @@ def _per_site_pairs(stacked: pd.DataFrame, numerics: List[str], network: str, si
     top = sorted(numerics, key=lambda c: completeness[c], reverse=True)[:N_NUMERIC_FOR_CORR]
     series = {c: to_numeric_clean(stacked[c]) for c in top}
 
-    site_counts = stacked[site_col].value_counts()
+    site_counts = stacked.groupby(site_col)["subjectid"].nunique()
     eligible_sites = site_counts[site_counts >= MIN_N_PER_SITE].index.tolist()
     if len(eligible_sites) < 3:
         return out
@@ -325,35 +434,53 @@ def _per_site_pairs(stacked: pd.DataFrame, numerics: List[str], network: str, si
     pairs = pairs[:50]   # cap pair budget
 
     for a, b, r_global in pairs:
-        rz_global = _fisher_z(r_global)
         for site in eligible_sites:
             mask = (stacked[site_col] == site) & series[a].notna() & series[b].notna()
-            if mask.sum() < MIN_N_PER_SITE:
+            rest_mask = (stacked[site_col] != site) & series[a].notna() & series[b].notna()
+            n_site = int(mask.sum())
+            n_rest = int(rest_mask.sum())
+            if n_site < MIN_N_PER_SITE or n_rest < MIN_N_PER_SITE:
                 continue
             x = series[a][mask].to_numpy(dtype=float)
             y = series[b][mask].to_numpy(dtype=float)
-            if np.std(x) <= 0 or np.std(y) <= 0:
+            xr = series[a][rest_mask].to_numpy(dtype=float)
+            yr = series[b][rest_mask].to_numpy(dtype=float)
+            if (np.std(x) <= 0 or np.std(y) <= 0
+                    or np.std(xr) <= 0 or np.std(yr) <= 0):
                 continue
             r_site = float(np.corrcoef(x, y)[0, 1])
+            r_rest = float(np.corrcoef(xr, yr)[0, 1])
             rz_site = _fisher_z(r_site)
-            delta = abs(rz_site - rz_global)
-            if delta < SITE_CORR_FISHER_DELTA:
+            rz_rest = _fisher_z(r_rest)
+            delta = abs(rz_site - rz_rest)
+            se = float(np.sqrt(1.0 / max(n_site - 3, 1)
+                               + 1.0 / max(n_rest - 3, 1)))
+            z_diff = delta / se if se > 0 else float("nan")
+            # Require both a meaningful Fisher-scale effect AND evidence scaled
+            # for site/rest sample size. Comparing against a pooled correlation
+            # containing the target site diluted the contrast, while a fixed
+            # delta alone treated n=30 and n=300 as equally precise.
+            if (delta < SITE_CORR_FISHER_DELTA
+                    or not np.isfinite(z_diff)
+                    or z_diff < SITE_CORR_Z_THRESHOLD):
                 continue
             out.append(Finding(
                 anomaly_type=ANOMALY_TYPE,
-                severity_score=calibrate(delta, SITE_CORR_FISHER_DELTA, 1.5),
-                raw_score=delta,
-                network=network, site_id=site, subjectid="(site-level)",
+                severity_score=calibrate(z_diff, SITE_CORR_Z_THRESHOLD, 8.0),
+                raw_score=z_diff,
+                network=network, timepoint=timepoint, site_id=site,
+                subjectid="(site-level)",
                 variable=f"{a} | {b}",
                 variables_involved=f"{a}, {b}",
-                observed_value=f"site rho={r_site:+.2f} (n={int(mask.sum())})",
-                expected_value=f"network rho={r_global:+.2f}",
+                observed_value=f"site rho={r_site:+.2f} (n={n_site})",
+                expected_value=f"rest-of-network rho={r_rest:+.2f} (n={n_rest})",
                 explanation=(
-                    f"Site {site} correlation for {a} vs {b} differs from the network "
-                    f"by Fisher-z delta {delta:.2f}. Possible site-specific protocol "
-                    f"or scale shift."
+                    f"Site {site} correlation for {a} vs {b} differs from the "
+                    f"rest of the network by Fisher-z delta {delta:.2f} "
+                    f"(standardized z={z_diff:.2f}). Possible site-specific "
+                    f"protocol or scale shift."
                 ),
-                method="Fisher-z delta of site vs network correlation",
+                method="standardized Fisher-z difference: site vs rest of network",
             ).to_row())
     return out
 

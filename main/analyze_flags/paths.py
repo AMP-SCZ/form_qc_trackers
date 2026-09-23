@@ -7,7 +7,11 @@ def pipeline_output_path_from_config(config_info: dict) -> str:
     """Match qc_forms_main / pipeline: base output_path plus testing/ when enabled."""
     out = config_info["paths"]["output_path"]
     if config_info.get("testing_enabled") == "True":
-        out = f"{out}testing/"
+        # Configured paths are not guaranteed to end in a separator.  Preserve
+        # the configured style (important when tests exercise Windows paths on
+        # another host) while ensuring ``testing`` is a real child directory.
+        separator = "\\" if "\\" in out and "/" not in out else "/"
+        out = out.rstrip("/\\") + separator + "testing" + separator
     return out
 
 

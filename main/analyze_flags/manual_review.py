@@ -24,6 +24,7 @@ the analyze_flags scripts:
 """
 
 import os
+import tempfile
 
 import pandas as pd
 
@@ -47,6 +48,10 @@ _JUMPS_SHEET = 'jumps'
 _AFFECTED_SHEET = 'affected_entries'
 
 
+class JumpDecisionIntegrityError(RuntimeError):
+    """A jump workbook cannot safely support the requested exclusions."""
+
+
 def is_affirmative(value) -> bool:
     return str(value).strip().lower() in _AFFIRMATIVE
 
@@ -67,14 +72,38 @@ def _read_sheet(path, sheet_name):
     return df
 
 
-def _write_workbook(path, sheets):
-    """Write {sheet_name: DataFrame}. If the file is locked (open in
-    Excel on Windows), fall back to ``<path>.new.xlsx`` so a long run
-    never loses its results."""
+def _atomic_write_workbook(path, sheets):
+    """Write a workbook to a sibling temporary file, then replace it.
+
+    Keeping the temporary file on the same filesystem makes ``os.replace``
+    atomic: a crash or failed Excel serialization therefore cannot truncate a
+    previously valid manual-review workbook.
+    """
+    directory = os.path.dirname(os.path.abspath(path))
+    os.makedirs(directory, exist_ok=True)
+    fd, temporary_path = tempfile.mkstemp(
+        prefix=f".{os.path.basename(path)}.", suffix=".xlsx", dir=directory,
+    )
+    os.close(fd)
     try:
-        with pd.ExcelWriter(path, engine='openpyxl') as writer:
+        with pd.ExcelWriter(temporary_path, engine='openpyxl') as writer:
             for name, df in sheets.items():
                 df.to_excel(writer, sheet_name=name, index=False)
+        os.replace(temporary_path, path)
+    finally:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
+
+
+def _write_workbook(path, sheets):
+    """Atomically write {sheet_name: DataFrame}.
+
+    If the destination is locked (commonly because it is open in Excel on
+    Windows), atomically write ``<path>.new.xlsx`` instead so both the old
+    workbook and the newly generated result remain intact.
+    """
+    try:
+        _atomic_write_workbook(path, sheets)
         return path
     except (PermissionError, OSError) as e:
         fallback = f"{path}.new.xlsx"
@@ -83,9 +112,7 @@ def _write_workbook(path, sheets):
             f"writing to {fallback} instead. Close the file in Excel and "
             f"merge manually."
         )
-        with pd.ExcelWriter(fallback, engine='openpyxl') as writer:
-            for name, df in sheets.items():
-                df.to_excel(writer, sheet_name=name, index=False)
+        _atomic_write_workbook(fallback, sheets)
         return fallback
 
 
@@ -303,35 +330,107 @@ def load_jump_decisions(analyze_flags_dir, network):
         'n_undecided': 0,
     }
     path = jumps_workbook_path(analyze_flags_dir, network)
+    if not os.path.isfile(path):
+        return result
     jumps_df = _read_sheet(path, _JUMPS_SHEET)
-    if jumps_df.empty or 'jump_id' not in jumps_df.columns:
+    required_jump_columns = ['jump_id', 'include', 'direction', 'n_entries']
+    missing_jump_columns = [
+        c for c in required_jump_columns if c not in jumps_df.columns
+    ]
+    if missing_jump_columns:
+        raise JumpDecisionIntegrityError(
+            f"{path} '{_JUMPS_SHEET}' sheet is missing columns "
+            f"{missing_jump_columns}. Refusing to interpret a malformed "
+            "decision workbook as having no exclusions."
+        )
+    if jumps_df.empty:
         return result
     result['n_jumps'] = len(jumps_df)
 
     excluded_direction = {}
+    seen_jump_ids = set()
     for _, row in jumps_df.iterrows():
         include_val = str(row.get('include', '')).strip()
         if not include_val:
             result['n_undecided'] += 1
+        jid = str(row.get('jump_id', '')).strip()
+        direction = str(row.get('direction', '')).strip().lower()
+        if not jid or direction not in ('added', 'removed'):
+            raise JumpDecisionIntegrityError(
+                f"{path} contains a jump row with an empty jump_id or invalid "
+                f"direction {direction!r}."
+            )
+        if jid in seen_jump_ids:
+            raise JumpDecisionIntegrityError(
+                f"{path} contains duplicate jump_id {jid!r}."
+            )
+        seen_jump_ids.add(jid)
         if not is_affirmative(include_val):
-            jid = str(row.get('jump_id', '')).strip()
-            direction = str(row.get('direction', '')).strip().lower()
-            if jid and direction in ('added', 'removed'):
-                excluded_direction[jid] = direction
+            excluded_direction[jid] = direction
 
     if not excluded_direction:
         return result
     affected_df = _read_sheet(path, _AFFECTED_SHEET)
     if affected_df.empty:
-        return result
+        raise JumpDecisionIntegrityError(
+            f"{path} excludes {len(excluded_direction)} jump(s), but its "
+            f"'{_AFFECTED_SHEET}' sheet is missing or empty. Refusing to "
+            "apply a partial decision set."
+        )
     missing = [c for c in ['jump_id'] + ENTRY_KEY_COLUMNS
                if c not in affected_df.columns]
     if missing:
-        print(
-            f"WARNING: {path} affected_entries sheet missing columns "
-            f"{missing}; jump exclusions not applied."
+        raise JumpDecisionIntegrityError(
+            f"{path} '{_AFFECTED_SHEET}' sheet is missing columns {missing}. "
+            "Refusing to apply a partial decision set."
         )
-        return result
+
+    affected_df = affected_df.copy()
+    affected_df['jump_id'] = affected_df['jump_id'].astype(str).str.strip()
+    affected_ids = set(affected_df['jump_id'])
+    missing_ids = sorted(set(excluded_direction) - affected_ids)
+    if missing_ids:
+        sample = ', '.join(missing_ids[:5])
+        raise JumpDecisionIntegrityError(
+            f"{path} has excluded jump(s) with no affected entries: {sample}. "
+            "Refusing to apply a partial decision set."
+        )
+
+    # ``n_entries`` is written by estimate_resolved and gives us an
+    # independent completeness check.  Validate both row and unique-key counts
+    # when that count is present; duplicated or truncated affected rows would
+    # otherwise silently change which history entries are filtered.
+    for _, jump_row in jumps_df.iterrows():
+        jid = str(jump_row.get('jump_id', '')).strip()
+        if jid not in excluded_direction:
+            continue
+        expected_raw = pd.to_numeric(
+            jump_row.get('n_entries', ''), errors='coerce'
+        )
+        if (pd.isna(expected_raw) or float(expected_raw) < 0
+                or not float(expected_raw).is_integer()):
+            raise JumpDecisionIntegrityError(
+                f"{path} jump {jid!r} has invalid n_entries "
+                f"{jump_row.get('n_entries', '')!r}."
+            )
+        expected = int(expected_raw)
+        matched = affected_df[affected_df['jump_id'] == jid]
+        normalized_keys = matched[ENTRY_KEY_COLUMNS].apply(
+            lambda column: column.astype(str).str.strip()
+        )
+        if normalized_keys.eq('').any(axis=None):
+            raise JumpDecisionIntegrityError(
+                f"{path} jump {jid!r} has a blank affected-entry key."
+            )
+        unique_keys = normalized_keys.drop_duplicates()
+        if len(matched) != expected or len(unique_keys) != expected:
+            raise JumpDecisionIntegrityError(
+                f"{path} jump {jid!r} declares {expected} affected entries, "
+                f"but the sheet contains {len(matched)} rows / "
+                f"{len(unique_keys)} unique keys. Refusing to apply a "
+                "partial decision set."
+            )
+
     for row in affected_df.itertuples(index=False):
         direction = excluded_direction.get(str(row.jump_id).strip())
         if direction is None:

@@ -27,6 +27,16 @@ class PlusDosageMedCollector():
     name_var_format = re.compile(r'chrpharm_med(\d+)_name(_past)?$')
     dosage_var_format = re.compile(r'chrpharm_med(\d+)_dosage(?:_2)?(_past)?$')
 
+    # Dropdown codes that are sentinels rather than medications --
+    # the same set pharm_checks excludes from med-name comparisons.
+    # Routed to explicit buckets so a sentinel's dropdown label is
+    # never reported as a unique medication name.
+    sentinel_med_codes = {
+        '777' : 'medication unknown (777)',
+        '888' : 'no information (888)',
+        '999' : 'no medication recorded (999)',
+    }
+
     def __init__(self, data_dict_df=None):
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
@@ -41,6 +51,11 @@ class PlusDosageMedCollector():
             data_dict_df)
 
         self.plus_dosage_meds = {}
+
+        self.n_csvs_read = 0
+        self.n_csvs_with_pharm_cols = 0
+        self.n_rows_scanned = 0
+        self.n_plus_dosages = 0
 
     def __call__(self):
         self.collect_plus_dosage_meds()
@@ -87,10 +102,18 @@ class PlusDosageMedCollector():
         Loops through every per-timepoint combined CSV
         for both networks and collects each medication
         course whose dosage value contains a '+' symbol.
+        Warns on every combined CSV it cannot read and
+        prints a scan summary at the end, so an empty
+        result can be told apart from a path/config
+        problem where no CSVs were read at all.
         """
+        self.n_csvs_read = 0
+        self.n_csvs_with_pharm_cols = 0
+        self.n_rows_scanned = 0
+        self.n_plus_dosages = 0
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating','conversion'])
-        for network in ['PRONET','PRESCIENT']:
+        for network in self.utils.pipeline_networks:
             for tp in tp_list:
                 csv_path = (
                     f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
@@ -107,8 +130,23 @@ class PlusDosageMedCollector():
                             self.dosage_var_format.match(c) is not None
                             or self.name_var_format.match(c) is not None))
                 except FileNotFoundError:
+                    print(
+                        f"[collect_plus_dosage_meds] combined CSV not "
+                        f"found: {csv_path}. Skipping.")
                     continue
+                except pd.errors.EmptyDataError:
+                    print(
+                        f"[collect_plus_dosage_meds] combined CSV is "
+                        f"empty: {csv_path}. Skipping.")
+                    continue
+                self.n_csvs_read += 1
                 self.collect_csv_plus_dosages(combined_df)
+        print(
+            f"[collect_plus_dosage_meds] scanned {self.n_csvs_read} "
+            f"combined CSVs ({self.n_csvs_with_pharm_cols} with pharm "
+            f"dosage columns, {self.n_rows_scanned} rows); found "
+            f"{self.n_plus_dosages} '+' dosage values across "
+            f"{len(self.plus_dosage_meds)} unique medication names.")
 
     def collect_csv_plus_dosages(self, combined_df):
         """
@@ -132,7 +170,9 @@ class PlusDosageMedCollector():
                 (col, f'chrpharm_med{med_num}_name{past_suffix}'))
         if not dosage_name_pairs:
             return
+        self.n_csvs_with_pharm_cols += 1
         for row in combined_df.itertuples():
+            self.n_rows_scanned += 1
             for dosage_var, name_var in dosage_name_pairs:
                 dosage_val = str(getattr(row, dosage_var)).strip()
                 if '+' not in dosage_val:
@@ -158,18 +198,28 @@ class PlusDosageMedCollector():
         med_code = self.normalize_med_code(med_code)
         if med_code == '':
             med_name = 'no medication name recorded'
+        elif med_code in self.sentinel_med_codes:
+            med_name = self.sentinel_med_codes[med_code]
         elif med_code in self.med_code_translations:
             med_name = self.med_code_translations[med_code]
+        elif med_code in self.utils.missing_code_set:
+            med_name = (
+                f'medication name recorded as missing code ({med_code})')
         else:
             med_name = f'unrecognized medication code ({med_code})'
+        # 'n_observations' counts dosage-field hits, not distinct
+        # courses -- chrpharm_med{N}_dosage and _dosage_2 are
+        # alternative fields for the same course, and stale hidden
+        # values can leave a '+' in both.
         med_entry = self.plus_dosage_meds.setdefault(med_name, {
             'med_codes' : set(), 'dosage_vars' : set(),
-            'dosage_vals' : set(), 'n_courses' : 0})
+            'dosage_vals' : set(), 'n_observations' : 0})
         if med_code != '':
             med_entry['med_codes'].add(med_code)
         med_entry['dosage_vars'].add(dosage_var)
         med_entry['dosage_vals'].add(dosage_val)
-        med_entry['n_courses'] += 1
+        med_entry['n_observations'] += 1
+        self.n_plus_dosages += 1
 
     def normalize_med_code(self, med_code):
         """
@@ -212,7 +262,7 @@ class PlusDosageMedCollector():
             'med_codes' : sorted(med_entry['med_codes']),
             'dosage_vars' : sorted(med_entry['dosage_vars']),
             'dosage_vals' : sorted(med_entry['dosage_vals']),
-            'n_courses' : med_entry['n_courses']}
+            'n_observations' : med_entry['n_observations']}
 
         return formatted_output
 

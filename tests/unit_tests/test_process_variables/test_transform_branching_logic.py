@@ -13,15 +13,21 @@ import re
 
 class TestTransformBranchingLogic(unittest.TestCase):
 
-    def __init__(self):
-        self.utils = Utils()
-        self.data_dictionary_df = self.utils.read_data_dictionary()
+    def setUp(self):
+        try:
+            self.utils = Utils()
+            self.data_dictionary_df = self.utils.read_data_dictionary()
+        except FileNotFoundError:
+            self.skipTest(
+                "external dependencies/data_dictionary fixture is unavailable"
+            )
         self.transform_branching_logic = TransformBranchingLogic(self.data_dictionary_df)
         self.convert_bl = self.transform_branching_logic.convert_all_branching_logic
 
         self.miss_codes = self.utils.missing_code_list
 
     def run_script(self):
+        self.setUp()
         self.test_convert_all_branching_logic()
 
     def test_convert_all_branching_logic(self):

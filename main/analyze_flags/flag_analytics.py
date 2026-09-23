@@ -1,52 +1,33 @@
-"""Multi-dimensional analytics for the merged tracker-flag history
-produced by ``analyze_flags/estimate_resolved.py``.
+"""Multi-dimensional analytics for merged tracker-flag history.
 
-Consumes the **entry-level** merged history CSV (one row per unique
-``(Subject, Timepoint, General_Flag, variable, canonical_template)``
-flag episode, with its own ``Earliest_seen`` / ``Latest_seen`` and
-explicit ``is_currently_open`` column) and the companion
-``tracker_metadata_{network}.json`` (newest revision per source).
+Consumes the entry-level history CSV produced by estimate_resolved.py: one row
+per unique (Subject, Timepoint, General_Flag, variable, canonical_template)
+episode, with source-aware date bounds, raw message evidence, and an explicit
+is_currently_open state.
 
 Per network, produces:
-  * ``outstanding_stacked_by_form_{network}.png`` — outstanding
-    queries over time, one stack per form (General_Flag).
-  * ``outstanding_stacked_by_timepoint_{network}.png`` — same, one
-    stack per timepoint.
-  * ``outstanding_by_form_{network}.csv`` — wide-format daily table
-    backing the form graph (one column per form, value = outstanding
-    count that day).
-  * ``outstanding_by_timepoint_{network}.csv`` — same backing table
-    for the timepoint graph.
-  * ``flag_template_counts_{network}.csv`` — canonical specific-flag
-    template + count ever raised + count currently outstanding + one
-    example (form, variable) per template.
-  * ``resolved_variable_values_{network}.csv`` — for flags that have
-    been resolved (``is_currently_open == False``), wide status
-    summary per canonical template: filled / still_blank /
-    missing_code / subject_missing / variable_missing / csv_missing.
-  * ``resolved_values_per_entry_{network}.csv`` — per-entry detail
-    behind the summary above: one row per resolved flag with its
-    status AND the actual current value of the involved variable in
-    the combined CSV (the value the field was changed to, as of the
-    latest data pull).
+  * outstanding_stacked_by_form_{network}.png and its backing CSV;
+  * outstanding_stacked_by_timepoint_{network}.png and its backing CSV;
+  * flag_template_counts_{network}.csv;
+  * resolved_variable_values_{network}.csv, a status summary by template;
+  * resolved_values_per_entry_{network}.csv, detail for every eligible
+    resolved entry, including a conservative prior-value inference; and
+  * resolved_before_after_values_{network}.csv, limited to rows where both the
+    last observed bad value and the latest current value are available.
 
-Operator jump decisions (``jumps_{network}.xlsx`` written by
-``estimate_resolved.py``) are applied on load:
-  * entries born in an excluded ADDITION jump are dropped from all
-    outputs (the flag itself is an artifact);
-  * entries that vanished in an excluded REMOVAL jump keep their
-    recorded lifespan in the outstanding curves but are NOT treated
-    as resolutions (skipped by the resolved-value outputs).
-A jump is excluded unless its ``include`` cell is affirmative. Pass
-``apply_jump_exclusions=False`` to ``__init__`` for the raw view.
+Resolved-value outputs cover every report form rather than the graph allowlist.
+PRONET V2-only testing episodes are excluded; PRESCIENT V1 history remains
+eligible because V1 was production before promotion. Current values come from
+the latest combined data pull (or the multi-timepoint dependency), not a
+resolution-time snapshot.
 
-Reproducibility: the date range for the outstanding curves is anchored
-at ``earliest entry`` on the left and the per-network metadata's
-``newest_revision_overall`` on the right (NOT ``today()``), so the
-same input CSV produces the same outputs regardless of run date.
-Pass ``as_of_date`` to ``__init__`` to override.
+Operator decisions in jumps_{network}.xlsx are applied before outputs: entries
+born in excluded addition jumps are removed, and excluded removal jumps are not
+treated as resolutions. Pass apply_jump_exclusions=False for the raw view.
+
+Graph date ranges use tracker metadata rather than today, so reruns against the
+same history are reproducible. Pass as_of_date to override the right edge.
 """
-
 import json
 import os
 import re
@@ -57,8 +38,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
-sys.path.insert(1, parent_dir)
+parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from analyze_flags.manual_review import (
     entry_key_from_row,
@@ -71,6 +53,7 @@ from analyze_flags.paths import (
     tracker_metadata_json_basename,
 )
 from analyze_flags.canonicalize import normalize_form_name, normalize_timepoint
+from analyze_flags.value_extraction import infer_before_value
 
 
 class FlagAnalytics():
@@ -80,6 +63,7 @@ class FlagAnalytics():
     STATUS_STILL_BLANK = 'still_blank'
     STATUS_MISSING_CODE = 'missing_code'
     STATUS_SUBJECT_MISSING = 'subject_missing'
+    STATUS_SUBJECT_DUPLICATE = 'subject_duplicate'
     STATUS_VARIABLE_MISSING = 'variable_missing'
     STATUS_CSV_MISSING = 'csv_missing'
     STATUS_COLUMNS = [
@@ -87,8 +71,15 @@ class FlagAnalytics():
         STATUS_STILL_BLANK,
         STATUS_MISSING_CODE,
         STATUS_SUBJECT_MISSING,
+        STATUS_SUBJECT_DUPLICATE,
         STATUS_VARIABLE_MISSING,
         STATUS_CSV_MISSING,
+    ]
+    RESOLVED_VALUE_DETAIL_COLUMNS = [
+        'Subject', 'Timepoint', 'General_Flag', 'variable',
+        'message_variable', 'canonical_template', 'before_value_available',
+        'before_value', 'before_value_source', 'Latest_seen', 'status',
+        'current_value',
     ]
 
     # Sentinel used in stacked outputs when a row's form / timepoint
@@ -178,6 +169,7 @@ class FlagAnalytics():
         self.output_path = pipeline_output_path_from_config(self.config_info)
         self.analyze_flags_dir = ensure_analyze_flags_artifact_dir(self.output_path)
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
+        self.depend_path = self.config_info['paths']['dependencies_path']
         if as_of_date is None:
             self.as_of_date = None
         else:
@@ -205,10 +197,45 @@ class FlagAnalytics():
             )
             return
 
+        try:
+            all_df = self._load_history(csv_path, network, clinical_only=False)
+        except (
+                pd.errors.EmptyDataError, pd.errors.ParserError,
+                UnicodeDecodeError, OSError) as error:
+            print(
+                f"WARNING: cannot read merged history CSV for {network}: "
+                f"{type(error).__name__}: {str(error)[:200]}; preserving prior "
+                "value outputs."
+            )
+            return
+        if all_df is None:
+            print(
+                f"{network}: invalid history schema; preserving prior value "
+                "outputs."
+            )
+            return
+        # Value recovery is an entry-level operation and is not limited to the
+        # clinical-form graph allowlist. Calling this before the empty-history
+        # return ensures a clean run replaces stale value artifacts with
+        # header-only files.
+        self._write_resolved_value_stats(all_df, network)
+        if all_df.empty:
+            self._clear_non_value_outputs(network)
+            print(f"{network} history CSV is empty; analytics outputs were cleared.")
+            return
         df = self._load_history(csv_path, network)
         if df.empty:
-            print(f"{network} history CSV is empty; skipping.")
+            self._clear_non_value_outputs(network)
+            print(
+                f"{network}: no clinical-form entries for graphs/counts; "
+                "non-value outputs were cleared and resolved value outputs "
+                "were written."
+            )
             return
+
+        # Counts do not depend on a usable date range.  Write them before the
+        # graph cutoff checks so a successful run cannot retain stale counts.
+        self._write_canonical_counts(df, network)
 
         metadata = self._load_metadata(network)
         # Effective right-edge for the outstanding curves. Priority:
@@ -224,6 +251,8 @@ class FlagAnalytics():
         else:
             cutoff = df['Latest_seen'].dropna().max()
         if pd.isna(cutoff):
+            self._clear_stacked_output(network, 'form')
+            self._clear_stacked_output(network, 'timepoint')
             print(f"{network}: cannot determine cutoff date; skipping.")
             return
 
@@ -236,16 +265,11 @@ class FlagAnalytics():
             df, network, cutoff,
             group_col='Timepoint', group_label='timepoint',
         )
-
-        # The CSV is already entry-level — no explode step.
-        self._write_canonical_counts(df, network)
-        self._write_resolved_value_stats(df, network)
-
     # ------------------------------------------------------------------
     # History load
     # ------------------------------------------------------------------
 
-    def _load_history(self, csv_path, network):
+    def _load_history(self, csv_path, network, clinical_only=True):
         """Read the entry-level merged history CSV and normalize the
         date columns to tz-naive midnight Timestamps so per-day
         searchsorted bounds align without tz comparison errors.
@@ -255,7 +279,7 @@ class FlagAnalytics():
         raw (pre-merge) General_Flag values."""
         df = pd.read_csv(csv_path, keep_default_na=False)
         df.columns = df.columns.str.replace(' ', '_')
-        required = ('Earliest_seen', 'Latest_seen', 'General_Flag',
+        required = ('Subject', 'Earliest_seen', 'Latest_seen', 'General_Flag',
                     'Timepoint', 'variable', 'canonical_template',
                     'is_currently_open')
         missing = [c for c in required if c not in df.columns]
@@ -264,17 +288,73 @@ class FlagAnalytics():
                 f"WARNING: {csv_path} missing columns {missing} "
                 f"(found {list(df.columns)}); skipping this network."
             )
-            return df.iloc[0:0]
+            return None
         df = self._apply_jump_decisions(df, network)
         for col in ('Earliest_seen', 'Latest_seen'):
             parsed = pd.to_datetime(df[col], errors='coerce', utc=True)
             df[col] = parsed.dt.tz_localize(None).dt.normalize()
-        # is_currently_open round-trips through CSV as the string
-        # 'True'/'False'; coerce back to bool.
-        df['is_currently_open'] = df['is_currently_open'].astype(str).str.strip().eq('True')
-        # Restrict to clinical forms before any analysis — keeps the
-        # stacked graphs, template counts, and value stats focused on
-        # the clinical workflow rather than tracker-wide noise.
+        # Boolean audit fields round-trip through CSV as strings.
+        boolean_values = {'true', 'false', '1', '0', 'yes', 'no'}
+        open_raw = (
+            df['is_currently_open'].astype(str).str.strip().str.casefold())
+        invalid_open = ~open_raw.isin(boolean_values)
+        if invalid_open.any():
+            print(
+                f"WARNING: {csv_path} contains {int(invalid_open.sum())} "
+                "invalid is_currently_open value(s); skipping this network."
+            )
+            return None
+        df['is_currently_open'] = open_raw.isin({'true', '1', 'yes'})
+        if 'message_variable' not in df.columns:
+            df['message_variable'] = df['variable']
+        else:
+            message_variable = (
+                df['message_variable'].fillna('').astype(str).str.strip())
+            df['message_variable'] = message_variable.where(
+                message_variable.ne(''), df['variable'])
+        if 'message_value_conflict' in df.columns:
+            conflict_raw = (
+                df['message_value_conflict'].astype(str).str.strip()
+                .str.casefold())
+            invalid_conflict = ~conflict_raw.isin(boolean_values)
+            if invalid_conflict.any():
+                print(
+                    f"WARNING: {csv_path} contains "
+                    f"{int(invalid_conflict.sum())} invalid "
+                    "message_value_conflict value(s); skipping this network."
+                )
+                return None
+            df['message_value_conflict'] = conflict_raw.isin(
+                {'true', '1', 'yes'})
+        else:
+            df['message_value_conflict'] = False
+        if 'resolution_eligible' in df.columns:
+            eligible_raw = (
+                df['resolution_eligible'].astype(str).str.strip()
+                .str.casefold())
+            invalid_eligible = ~eligible_raw.isin(boolean_values)
+            if invalid_eligible.any():
+                print(
+                    f"WARNING: {csv_path} contains "
+                    f"{int(invalid_eligible.sum())} invalid "
+                    "resolution_eligible value(s); skipping this network."
+                )
+                return None
+            df['resolution_eligible'] = eligible_raw.isin(
+                {'true', '1', 'yes'})
+        elif network == 'PRONET' and 'source' in df.columns:
+            # Backward compatibility for histories written before the explicit
+            # eligibility column: PRONET V2 is testing-only.
+            df['resolution_eligible'] = df['source'].map(
+                lambda value: 'V1' in str(value).split('+'))
+        else:
+            # PRESCIENT V1 was production before the V2 promotion.
+            df['resolution_eligible'] = True
+        if not clinical_only:
+            return df
+
+        # Restrict only the established graph/count outputs to clinical forms.
+        # The resolved before/current exports returned above use all forms.
         # Comparison happens on normalize_form_name keys (lowercase,
         # separators stripped) so V1's capitalization / underscore /
         # space variants still match; matched rows are rewritten to
@@ -396,6 +476,7 @@ class FlagAnalytics():
     def _produce_stacked_outputs(self, df, network, cutoff,
                                  group_col, group_label):
         if group_col not in df.columns:
+            self._clear_stacked_output(network, group_label)
             print(
                 f"{network}: missing {group_col} column; skipping "
                 f"{group_label} stack."
@@ -408,6 +489,7 @@ class FlagAnalytics():
         valid_mask = df['Earliest_seen'].notna() & df['Latest_seen'].notna()
         valid = df[valid_mask]
         if valid.empty:
+            self._clear_stacked_output(network, group_label)
             print(
                 f"{network}: no rows with both Earliest_seen and "
                 f"Latest_seen parseable; skipping {group_label} stack."
@@ -419,6 +501,7 @@ class FlagAnalytics():
         if pd.isna(end_date):
             end_date = valid['Latest_seen'].max()
         if start_date > end_date:
+            self._clear_stacked_output(network, group_label)
             print(
                 f"{network}: earliest ({start_date}) is after cutoff "
                 f"({end_date}); skipping {group_label} stack."
@@ -430,6 +513,7 @@ class FlagAnalytics():
             valid, group_col, date_index, cutoff,
         )
         if not curves:
+            self._clear_stacked_output(network, group_label)
             print(f"{network}: no curves to plot for {group_label}.")
             return
 
@@ -456,6 +540,31 @@ class FlagAnalytics():
             wide_df.drop(columns=['total']), network, group_label, png_path,
         )
         print(f"Wrote {png_path}")
+
+    def _clear_stacked_output(self, network, group_label):
+        """Replace one successful no-data stack with an explicit empty CSV."""
+
+        csv_path = os.path.join(
+            self.analyze_flags_dir,
+            f"outstanding_by_{group_label}_{network}.csv",
+        )
+        pd.DataFrame(columns=['date', 'total']).to_csv(csv_path, index=False)
+        png_path = os.path.join(
+            self.analyze_flags_dir,
+            f"outstanding_stacked_by_{group_label}_{network}.png",
+        )
+        try:
+            os.remove(png_path)
+        except FileNotFoundError:
+            pass
+        print(f"Wrote {csv_path}: no rows; removed stale plot if present.")
+
+    def _clear_non_value_outputs(self, network):
+        """Clear graph/count artifacts after a successful empty result."""
+
+        self._clear_stacked_output(network, 'form')
+        self._clear_stacked_output(network, 'timepoint')
+        self._write_empty_canonical_counts(network)
 
     def _outstanding_curves_per_group(self, df, group_col, date_index, cutoff):
         """One outstanding-per-day series per unique group_col value.
@@ -565,6 +674,7 @@ class FlagAnalytics():
                 f"{network}: no canonical_template column; skipping "
                 f"canonical-template counts."
             )
+            self._write_empty_canonical_counts(network)
             return
 
         ever = (
@@ -599,24 +709,50 @@ class FlagAnalytics():
         out.to_csv(csv_path, index=False)
         print(f"Wrote {csv_path}: {len(out)} unique templates.")
 
+    def _write_empty_canonical_counts(self, network):
+        columns = [
+            'canonical_template', 'ever_raised', 'currently_outstanding',
+            'example_form', 'example_variable',
+        ]
+        csv_path = os.path.join(
+            self.analyze_flags_dir,
+            f"flag_template_counts_{network}.csv",
+        )
+        pd.DataFrame(columns=columns).to_csv(csv_path, index=False)
+        print(f"Wrote {csv_path}: 0 unique templates.")
+
     # ------------------------------------------------------------------
     # Resolved-flag variable-value status
     # ------------------------------------------------------------------
 
-    # Free-text fields can be long; keep the per-entry CSV readable.
-    _VALUE_TRUNCATE_CHARS = 300
-
     def _write_resolved_value_stats(self, df, network):
         if df.empty:
-            print(
-                f"{network}: no entries; skipping resolved value stats."
-            )
+            print(f"{network}: no entries; clearing resolved value stats.")
+            self._write_empty_resolved_value_outputs(network)
             return
         # resolution_excluded = the entry's disappearance was an
-        # operator-excluded removal jump, not a real resolution.
-        resolved = df[~df['is_currently_open'] & ~df['resolution_excluded']]
+        # operator-excluded removal jump, not a real resolution. PRONET V2-only
+        # episodes are testing observations, not live resolutions.
+        if 'resolution_eligible' in df.columns:
+            resolution_eligible = (
+                df['resolution_eligible'].astype(str).str.strip()
+                .str.casefold().isin({'true', '1', 'yes'}))
+        elif network == 'PRONET' and 'source' in df.columns:
+            resolution_eligible = df['source'].map(
+                lambda value: 'V1' in str(value).split('+'))
+        else:
+            resolution_eligible = pd.Series(True, index=df.index)
+        resolved = df[
+            ~df['is_currently_open']
+            & ~df['resolution_excluded']
+            & resolution_eligible
+        ]
         if resolved.empty:
-            print(f"{network}: no resolved entries to analyze.")
+            print(
+                f"{network}: no eligible resolved entries; clearing resolved "
+                "value stats."
+            )
+            self._write_empty_resolved_value_outputs(network)
             return
 
         # Bucket by Timepoint so we read each combined CSV once.
@@ -632,15 +768,27 @@ class FlagAnalytics():
             """One resolved entry's outcome feeds both the per-template
             summary and the per-entry detail CSV."""
             status_counts[r.canonical_template][status] += 1
+            message_variable = getattr(r, 'message_variable', r.variable)
+            value_conflict = (
+                str(getattr(r, 'message_value_conflict', False))
+                .strip().casefold() in {'true', '1', 'yes'})
+            before = (
+                None if value_conflict else infer_before_value(
+                    message_variable, getattr(r, 'message', '')))
             per_entry_rows.append({
                 'Subject': r.Subject,
                 'Timepoint': r.Timepoint,
                 'General_Flag': r.General_Flag,
                 'variable': r.variable,
+                'message_variable': message_variable,
                 'canonical_template': r.canonical_template,
+                'before_value_available': before is not None,
+                'before_value': before.value if before is not None else '',
+                'before_value_source': (
+                    before.source if before is not None else ''),
                 'Latest_seen': r.Latest_seen,
                 'status': status,
-                'current_value': str(value)[: self._VALUE_TRUNCATE_CHARS],
+                'current_value': str(value),
             })
 
         for timepoint, rows in rows_by_tp.items():
@@ -658,7 +806,7 @@ class FlagAnalytics():
                 for r in rows:
                     record(r, self.STATUS_CSV_MISSING)
                 continue
-            csv_path = self._combined_csv_path(network, timepoint)
+            csv_path = self._current_values_csv_path(network, timepoint)
             cdf, csv_error = self._load_combined_csv(csv_path)
             if cdf is None:
                 print(
@@ -678,30 +826,35 @@ class FlagAnalytics():
                 for r in rows:
                     record(r, self.STATUS_CSV_MISSING)
                 continue
-            subject_index = {}
+            subject_positions = defaultdict(list)
             for i, sid in enumerate(cdf['subjectid'].astype(str)):
-                if sid not in subject_index:
-                    subject_index[sid] = i
+                subject_positions[sid].append(i)
 
             for r in rows:
                 subj = str(r.Subject)
-                if subj not in subject_index:
+                positions = subject_positions.get(subj, [])
+                if not positions:
                     record(r, self.STATUS_SUBJECT_MISSING)
+                    continue
+                if len(positions) != 1:
+                    record(r, self.STATUS_SUBJECT_DUPLICATE)
                     continue
                 if r.variable not in cdf.columns:
                     record(r, self.STATUS_VARIABLE_MISSING)
                     continue
-                raw = cdf.iloc[subject_index[subj]][r.variable]
-                value_s = '' if pd.isna(raw) else str(raw).strip()
-                if value_s == '':
-                    record(r, self.STATUS_STILL_BLANK)
-                elif value_s in missing_code_set:
-                    record(r, self.STATUS_MISSING_CODE, value_s)
+                raw = cdf.iloc[positions[0]][r.variable]
+                current_value = '' if pd.isna(raw) else str(raw)
+                normalized_value = current_value.strip()
+                if normalized_value == '':
+                    record(r, self.STATUS_STILL_BLANK, current_value)
+                elif normalized_value in missing_code_set:
+                    record(r, self.STATUS_MISSING_CODE, current_value)
                 else:
-                    record(r, self.STATUS_FILLED, value_s)
+                    record(r, self.STATUS_FILLED, current_value)
 
         if not status_counts:
             print(f"{network}: nothing to write for resolved value stats.")
+            self._write_empty_resolved_value_outputs(network)
             return
 
         self._write_per_entry_values(per_entry_rows, network)
@@ -727,19 +880,31 @@ class FlagAnalytics():
         out.to_csv(csv_path, index=False)
         print(f"Wrote {csv_path}: {len(out)} unique templates.")
 
-    def _write_per_entry_values(self, per_entry_rows, network):
-        """Per-entry detail behind the per-template summary: one row
-        per resolved flag with the actual current value the involved
-        variable holds in the combined CSV. This is the closest
-        available answer to "what was the value changed to" — the
-        combined CSVs only hold the latest data pull, so a value that
-        changed again after resolution shows its newest state."""
-        cols = [
-            'Subject', 'Timepoint', 'General_Flag', 'variable',
-            'canonical_template', 'Latest_seen', 'status',
-            'current_value',
+    def _write_empty_resolved_value_outputs(self, network):
+        """Replace successful no-data results with explicit empty schemas."""
+
+        self._write_per_entry_values([], network)
+        summary_columns = [
+            'canonical_template',
+            *(f'count_{status}' for status in self.STATUS_COLUMNS),
+            'total_resolved',
         ]
-        out = pd.DataFrame(per_entry_rows, columns=cols)
+        csv_path = os.path.join(
+            self.analyze_flags_dir,
+            f"resolved_variable_values_{network}.csv",
+        )
+        pd.DataFrame(columns=summary_columns).to_csv(csv_path, index=False)
+        print(f"Wrote {csv_path}: 0 unique templates.")
+
+    def _write_per_entry_values(self, per_entry_rows, network):
+        """Write complete resolved detail plus its trustworthy pair subset.
+
+        current_value is the latest combined-CSV value, not a historical
+        resolution-time snapshot. The paired output includes only entries
+        where the raw message proves the before value and the current lookup
+        succeeded."""
+        out = pd.DataFrame(
+            per_entry_rows, columns=self.RESOLVED_VALUE_DETAIL_COLUMNS)
         if not out.empty:
             out = out.sort_values(
                 ['General_Flag', 'canonical_template', 'Subject']
@@ -750,6 +915,24 @@ class FlagAnalytics():
         )
         out.to_csv(csv_path, index=False)
         print(f"Wrote {csv_path}: {len(out)} resolved entries.")
+        value_available_statuses = {
+            self.STATUS_FILLED,
+            self.STATUS_STILL_BLANK,
+            self.STATUS_MISSING_CODE,
+        }
+        paired = out[
+            out['before_value_available'].eq(True)
+            & out['status'].isin(value_available_statuses)
+        ].copy()
+        paired_path = os.path.join(
+            self.analyze_flags_dir,
+            f"resolved_before_after_values_{network}.csv",
+        )
+        paired.to_csv(paired_path, index=False)
+        print(
+            f"Wrote {paired_path}: {len(paired)} entries with known before "
+            "and current values."
+        )
 
     def _missing_code_set(self):
         """Union of Utils.missing_code_set and str-coerced
@@ -758,6 +941,14 @@ class FlagAnalytics():
         base = set(self.utils.missing_code_set)
         base.update(str(c) for c in self.utils.missing_code_list)
         return base
+
+    def _current_values_csv_path(self, network, timepoint):
+        """Return the current-data source that originally fed the flag."""
+
+        if normalize_timepoint(timepoint) == 'multiple_timepoints':
+            return os.path.join(
+                self.depend_path, f'multi_tp_{network}_combined.csv')
+        return self._combined_csv_path(network, timepoint)
 
     def _combined_csv_path(self, network, timepoint):
         """Match qc_forms_main.py:102 / extract_blank_flags.py:

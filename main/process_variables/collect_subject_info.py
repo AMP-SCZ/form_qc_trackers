@@ -78,7 +78,7 @@ class CollectSubjectInfo():
         'chrpsychs_scr_interview_date',
         'chric_actigraphy','chric_passive','chrpharm_interview_date']
         _wanted = set(col_list)
-        for network in ['PRONET','PRESCIENT']:
+        for network in self.utils.pipeline_networks:
             combined_df = pd.read_csv(
                 (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}'
@@ -108,7 +108,7 @@ class CollectSubjectInfo():
 
     def collect_baseline_info(self):
         tp = 'baseline'
-        for network in ['PRONET','PRESCIENT']:
+        for network in self.utils.pipeline_networks:
             # roadmap #11: read only the needed columns (usecols), not the
             # full wide CSV. Byte-identical (columns accessed by name below).
             col_list = ['subjectid','chrdemo_age_mos_chr',
@@ -135,7 +135,8 @@ class CollectSubjectInfo():
 
     def collect_floating_info(self):
         tp = 'floating'
-        for network in ['PRONET']:
+        for network in (
+                n for n in self.utils.pipeline_networks if n == 'PRONET'):
             # roadmap #11: read only the needed columns (usecols).
             col_list = ['subjectid','chr_statusform_screenfail',
             'chr_subject_eos','chrpharm_date_first','chrpharm_date_mod',
@@ -190,7 +191,7 @@ class CollectSubjectInfo():
         """
         tp = 'floating'
         converted_codes = self.utils.all_dtype([1])
-        for network in ['PRONET', 'PRESCIENT']:
+        for network in self.utils.pipeline_networks:
             csv_path = (
                 f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
                 f'{tp.replace("month","month_").replace("floating","floating_forms")}'
@@ -267,7 +268,7 @@ class CollectSubjectInfo():
         tp_list = self.utils.create_timepoint_list()
         tp_list.extend(['floating', 'conversion'])
 
-        for network in ['PRONET', 'PRESCIENT']:
+        for network in self.utils.pipeline_networks:
             for tp in tp_list:
                 csv_path = (
                     f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
@@ -369,7 +370,7 @@ class CollectSubjectInfo():
             'baseline': 'blood_interview_date_baseline',
             'month2': 'blood_interview_date_month2',
         }
-        for network in ['PRONET', 'PRESCIENT']:
+        for network in self.utils.pipeline_networks:
             for tp, field in tp_to_field.items():
                 csv_path = (
                     f'{self.comb_csv_path}AMPSCZ-combined-redcap_'

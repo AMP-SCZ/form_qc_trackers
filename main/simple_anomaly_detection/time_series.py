@@ -21,11 +21,12 @@ between the governing form's **interview dates**:
     * Within each subject, observations are ordered by ACTUAL interview
       date (not the nominal timepoint), and consecutive pairs give a
       change ``delta`` over an elapsed ``days`` gap -> ``rate = delta/days``.
-    * Because the rate is already gap-normalized, the MAD-scaled sigma is
-      pooled across ALL of a variable's deltas (one distribution per
-      variable) instead of being stratified by nominal tp-pair -- which
-      also rescues the irregular-visit subjects the old per-tp-pair
-      stratification silently dropped into sub-threshold buckets.
+    * Rate distributions are estimated within the same nominal transition
+      (baseline->month1, month1->month2, ...). Dividing by elapsed days does
+      not make early and late study phases exchangeable: a variable can change
+      quickly during one phase and remain flat during another. Transition
+      stratification prevents an ordinary phase from looking anomalous merely
+      because a more common phase has a different center or spread.
     * peak_rarity (fraction of deltas at |z|>=threshold) still screens
       out variables that are merely noisy; flag subjects whose
       |rate_z| >= Z_THRESHOLD.
@@ -49,7 +50,7 @@ import numpy as np
 import pandas as pd
 
 from .common import (
-    Finding, calibrate, classify_columns, clean_dates_series,
+    Finding, classify_columns, clean_dates_series,
     matches_excluded_substrings, robust_center_scale, severity_from_z,
     site_from_subjectid, to_numeric_clean, short,
 )
@@ -58,7 +59,6 @@ ANOMALY_TYPE = "time_series_outlier"
 Z_THRESHOLD = 4.0
 MIN_DELTAS = 30
 MAX_PEAK_RARITY = 0.05    # variables noisier than this are skipped
-MIN_TP_PER_SUBJECT = 2
 # Floor (days) on the interview-date gap used as the rate denominator. A
 # genuine longitudinal change measured a handful of days apart (a re-entry,
 # an off-schedule visit) would otherwise divide by a tiny gap and manufacture
@@ -225,18 +225,20 @@ def _detect_network(network: str, ordered_items: List) -> List[dict]:
                 n_tp += 1
         except Exception as e:
             print(f"  [time_series] WARN var {network}/{col}: {e}")
+    collapsed = _collapse_adjacent_reversals(out)
     print(f"  [time_series] {network}: {len(numeric_cols)} numeric var(s) "
           f"({n_rate} scored by interview-date rate, {n_tp} by timepoint "
-          f"fallback) -> {len(out)} flags")
-    return out
+          f"fallback) -> {len(collapsed)} findings after collapsing "
+          f"{len(out) - len(collapsed)} adjacent reversal row(s)")
+    return collapsed
 
 
 def _detect_variable_rate(long_df: pd.DataFrame, col: str, dcol: str,
                           network: str) -> List[dict]:
     """Score variable ``col`` on its per-day change RATE, using the elapsed
-    time between consecutive ``dcol`` (interview-date) observations. The MAD is
-    pooled across ALL of the variable's deltas (the rate is gap-normalized, so
-    no nominal-tp stratification is needed)."""
+    time between consecutive ``dcol`` (interview-date) observations. Rates are
+    scored within nominal-transition strata: elapsed-time normalization does
+    not make biologically different study phases exchangeable."""
     if col not in long_df.columns or dcol not in long_df.columns:
         return []
     num = to_numeric_clean(long_df[col])
@@ -257,6 +259,7 @@ def _detect_variable_rate(long_df: pd.DataFrame, col: str, dcol: str,
     work["v_prev"] = grp["v"].shift(1)
     work["d_prev"] = grp["d"].shift(1)
     work["tp_prev"] = grp["_tp"].shift(1)
+    work["pair"] = work["tp_prev"].astype(str) + "->" + work["_tp"].astype(str)
 
     delta = work["v"] - work["v_prev"]
     elapsed = (work["d"] - work["d_prev"]).dt.total_seconds() / 86400.0
@@ -268,63 +271,82 @@ def _detect_variable_rate(long_df: pd.DataFrame, col: str, dcol: str,
         return []
     denom = elapsed.clip(lower=MIN_ELAPSED_DAYS)
     rate = (delta / denom).where(valid)
-    r_vals = rate.dropna().to_numpy(dtype=float)
-    if r_vals.size < MIN_DELTAS:
-        return []
-    med, sigma = robust_center_scale(r_vals)
-    if not np.isfinite(sigma) or sigma <= 0:
-        return []
-    z = (rate - med) / sigma
-    peak_rarity = float((z.abs() >= Z_THRESHOLD).sum() / max(r_vals.size, 1))
-    if peak_rarity > MAX_PEAK_RARITY:
-        return []
-    bad = valid & (z.abs() >= Z_THRESHOLD)
-    if not bad.any():
-        return []
-
-    bad_sub = work.loc[bad, ["subjectid", "_tp", "tp_prev", "v", "v_prev"]]
-    z_vals = z[bad].to_numpy(dtype=float)
-    delta_vals = delta[bad].to_numpy(dtype=float)
-    days_vals = elapsed[bad].to_numpy(dtype=float)
-    rate_vals = rate[bad].to_numpy(dtype=float)
 
     rows: List[dict] = []
-    for k, (_, row) in enumerate(bad_sub.iterrows()):
-        zi = float(z_vals[k])
-        if not np.isfinite(zi):
+    scored = work.loc[valid].copy()
+    scored["delta"] = delta[valid].to_numpy(dtype=float)
+    scored["elapsed"] = elapsed[valid].to_numpy(dtype=float)
+    scored["effective_elapsed"] = denom[valid].to_numpy(dtype=float)
+    scored["rate"] = rate[valid].to_numpy(dtype=float)
+
+    for pair_name, sub in scored.groupby("pair", sort=False):
+        r_vals = sub["rate"].dropna().to_numpy(dtype=float)
+        if r_vals.size < MIN_DELTAS:
             continue
-        subj = str(row["subjectid"])
-        tp_now = str(row["_tp"])
-        tp_prev = str(row["tp_prev"])
-        d = float(delta_vals[k])
-        days = float(days_vals[k])
-        ratei = float(rate_vals[k])
-        severity = severity_from_z(zi, Z_THRESHOLD, 10.0)
-        rows.append(Finding(
-            anomaly_type=ANOMALY_TYPE,
-            severity_score=severity,
-            raw_score=abs(zi),
-            network=network,
-            timepoint=f"{tp_prev}->{tp_now}",
-            site_id=site_from_subjectid(subj),
-            subjectid=subj,
-            variable=col,
-            observed_value=(f"{short(row['v_prev'])} -> {short(row['v'])} "
-                            f"(delta {d:+.4g} over {days:.0f} d = {ratei:+.4g}/d)"),
-            expected_value=(f"typical change rate median {med:+.4g}/d, "
-                            f"sigma {sigma:.4g}/d (n={r_vals.size})"),
-            explanation=(
-                f"Within-subject change of {d:+.4g} over {days:.0f} days between "
-                f"interview dates ({tp_prev}->{tp_now}) = {ratei:+.4g}/day, "
-                f"z = {zi:+.2f} vs this variable's typical per-day change. Peak "
-                f"rarity {peak_rarity:.2%}, so not just a noisy variable bouncing."
-            ),
-            method="MAD on within-subject change RATE (delta / interview-date gap)",
-            extra={"peak_rarity": round(peak_rarity, 4),
-                   "n_deltas": int(r_vals.size),
-                   "elapsed_days": round(days, 1),
-                   "date_column": dcol},
-        ).to_row())
+        med, sigma = robust_center_scale(r_vals)
+        if not np.isfinite(sigma) or sigma <= 0:
+            continue
+        z = (sub["rate"] - med) / sigma
+        peak_rarity = float((z.abs() >= Z_THRESHOLD).sum() / max(r_vals.size, 1))
+        if peak_rarity > MAX_PEAK_RARITY:
+            continue
+        bad = z.abs() >= Z_THRESHOLD
+        if not bad.any():
+            continue
+
+        for idx, row in sub.loc[bad].iterrows():
+            zi = float(z.loc[idx])
+            if not np.isfinite(zi):
+                continue
+            subj = str(row["subjectid"])
+            tp_now = str(row["_tp"])
+            tp_prev = str(row["tp_prev"])
+            d = float(row["delta"])
+            days = float(row["elapsed"])
+            effective_days = float(row["effective_elapsed"])
+            ratei = float(row["rate"])
+            severity = severity_from_z(zi, Z_THRESHOLD, 10.0)
+            floor_note = (
+                f"; rate denominator floored to {effective_days:.0f} d"
+                if effective_days > days else ""
+            )
+            rows.append(Finding(
+                anomaly_type=ANOMALY_TYPE,
+                severity_score=severity,
+                raw_score=abs(zi),
+                network=network,
+                timepoint=f"{tp_prev}->{tp_now}",
+                site_id=site_from_subjectid(subj),
+                subjectid=subj,
+                variable=col,
+                observed_value=(f"{short(row['v_prev'])} -> {short(row['v'])} "
+                                f"(delta {d:+.4g} over {days:.0f} actual d; "
+                                f"effective denominator {effective_days:.0f} d; "
+                                f"rate {ratei:+.4g}/d)"),
+                expected_value=(f"typical {pair_name} change-rate median "
+                                f"{med:+.4g}/d, sigma {sigma:.4g}/d "
+                                f"(n={r_vals.size})"),
+                explanation=(
+                    f"Within-subject change of {d:+.4g} over {days:.0f} actual "
+                    f"days between interview dates ({pair_name}) gives a "
+                    f"scoring rate of {ratei:+.4g}/day{floor_note}; z = "
+                    f"{zi:+.2f} within the same nominal transition. Peak rarity "
+                    f"{peak_rarity:.2%}, so not just a noisy variable bouncing."
+                ),
+                method=("MAD on within-subject change RATE, stratified by "
+                        "nominal transition"),
+                extra={"peak_rarity": round(peak_rarity, 4),
+                       "n_deltas": int(r_vals.size),
+                       "elapsed_days": round(days, 1),
+                       "effective_elapsed_days": round(effective_days, 1),
+                       "denominator_was_floored": bool(effective_days > days),
+                       "date_column": dcol,
+                       "transition_from": tp_prev,
+                       "transition_to": tp_now,
+                       "transition_stratum": str(pair_name),
+                       "delta": d,
+                       "signed_z": zi},
+            ).to_row())
     return rows
 
 
@@ -342,6 +364,9 @@ def _detect_variable_by_tp(long_df: pd.DataFrame, col: str, network: str) -> Lis
 
     work = long_df[["subjectid", "_tp", "_tp_rank"]].copy()
     work["v"] = num
+    # Consecutive means consecutive OBSERVED values. Keeping an empty month1
+    # row in the shift chain would lose the legitimate baseline->month2 delta.
+    work = work[work["v"].notna()].copy()
     grp = work.groupby("subjectid", sort=False)
     work["v_prev"] = grp["v"].shift(1)
     work["tp_prev"] = grp["_tp"].shift(1)
@@ -404,6 +429,103 @@ def _detect_variable_by_tp(long_df: pd.DataFrame, col: str, network: str) -> Lis
                 ),
                 method="MAD on within-subject deltas, stratified by tp pair (no interview date)",
                 extra={"peak_rarity": round(peak_rarity, 4),
-                       "n_in_gap": int(d_vals.size)},
+                       "n_in_gap": int(d_vals.size),
+                       "transition_from": tp_prev,
+                       "transition_to": tp_now,
+                       "transition_stratum": str(pair_name),
+                       "delta": d,
+                       "signed_z": zi},
             ).to_row())
     return rows
+
+
+def _collapse_adjacent_reversals(rows: List[dict]) -> List[dict]:
+    """Collapse the two edges produced by one anomalous middle visit.
+
+    A single bad middle value normally creates an extreme jump into the visit
+    and an opposite extreme jump out. Those are corroborating evidence for one
+    subject-variable episode, not two independent review rows. Only adjacent,
+    opposite-direction transitions are folded; monotonic changes and unrelated
+    transitions remain separate.
+    """
+    if not rows:
+        return rows
+
+    groups: Dict[Tuple[str, str, str], List[dict]] = {}
+    for row in rows:
+        key = (str(row.get("network", "")), str(row.get("subjectid", "")),
+               str(row.get("variable", "")))
+        groups.setdefault(key, []).append(row)
+
+    out: List[dict] = []
+    for grp in groups.values():
+        ordered = sorted(
+            grp,
+            key=lambda r: (
+                _tp_rank(str(r.get("transition_from", ""))),
+                _tp_rank(str(r.get("transition_to", ""))),
+                -float(r.get("severity_score", 0) or 0),
+            ),
+        )
+        used: set = set()
+        for i, first in enumerate(ordered):
+            if i in used:
+                continue
+            first_to = str(first.get("transition_to", ""))
+            try:
+                d1 = float(first.get("delta"))
+            except (TypeError, ValueError):
+                d1 = float("nan")
+            partner_idx = None
+            for j in range(i + 1, len(ordered)):
+                if j in used:
+                    continue
+                second = ordered[j]
+                if first_to != str(second.get("transition_from", "")):
+                    continue
+                try:
+                    d2 = float(second.get("delta"))
+                except (TypeError, ValueError):
+                    continue
+                if np.isfinite(d1) and np.isfinite(d2) and d1 * d2 < 0:
+                    partner_idx = j
+                    break
+
+            if partner_idx is None:
+                out.append(first)
+                used.add(i)
+                continue
+
+            second = ordered[partner_idx]
+            used.update((i, partner_idx))
+            pair = [first, second]
+            rep = dict(max(pair, key=lambda r: float(r.get("severity_score", 0) or 0)))
+            start = str(first.get("transition_from", ""))
+            middle = first_to
+            end = str(second.get("transition_to", ""))
+            direction = "spike" if d1 > 0 else "drop"
+            rep["timepoint"] = f"{start}->{middle}->{end}"
+            rep["transition_from"] = start
+            rep["transition_to"] = end
+            rep["episode_middle_timepoint"] = middle
+            rep["episode_direction"] = direction
+            rep["n_corroborating_transitions"] = 2
+            rep["corroborating_transitions"] = "; ".join(
+                f"{r.get('timepoint', '')}: {r.get('observed_value', '')}" for r in pair
+            )
+            rep["observed_value"] = rep["corroborating_transitions"]
+            rep["explanation"] = (
+                f"Adjacent opposite-direction anomalies into and out of {middle} "
+                f"are consistent with one anomalous middle-visit {direction}. "
+                f"Collapsed two transitions; see corroborating_transitions."
+            )
+            out.append(rep)
+
+    return sorted(
+        out,
+        key=lambda r: (
+            -float(r.get("severity_score", 0) or 0),
+            str(r.get("network", "")), str(r.get("subjectid", "")),
+            str(r.get("variable", "")), str(r.get("timepoint", "")),
+        ),
+    )

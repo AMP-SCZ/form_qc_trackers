@@ -23,6 +23,7 @@ detector follows a different algorithm; this one emits anomaly_type
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -38,6 +39,12 @@ ANOMALY_TYPE = "date_anomaly_simple"
 
 MIN_PAIR_N = 40
 ORDER_DOMINANT_FRAC = 0.95
+# Ties are neutral evidence, not evidence for BOTH directions. Requiring a
+# substantive number/fraction of strictly ordered pairs prevents a mostly
+# same-day date pair with a few balanced tails from arbitrarily declaring the
+# first branch dominant and flagging only one tail.
+MIN_STRICT_ORDER_N = 20
+MIN_STRICT_ORDER_FRAC = 0.20
 GAP_Z_THRESHOLD = 4.0
 # Minimum absolute gap deviation (days) to flag, on top of the z gate. For
 # tightly-scheduled visits the gap MAD is tiny, so a benign few-days slack
@@ -85,7 +92,16 @@ def _detect_network(network: str, items: List) -> List[dict]:
             continue
         sub = df[["subjectid"] + dcols].copy()
         for c in dcols:
-            sub[c] = clean_dates_series(sub[c])
+            # Isolate per column: a single unparseable/degenerate date column
+            # must not lose the whole network's date findings via the coarse
+            # per-network except in detect_all. (clean_dates_series is already
+            # hardened against mixed-tz in common.py; this is belt-and-braces.)
+            try:
+                sub[c] = clean_dates_series(sub[c])
+            except Exception as e:
+                print(f"  [date_anomaly] WARN {network}/{tp} date col {c}: "
+                      f"{type(e).__name__}: {e}; dropping this column")
+                sub = sub.drop(columns=[c])
         date_frames[tp] = sub
 
     if not date_frames:
@@ -132,9 +148,111 @@ def _detect_network(network: str, items: List) -> List[dict]:
 
     # All-pairs over the date columns is O(n^2); log the column count so the
     # real-scale pair work stays observable (mirrors the cluster detectors).
+    raw_n = len(out)
+    out = _deduplicate_findings(out)
     print(f"  [date_anomaly] {network}: {len(by_id)} date columns scanned "
-          f"pairwise (within- and cross-timepoint) -> {len(out)} flags")
+          f"pairwise (within- and cross-timepoint) -> {len(out)} findings "
+          f"after collapsing {raw_n - len(out)} repeated pair/subject rows")
     return out
+
+
+def _pair_legs(row: dict) -> Tuple[str, ...]:
+    """Canonical date-column legs for a finding (timepoint retained).
+
+    ``variable`` is written as ``tp::field | tp::field``. Keeping the
+    timepoint here lets two genuinely bad visits of the same form field remain
+    separate; the report-level variable quota later strips the timepoint so the
+    same field still cannot dominate a tab across visits.
+    """
+    return tuple(p.strip() for p in str(row.get("variable", "")).split("|")
+                 if p.strip())
+
+
+def _deduplicate_findings(rows: List[dict]) -> List[dict]:
+    """Collapse all-pairs fan-out to actionable subject/date issues.
+
+    One bad date participates in many pair comparisons and order + gap can both
+    emit for the same pair. For each subject, connected flagged date-pair edges
+    are collapsed to their strongest representative without claiming which
+    symmetric pair leg is wrong. Independent graph components remain separate.
+    Counts, methods, fields, and pair labels are retained for auditability.
+    """
+    if not rows:
+        return rows
+
+    by_subject: Dict[Tuple[str, str], List[dict]] = defaultdict(list)
+    for row in rows:
+        by_subject[(str(row.get("network", "")),
+                    str(row.get("subjectid", "")))].append(row)
+
+    collapsed: List[dict] = []
+    for (_network, _subject), subject_rows in by_subject.items():
+        # Build connected components of flagged date-pair edges. A one-bad-date
+        # star becomes one review issue, while two independent pair issues stay
+        # separate. Crucially, this does NOT guess which leg is wrong: pairwise
+        # evidence is symmetric and degree is not directional attribution.
+        adjacency: Dict[str, set] = defaultdict(set)
+        for row in subject_rows:
+            legs = _pair_legs(row)
+            if len(legs) == 2:
+                adjacency[legs[0]].add(legs[1])
+                adjacency[legs[1]].add(legs[0])
+        component_of: Dict[str, Tuple[str, ...]] = {}
+        for start in sorted(adjacency):
+            if start in component_of:
+                continue
+            seen, stack = set(), [start]
+            while stack:
+                node = stack.pop()
+                if node in seen:
+                    continue
+                seen.add(node)
+                stack.extend(adjacency[node] - seen)
+            comp = tuple(sorted(seen))
+            for node in seen:
+                component_of[node] = comp
+
+        groups: Dict[Tuple[str, ...], List[dict]] = defaultdict(list)
+        for row in subject_rows:
+            legs = _pair_legs(row)
+            if len(legs) == 2:
+                key = ("component", *component_of.get(legs[0], tuple(sorted(legs))))
+            else:
+                key = ("row", str(row.get("variable", "")))
+            groups[key].append(row)
+
+        for key, grp in groups.items():
+            def _sev(r):
+                try:
+                    return float(r.get("severity_score", 0) or 0)
+                except (TypeError, ValueError):
+                    return 0.0
+
+            rep = dict(max(grp, key=_sev))
+            pairs = sorted({str(r.get("variable", "")) for r in grp
+                            if str(r.get("variable", ""))})
+            methods = sorted({str(r.get("method", "")) for r in grp
+                              if str(r.get("method", ""))})
+            rep["corroborating_rows"] = len(grp)
+            rep["corroborating_pairs"] = len(pairs)
+            rep["corroborating_methods"] = "; ".join(methods)
+            rep["related_date_pairs"] = "; ".join(pairs[:12]) + (
+                f"; (+{len(pairs) - 12} more)" if len(pairs) > 12 else "")
+            if key[0] == "component":
+                implicated = list(key[1:])
+                rep["variables_involved"] = ", ".join(implicated)
+                rep["related_date_fields"] = "; ".join(implicated)
+            if len(grp) > 1:
+                rep["explanation"] = (
+                    str(rep.get("explanation", ""))
+                    + f" Collapsed {len(grp)} corroborating rows across "
+                      f"{len(pairs)} date pair(s); review the representative "
+                      f"comparison and related_date_pairs."
+                )
+            collapsed.append(rep)
+
+    return sorted(collapsed, key=lambda r: float(r.get("severity_score", 0) or 0),
+                  reverse=True)
 
 
 def _pair(network: str,
@@ -155,19 +273,22 @@ def _pair(network: str,
         return []
     # Order check
     n = len(joined)
-    n_le = int((gap_days >= 0).sum())
-    n_ge = int((gap_days <= 0).sum())
+    n_lt = int((gap_days < 0).sum())
+    n_gt = int((gap_days > 0).sum())
+    n_strict = n_lt + n_gt
     out: List[dict] = []
 
     dominant_dir = None
-    if n_le / n >= ORDER_DOMINANT_FRAC:
+    enough_strict = (n_strict >= MIN_STRICT_ORDER_N
+                     and n_strict >= int(np.ceil(MIN_STRICT_ORDER_FRAC * n)))
+    if enough_strict and n_gt / n_strict >= ORDER_DOMINANT_FRAC:
         dominant_dir = "a<=b"
         violators = joined[gap_days < 0]
-        violation_freq = float(1 - n_le / n)
-    elif n_ge / n >= ORDER_DOMINANT_FRAC:
+        violation_freq = float(n_lt / n_strict)
+    elif enough_strict and n_lt / n_strict >= ORDER_DOMINANT_FRAC:
         dominant_dir = "a>=b"
         violators = joined[gap_days > 0]
-        violation_freq = float(1 - n_ge / n)
+        violation_freq = float(n_gt / n_strict)
 
     if dominant_dir is not None and not violators.empty:
         raw = float(-np.log10(max(violation_freq, 1e-6)))
@@ -186,8 +307,9 @@ def _pair(network: str,
                 observed_value=f"a={short(row['a'].date())}, b={short(row['b'].date())}",
                 expected_value=f"usually {dominant_dir} (~{1-violation_freq:.1%} of subjects)",
                 explanation=(
-                    f"Date order violated. Across {n} subjects, {dominant_dir} "
-                    f"holds {1-violation_freq:.1%} of the time."
+                    f"Date order violated. Across {n_strict} strictly ordered "
+                    f"pairs ({n - n_strict} same-day ties excluded), "
+                    f"{dominant_dir} holds {1-violation_freq:.1%} of the time."
                 ),
                 method="paired date ordering",
             ).to_row())

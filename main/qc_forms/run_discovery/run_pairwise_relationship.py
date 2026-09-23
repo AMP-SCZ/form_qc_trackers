@@ -50,10 +50,19 @@ def main():
         return 1
     with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
         cfg = json.load(f)
-    enabled = bool(
-        cfg.get('discovery', {})
-           .get('pairwise_relationship', {})
-           .get('enabled', False))
+    try:
+        from qc_types.discovery._common import is_truthy_enabled
+        enabled = is_truthy_enabled(
+            cfg.get('discovery', {})
+               .get('pairwise_relationship', {})
+               .get('enabled', False))
+    except ImportError:
+        # Defensive fallback: keep the old loose semantics if
+        # _common isn't importable for any reason.
+        enabled = bool(
+            cfg.get('discovery', {})
+               .get('pairwise_relationship', {})
+               .get('enabled', False))
     if not enabled:
         print(
             "[run_pairwise_relationship] discovery."

@@ -173,7 +173,12 @@ def _detect_network(network: str, items: List) -> List[dict]:
     if len(numerics) < 3:
         return []
     completeness = {c: int(to_numeric_clean(stacked[c]).notna().sum()) for c in numerics}
-    numerics = sorted(numerics, key=lambda c: completeness[c], reverse=True)[:N_NUMERIC]
+    # ``numset`` is intentionally a set, so completeness ties otherwise inherit
+    # hash iteration order and can change the selected top-N across processes.
+    # Name is a stable secondary key; highest completeness still wins.
+    numerics = sorted(
+        numerics, key=lambda c: (-completeness[c], str(c))
+    )[:N_NUMERIC]
     if len(numerics) < 3:
         return []
 
@@ -310,9 +315,34 @@ def _adaptive_eps(Xs: np.ndarray, k: int) -> float:
     return float(np.percentile(kth, EPS_PERCENTILE))
 
 
+def _weakest_joint_spearman(X: np.ndarray, min_points: int = MIN_POINTS) -> float:
+    """Weakest absolute pair correlation on the *same* complete rows.
+
+    Triple eligibility must describe the cloud that DBSCAN will actually see.
+    Three pairwise correlations can each be strong on different missingness
+    subsets even though the joint-complete triple is unrelated.  Re-ranking the
+    three axes after restricting to their common finite rows prevents that
+    pairwise-support mismatch.  It also provides the within-slice relationship
+    gate used below, so visit-level location shifts cannot manufacture a
+    relationship only after timepoints are pooled.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    if X.ndim != 2 or X.shape[1] != 3:
+        return float("nan")
+    joint = np.isfinite(X).all(axis=1)
+    if int(joint.sum()) < min_points:
+        return float("nan")
+    corr, _ = pairwise_nan_spearman(X[joint], min_joint_n=min_points)
+    vals = np.abs(corr[np.triu_indices(3, 1)])
+    if vals.size != 3 or not np.isfinite(vals).all():
+        return float("nan")
+    return float(vals.min())
+
+
 def _cluster_triple(network, tp, cols, arrs, subj_arr, DBSCAN,
                     anomaly_type: str = ANOMALY_TYPE,
-                    exclude_marginal_outliers: bool = False) -> List[dict]:
+                    exclude_marginal_outliers: bool = False,
+                    min_triple_corr: float = MIN_TRIPLE_CORR) -> List[dict]:
     """Cluster one 3-column triple and score the off-cluster points. Shared by
     the within-timepoint detector and the longitudinal (cross-timepoint)
     detector -- the latter passes (variable@timepoint) column names in ``cols``
@@ -333,12 +363,24 @@ def _cluster_triple(network, tp, cols, arrs, subj_arr, DBSCAN,
     cols = tuple(cols[t] for t in order)
     arrs = [arrs[t] for t in order]
     a, b, c = arrs
-    joint = ~(np.isnan(a) | np.isnan(b) | np.isnan(c))
+    # Inf is no more clusterable than NaN and must not leak into the robust
+    # scale/covariance calculations.
+    joint = np.isfinite(a) & np.isfinite(b) & np.isfinite(c)
     nj = int(joint.sum())
     if nj < MIN_POINTS:
         return []
     idx = np.where(joint)[0]
     X = np.column_stack([a[joint], b[joint], c[joint]])
+
+    # The network-level screen is only a cheap candidate generator: it pools
+    # timepoints and its three pair correlations may be supported by different
+    # rows.  Require the relationship again on this slice's exact
+    # joint-complete rows before doing DBSCAN.  This rejects Simpson-like visit
+    # shifts where three unrelated within-visit variables merely move together
+    # between visits.
+    weakest_corr = _weakest_joint_spearman(X, min_points=MIN_POINTS)
+    if not np.isfinite(weakest_corr) or weakest_corr < min_triple_corr:
+        return []
 
     # Discreteness guard: lattice-like ordinal axes form grid "clusters".
     for d in range(3):
@@ -359,10 +401,15 @@ def _cluster_triple(network, tp, cols, arrs, subj_arr, DBSCAN,
     labels = DBSCAN(eps=eps, min_samples=DBSCAN_MIN_SAMPLES).fit_predict(Xs)
 
     # Structure gate -- only score where the "few large dense clusters" picture holds.
-    big = [cid for cid in set(labels) if cid != -1 and int(np.sum(labels == cid)) >= MIN_CLUSTER_SIZE]
+    big = [cid for cid in set(labels)
+           if cid != -1 and int(np.sum(labels == cid)) >= MIN_CLUSTER_SIZE]
     if not (MIN_CLUSTERS <= len(big) <= MAX_CLUSTERS):
         return []
-    noise = labels == -1
+    # DBSCAN may assign a label to a connected component smaller than the
+    # detector's stricter MIN_CLUSTER_SIZE.  Such a component is not accepted
+    # structure; treat its members as noise rather than silently placing them in
+    # neither the cluster nor noise populations.
+    noise = (labels == -1) | ~np.isin(labels, big)
     n_noise = int(noise.sum())
     if n_noise == 0 or (1.0 - n_noise / nj) < (1.0 - MAX_NOISE_FRACTION):
         return []

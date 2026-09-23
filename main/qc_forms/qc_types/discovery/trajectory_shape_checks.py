@@ -9,6 +9,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
@@ -98,6 +99,11 @@ class TrajectoryShapeChecks:
         'tps_used', 'n_components_kept', 'variance_explained',
         'trajectory_residual_norm', 'n_valid_subjects',
         'subject_valid_tps',
+        # Evidence timepoints (metadata-only — Patch 6).
+        # For trajectory_shape, the per-subject residual std is
+        # computed over every observed canonical tp; both columns
+        # therefore reflect the same set of tps as `tps_used`.
+        'evidence_timepoints', 'evidence_max_timepoint',
         # Tracker aliases (7).
         'subject', 'displayed_variable', 'displayed_timepoint',
         'affected_variables', 'affected_timepoints',
@@ -105,7 +111,11 @@ class TrajectoryShapeChecks:
     ]
 
     REQUIRED_INPUT_COLUMNS = [
-        'subjectid', 'network', 'timepoint', 'variable',
+        # Sprint 1 P0-3: 'cohort' added. Trajectory shape uses the
+        # per-tp cohort median as the reference; CHR-elevated
+        # variables would have an HC-typical (near-zero) curve
+        # pulling the median if cohorts were pooled.
+        'subjectid', 'network', 'timepoint', 'cohort', 'variable',
         'source_form', 'value', 'value_numeric', 'is_missing_code',
     ]
 
@@ -214,6 +224,7 @@ class TrajectoryShapeChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -246,10 +257,15 @@ class TrajectoryShapeChecks:
             subset=['subjectid', 'network', 'timepoint', 'variable'],
             keep='first')
 
+        # Sprint 1 P0-3: cohort stratification.
+        scoring['cohort'] = (
+            scoring['cohort'].astype(object)
+            .fillna('').astype(str).str.lower())
+
         today = str(datetime.today().date())
         records = []
-        for (net, var), grp in scoring.groupby(
-                ['network', 'variable'], sort=False):
+        for (net, var, _coh), grp in scoring.groupby(
+                ['network', 'variable', 'cohort'], sort=False):
             self._counters['variable_groups_considered'] += 1
             var_records = self._evaluate_variable(
                 net, var, grp, today)
@@ -434,6 +450,14 @@ class TrajectoryShapeChecks:
             df['n_valid_subjects'].astype('int64'))
         out['subject_valid_tps'] = (
             df['subject_valid_tps'].astype('int64'))
+        # Patch 6 — evidence_timepoints metadata. Trajectory-shape
+        # uses every observed canonical tp for the subject; the
+        # producer already wrote a comma-joined list at `tps_used`.
+        # Mirror that into the new schema columns plus compute the
+        # canonically-latest tp for evidence_max_timepoint.
+        out['evidence_timepoints'] = out['tps_used']
+        out['evidence_max_timepoint'] = out['tps_used'].apply(
+            self._canonical_max_tp)
         out['subject'] = out['subjectid']
         out['displayed_variable'] = out['variable']
         out['displayed_timepoint'] = out['timepoint']
@@ -442,6 +466,22 @@ class TrajectoryShapeChecks:
         out['affected_forms'] = out['source_form']
         out['displayed_form'] = out['source_form']
         return out[self.OUTPUT_COLUMNS]
+
+    def _canonical_max_tp(self, tps_str: str) -> str:
+        """
+        Pick the canonically-latest tp from a comma-joined list.
+        Unknown tps sink to the end of the sort so a malformed
+        producer string doesn't crash this method.
+        """
+        if not tps_str:
+            return ''
+        tps = [t for t in str(tps_str).split(',') if t]
+        if not tps:
+            return ''
+        tps_sorted = sorted(
+            tps,
+            key=lambda tp: self._tp_index.get(tp, 1_000_000))
+        return tps_sorted[-1]
 
     def _empty_output_df(self) -> pd.DataFrame:
         return pd.DataFrame({
@@ -468,6 +508,9 @@ class TrajectoryShapeChecks:
             'trajectory_residual_norm': pd.Series(dtype='float64'),
             'n_valid_subjects': pd.Series(dtype='int64'),
             'subject_valid_tps': pd.Series(dtype='int64'),
+            # Patch 6 — evidence_timepoints metadata.
+            'evidence_timepoints': pd.Series(dtype='object'),
+            'evidence_max_timepoint': pd.Series(dtype='object'),
             'subject': pd.Series(dtype='object'),
             'displayed_variable': pd.Series(dtype='object'),
             'displayed_timepoint': pd.Series(dtype='object'),

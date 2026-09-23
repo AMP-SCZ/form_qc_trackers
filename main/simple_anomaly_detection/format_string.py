@@ -22,6 +22,7 @@ covered by ``qc_types/discovery/*``.
 from __future__ import annotations
 
 from collections import Counter
+import re
 from typing import Dict, List  # Dict re-used for the per-row aggregator
 
 import numpy as np
@@ -50,6 +51,17 @@ MIN_DOMINANT_FREQ = 0.5   # only score columns where some pattern is at least 50
 # in common.py.
 EXTRA_EXCLUDED_SUBSTRINGS: tuple = ()
 
+# Format inference is valid for structured identifiers/codes, not arbitrary
+# prose. Previously every >15-unique object column was treated as patterned
+# text, so natural free responses (e.g. *_explain) produced singleton
+# signatures and lengths by design. Restrict this detector to field names that
+# declare a structured-string role. Add project-specific structured tokens here
+# when their format contract is known.
+STRUCTURED_STRING_NAME_RE = re.compile(
+    r"(?:^|_)(?:id|code|guid|uuid|email|phone|zip|postal|version|file|filename)(?:_|$)",
+    re.IGNORECASE,
+)
+
 
 def detect_all(per_slice: Dict, classify: Dict = None, **_) -> List[dict]:
     classify = classify or {}
@@ -72,6 +84,8 @@ def _detect_slice(df: pd.DataFrame, network: str, tp: str,
     out: List[dict] = []
     for col in cats["text"]:
         if matches_excluded_substrings(col, EXTRA_EXCLUDED_SUBSTRINGS):
+            continue
+        if not STRUCTURED_STRING_NAME_RE.search(str(col)):
             continue
         ser = clean_missing_string(df[col].astype(object))
         non_missing = ser.dropna().astype(str)

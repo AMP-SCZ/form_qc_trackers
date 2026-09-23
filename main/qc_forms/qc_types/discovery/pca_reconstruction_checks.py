@@ -9,12 +9,14 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
     is_excluded_variable,
     atomic_write_parquet,
     normalize_zscore_severity,
+    _is_form_blank,
 )
 
 """
@@ -93,7 +95,8 @@ class PCAReconstructionChecks:
     ]
 
     REQUIRED_INPUT_COLUMNS = [
-        'subjectid', 'network', 'timepoint', 'variable',
+        # Sprint 1 P0-3: 'cohort' added for stratification.
+        'subjectid', 'network', 'timepoint', 'cohort', 'variable',
         'source_form', 'value', 'value_numeric', 'is_missing_code',
     ]
 
@@ -202,6 +205,7 @@ class PCAReconstructionChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -236,9 +240,14 @@ class PCAReconstructionChecks:
 
         today = str(datetime.today().date())
         records = []
-        for (net, form), grp in scoring.groupby(
-                ['network', 'source_form'], sort=False):
-            if not form:
+        # Sprint 1 P0-3: cohort stratification — joint matrix is
+        # built within (network, source_form, cohort).
+        scoring['cohort'] = (
+            scoring['cohort'].astype(object)
+            .fillna('').astype(str).str.lower())
+        for (net, form, _coh), grp in scoring.groupby(
+                ['network', 'source_form', 'cohort'], sort=False):
+            if _is_form_blank(form):
                 continue
             self._counters['form_groups_considered'] += 1
             form_records = self._evaluate_form(

@@ -53,6 +53,13 @@ CONSTRAINTS HONORED:
 
 # Map detector key -> output filename. Keep this in sync with
 # run_all_discovery.py.
+#
+# Site-level detectors (site_distribution_drift, site_correlation_drift,
+# site_trajectory_slope) emit rows with subjectid='' because their
+# flags describe a site, not a subject. The aggregator filters those
+# out at the subject-rollup step (see `_load_detector_outputs` —
+# rows with blank subject are dropped). They are still registered
+# here for completeness so future site-aware rollups can opt in.
 _DETECTOR_FILES = (
     ('missingness_summary', 'missingness_anomaly_summary.parquet'),
     ('copy_forward', 'copy_forward_candidates.parquet'),
@@ -71,6 +78,22 @@ _DETECTOR_FILES = (
      'isolation_forest_candidates.parquet'),
     ('date_anomaly', 'date_anomaly_candidates.parquet'),
     ('duplicate_record', 'duplicate_record_candidates.parquet'),
+    # Sprint 1 P0-1: detectors added after the original aggregator
+    # registry was built. Per-subject rollups: multi_tp_consistency
+    # (within-row blood-ID dup, FIGS/PPS age — per-subject) and
+    # cohort_trajectory_deviation (per (subject, tp) flag).
+    ('multi_tp_consistency',
+     'multi_tp_consistency_candidates.parquet'),
+    ('cohort_trajectory_deviation',
+     'cohort_trajectory_deviation.parquet'),
+    # Site-level — included for orchestration completeness; rows
+    # with blank subjectid are filtered upstream.
+    ('site_distribution_drift',
+     'site_distribution_drift.parquet'),
+    ('site_correlation_drift',
+     'site_correlation_drift.parquet'),
+    ('site_trajectory_slope',
+     'site_trajectory_slope.parquet'),
 )
 
 

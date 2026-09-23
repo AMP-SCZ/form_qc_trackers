@@ -23,6 +23,38 @@ sys.path acrobatics that each detector does at import time.
 """
 
 import os
+import math
+
+import numpy as np
+import pandas as pd
+
+
+def is_finite_numeric_mask(series):
+    """
+    Boolean mask: True iff the cell holds a finite number (no NaN,
+    no inf, no non-numeric). Safe on empty Series, object-dtype
+    Series, and Series with mixed types — coerces non-numeric to
+    NaN first so the pipeline never crashes on dtype drift upstream.
+    Use in place of `Series.notna() & np.isfinite(Series)` which
+    raises on object-dtype.
+    """
+    coerced = pd.to_numeric(series, errors='coerce')
+    return np.isfinite(coerced)
+
+
+def _is_form_blank(form) -> bool:
+    """
+    Return True for empty / NaN / whitespace-only source_form values.
+    Plain `if not form:` is wrong for `np.nan` (bool(NaN) == True),
+    so detectors that gate their per-form loops with `if not form:`
+    silently let NaN-form rows through and produce literal 'nan'
+    strings in downstream output.
+    """
+    if form is None:
+        return True
+    if isinstance(form, float) and math.isnan(form):
+        return True
+    return not str(form).strip()
 
 
 # Forms whose variables are device-generated / passive monitoring
@@ -102,6 +134,40 @@ def normalize_zscore_severity(z: float) -> float:
         return float(min(100.0, max(0.0, abs(float(z)) * 10.0)))
     except (TypeError, ValueError):
         return 0.0
+
+
+def is_truthy_enabled(value) -> bool:
+    """
+    Strict parser for `discovery.<name>.enabled` flags.
+
+    The previous pattern `bool(cfg.get('enabled', False))` was
+    permissive in a dangerous direction: `bool('false') == True`,
+    so an operator who hand-edits `config.json` and types
+    `"enabled": "false"` silently turns the detector ON.
+
+    Accept only:
+      - JSON boolean true
+      - integer 1
+      - string "true" / "True" / "TRUE" (case-insensitive after
+        whitespace strip)
+
+    Everything else (including the JSON string "false", any other
+    string, JSON null, JSON object, etc.) returns False. This
+    mirrors the strict `testing_enabled` validator in utils.utils.
+
+    Centralized here so every discovery runner and the orchestrator
+    use the same parser and a future tightening only touches one
+    place.
+    """
+    if value is True:
+        return True
+    if value is False or value is None:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value == 1
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return False
 
 
 def normalize_fraction_severity(frac: float) -> float:

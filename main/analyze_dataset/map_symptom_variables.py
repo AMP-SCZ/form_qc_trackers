@@ -7,6 +7,12 @@ match came from, and the matched terms. A variable can map to multiple
 domains by design (e.g. persecutory-delusion items belong to both
 ``paranoia`` and ``delusions``).
 
+Also writes ``symptoms_by_variable.xlsx`` — a standalone, shareable
+symptom-centric view: each symptom domain with every core symptom item
+that matched it and that variable's data-dictionary description (the
+Field Label). Flat, filterable table; see its 'About' sheet for the
+topic-not-endorsement caveat and the description's source.
+
 Two input sources, best available wins:
 
 1. The real data dictionary — ``{dependencies_path}data_dictionary/
@@ -43,9 +49,8 @@ Matching semantics (see the README sheet of the output):
   about whether a symptom is endorsed ('denies hallucinations' still
   matches), and severity vs presence semantics are out of scope.
 
-Standalone on purpose: Utils() cannot construct on Windows (its
-absolute_path splits realpath on '/'), so this reads config.json /
-the JSONs directly instead of utils.load_dependency_json.
+This standalone utility reads config.json and the configured reference JSONs
+directly, using the repository root regardless of the invoking directory.
 """
 
 import argparse
@@ -59,11 +64,12 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-PROJECT_ROOT = "/".join(os.path.realpath(__file__).split("/")[0:-3])
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 OUT_XLSX = os.path.join(PROJECT_ROOT, "symptom_variable_map.xlsx")
 OUT_ROWS_JSON = os.path.join(
     PROJECT_ROOT, "_audit_tmp", "symptom_variable_map_rows.json"
 )
+OUT_BY_SYMPTOM_XLSX = os.path.join(PROJECT_ROOT, "symptoms_by_variable.xlsx")
 
 # Exact browser-export headers used across the pipeline
 # (process_variables/organize_reports.py, define_important_variables.py).
@@ -855,10 +861,91 @@ def build_readme_rows(source_desc, n_items, n_matches, n_vetoed):
     ]
 
 
+def write_by_symptom(path, core_matches, source_desc, n_items):
+    """Standalone, shareable symptom-centric output: one row per
+    (symptom, variable) core match, with the variable's data-dictionary
+    description (the Field Label). The 'By Symptom' sheet is a flat,
+    filterable table; a short 'About' sheet carries the same
+    topic-not-endorsement caveat the main workbook's README does (this
+    file is meant to travel on its own). Returns the row count."""
+    rows = [
+        {
+            "symptom": match["domain"],
+            "variable": match["variable"],
+            "description": match["field_label"],
+            "form": match["form"],
+        }
+        for match in sorted(
+            core_matches,
+            key=lambda m: (m["domain"], m["form"], m["variable"]),
+        )
+    ]
+
+    wb = Workbook()
+    table_ws = wb.active
+    table_ws.title = "By Symptom"
+    write_sheet(table_ws, [
+        ("symptom", 26), ("variable", 28), ("description", 90), ("form", 38),
+    ], rows)
+
+    about_ws = wb.create_sheet("About")
+    about_ws.cell(row=1, column=1, value="Topic").font = Font(bold=True)
+    about_ws.cell(row=1, column=2, value="Detail").font = Font(bold=True)
+    about_ws.column_dimensions["A"].width = 24
+    about_ws.column_dimensions["B"].width = 130
+    about_rows = [
+        ("Purpose",
+         "Each clinical symptom domain listed with every study variable "
+         "that matched it (core symptom items only) and that variable's "
+         "data-dictionary description."),
+        ("A match means TOPIC, not endorsement",
+         "A row means the item is ABOUT the symptom, not that the symptom "
+         "is present: 'denies hallucinations' and 'no suicidal ideation' "
+         "still match. Do not read these rows as symptoms a participant "
+         "has."),
+        ("'description' column",
+         "The REDCap data dictionary's Field Label for the variable. The "
+         "data dictionary CSV is not in this local slice, so labels come "
+         "from dependencies/grouped_variables.json (var_translations) — "
+         "the same HTML-stripped Field Label text."),
+        ("Scope",
+         "Core symptom items only. Rater instructions, severity-anchor "
+         "tables, prompts/probes, free-text companions and date fields "
+         "are excluded here (they appear on the 'Context Fields' sheet of "
+         "symptom_variable_map.xlsx)."),
+        ("'symptom' values are internal keys",
+         "Domain keys are spelled as used across the pipeline, e.g. "
+         "hallucinations_perceptual, anhedonia_avolition_negative, "
+         "disorganization_ftd, mania_hypomania, suicidality_self_harm, "
+         "trauma_ptsd."),
+        ("Source", source_desc),
+        ("Counts",
+         f"{n_items} variables scanned; {len(rows)} core (symptom, "
+         f"variable) rows on the 'By Symptom' sheet."),
+        ("Companion file",
+         "symptom_variable_map.xlsx holds the full breakdown (Summary, "
+         "Matches, Context Fields, Vetoed) and the matching methodology."),
+        ("Regenerate",
+         "python analyze_dataset/map_symptom_variables.py "
+         "[--by-symptom-out <path>]"),
+    ]
+    for idx, (topic, detail) in enumerate(about_rows, start=2):
+        cell = about_ws.cell(row=idx, column=1, value=topic)
+        cell.font = Font(bold=True)
+        cell.alignment = WRAP
+        about_ws.cell(row=idx, column=2, value=detail).alignment = WRAP
+
+    wb.save(path)
+    return len(rows)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dd", help="explicit path to a data dictionary CSV")
     parser.add_argument("--out", default=OUT_XLSX, help="output xlsx path")
+    parser.add_argument(
+        "--by-symptom-out", default=OUT_BY_SYMPTOM_XLSX,
+        help="standalone per-symptom table xlsx path")
     args = parser.parse_args()
     if args.dd and not os.path.isfile(args.dd):
         parser.error(f"--dd path does not exist or is not a file: {args.dd}")
@@ -964,6 +1051,9 @@ def main():
 
     wb.save(args.out)
 
+    n_by_symptom = write_by_symptom(
+        args.by_symptom_out, core_matches, source_desc, len(items))
+
     os.makedirs(os.path.dirname(OUT_ROWS_JSON), exist_ok=True)
     with open(OUT_ROWS_JSON, "w", encoding="utf-8") as file:
         json.dump({"matches": matches, "vetoed": vetoed}, file, indent=2,
@@ -975,7 +1065,8 @@ def main():
           f"{len(vetoed)} fully vetoed.")
     for domain in LEXICON:
         print(f"  {domain}: {domain_counts.get(domain, 0)} core")
-    print(f"Wrote {args.out} and {OUT_ROWS_JSON}")
+    print(f"Wrote {args.out}, {args.by_symptom_out} "
+          f"({n_by_symptom} rows), and {OUT_ROWS_JSON}")
 
 
 if __name__ == "__main__":

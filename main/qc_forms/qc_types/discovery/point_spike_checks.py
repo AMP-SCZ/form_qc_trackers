@@ -9,6 +9,7 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
@@ -135,6 +136,14 @@ class PointSpikeChecks:
         'cohort_median', 'cohort_mad_scale',
         'prev_neighbor_z', 'next_neighbor_z',
         'num_neighbors_considered',
+        # Evidence timepoints (metadata-only — Patch 6).
+        # `evidence_timepoints` is a comma-joined list of canonical
+        # timepoints actually consulted in producing this flag;
+        # `evidence_max_timepoint` is the canonically-latest of
+        # those. Lets a downstream ML consumer filter flags whose
+        # evidence reached past a prediction cutoff. Does NOT
+        # change which rows are flagged.
+        'evidence_timepoints', 'evidence_max_timepoint',
         # Tracker-compatible aliases (7).
         'subject', 'displayed_variable', 'displayed_timepoint',
         'affected_variables', 'affected_timepoints',
@@ -142,7 +151,11 @@ class PointSpikeChecks:
     ]
 
     REQUIRED_INPUT_COLUMNS = [
-        'subjectid', 'network', 'timepoint', 'variable',
+        # Sprint 1 P0-3: 'cohort' added so the per-tp cohort robust
+        # z is computed within (HC | CHR | HSC) instead of pooling
+        # across cohorts (which lets a CHR-elevated variable's HC
+        # subjects look like outliers because they sit near zero).
+        'subjectid', 'network', 'timepoint', 'cohort', 'variable',
         'source_form', 'value', 'value_numeric', 'is_missing_code',
     ]
 
@@ -205,6 +218,7 @@ class PointSpikeChecks:
             'tp_groups_skipped_insufficient_obs': 0,
             'tp_groups_skipped_degenerate_mad': 0,
             'scored_observations': 0,
+            'scored_rows_deduped': 0,
             'candidate_high_z_points': 0,
             'candidates_dropped_unscored_neighbor': 0,
             'candidates_dropped_nan_z': 0,
@@ -259,6 +273,7 @@ class PointSpikeChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -292,7 +307,13 @@ class PointSpikeChecks:
         if len(scoring) == 0:
             return self._empty_output_df()
 
-        # Step 1: compute cohort z per (network, variable, tp).
+        # Sprint 1 P0-3: normalize cohort column for stratification
+        # in _assign_cohort_z. NaN→''; categorical→str→lower.
+        scoring['cohort'] = (
+            scoring['cohort'].astype(object)
+            .fillna('').astype(str).str.lower())
+
+        # Step 1: compute cohort z per (network, variable, cohort, tp).
         scored = self._assign_cohort_z(scoring)
         if len(scored) == 0:
             return self._empty_output_df()
@@ -346,8 +367,12 @@ class PointSpikeChecks:
         skipped for insufficient obs or degenerate MAD.
         """
         pieces = []
-        for (_net, _var, _tp), grp in scoring.groupby(
-                ['network', 'variable', 'timepoint'], sort=False):
+        # Sprint 1 P0-3: cohort stratification. The cohort robust z
+        # is now computed within (network, variable, cohort, tp);
+        # HC/CHR/HSC populations are never pooled.
+        for (_net, _var, _coh, _tp), grp in scoring.groupby(
+                ['network', 'variable', 'cohort', 'timepoint'],
+                sort=False):
             self._counters['tp_groups_considered'] += 1
             if len(grp) < self.min_observations_per_tp:
                 self._counters[
@@ -397,27 +422,33 @@ class PointSpikeChecks:
         the top-of-sheet shows the visually most extreme points.
         """
         # Producer invariant: one row per (network, variable, subjectid,
-        # timepoint) in the long parquet. If violated, the neighbor
-        # lookup is nondeterministic — fail loud rather than silently
-        # dedupe so the upstream producer bug surfaces.
+        # timepoint) in the long parquet. Real REDCap re-exports can
+        # emit duplicates, and crashing the whole chain on a producer-
+        # side data quirk is worse than picking the first row
+        # deterministically — every sibling detector dedupes with
+        # keep='first' for the same reason. We surface the dupe count
+        # in the counters so the operator can still see it.
         dup_mask = scored.duplicated(
             subset=['network', 'variable', 'subjectid', 'timepoint'],
             keep=False)
         if dup_mask.any():
+            n_dupes = int(dup_mask.sum())
             dup_sample = (
                 scored.loc[
                     dup_mask,
                     ['network', 'variable', 'subjectid', 'timepoint']
                 ].head(5).to_dict('records'))
-            raise RuntimeError(
-                "FATAL: duplicate (network, variable, subjectid, "
-                f"timepoint) rows in scored long-format data "
-                f"({int(dup_mask.sum())} duplicate rows). This "
-                "indicates a producer bug in "
-                "multi_tp_*_numeric_long.parquet — neighbor lookup "
-                "would be nondeterministic. Sample dupes: "
-                f"{dup_sample}"
+            print(
+                f"[point_spike_checks] WARNING: {n_dupes} duplicate "
+                f"(network, variable, subjectid, timepoint) rows in "
+                f"scored long-format data. Deduping with "
+                f"keep='first' so neighbor lookup stays deterministic. "
+                f"Sample dupes: {dup_sample}"
             )
+            self._counters['scored_rows_deduped'] += n_dupes
+            scored = scored.drop_duplicates(
+                subset=['network', 'variable', 'subjectid', 'timepoint'],
+                keep='first')
 
         # Build raw-observation tp_idx set per (network, variable,
         # subject) BEFORE the cohort-z pool filter. Used to distinguish
@@ -459,6 +490,14 @@ class PointSpikeChecks:
                 cur_idx = int(row['tp_idx'])
                 neighbor_zs = []
                 prev_z = next_z = float('nan')
+                # Capture which adjacent tps were actually consulted
+                # for the new evidence_timepoints metadata column
+                # (Patch 6). A neighbor counts as "evidence" only when
+                # its z was successfully read (i.e. the candidate
+                # neither got rejected for an unscored neighbor nor
+                # had no observation at that adjacent slot).
+                prev_tp_name = ''
+                next_tp_name = ''
                 unscored_neighbor = False
                 for offset, label in ((-1, 'prev'), (1, 'next')):
                     n_idx = cur_idx + offset
@@ -473,10 +512,14 @@ class PointSpikeChecks:
                             unscored_neighbor = True
                             continue
                         neighbor_zs.append(abs(z))
+                        neighbor_tp = str(
+                            g.iloc[pos]['timepoint'])
                         if label == 'prev':
                             prev_z = z
+                            prev_tp_name = neighbor_tp
                         else:
                             next_z = z
+                            next_tp_name = neighbor_tp
                     elif n_idx in raw_idxs:
                         # Obs exists at adjacent visit but its cohort
                         # pool was dropped — we cannot prove it's
@@ -514,6 +557,8 @@ class PointSpikeChecks:
                     'next_neighbor_z': next_z,
                     'num_neighbors_considered': len(neighbor_zs),
                     'severity_score': severity,
+                    'prev_tp_name': prev_tp_name,
+                    'next_tp_name': next_tp_name,
                 })
         if not records:
             return pd.DataFrame()
@@ -553,6 +598,15 @@ class PointSpikeChecks:
             flagged['next_neighbor_z'].astype(float))
         out['num_neighbors_considered'] = (
             flagged['num_neighbors_considered'].astype('int64'))
+        # Patch 6 — evidence_timepoints metadata. Canonically-sorted
+        # comma-joined list of {prev_tp, spike_tp, next_tp} ∩ observed.
+        # evidence_max_timepoint is the canonically-latest of those.
+        # If no future-neighbor evidence was used (e.g. spike at the
+        # last visit), evidence_max_timepoint equals the spike tp.
+        out['evidence_timepoints'] = flagged.apply(
+            self._build_evidence_timepoints, axis=1)
+        out['evidence_max_timepoint'] = flagged.apply(
+            self._build_evidence_max_timepoint, axis=1)
         out['subject'] = out['subjectid']
         out['displayed_variable'] = out['variable']
         out['displayed_timepoint'] = out['timepoint']
@@ -561,6 +615,32 @@ class PointSpikeChecks:
         out['affected_forms'] = out['source_form']
         out['displayed_form'] = out['source_form']
         return out[self.OUTPUT_COLUMNS]
+
+    def _evidence_tps_for_row(self, row) -> list:
+        """
+        Canonically-ordered list of tps used as evidence for the
+        flag at `row`. Includes the spike tp plus any adjacent tp
+        whose observation was actually consulted (prev/next).
+        """
+        evidence = [str(row['timepoint'])]
+        prev_tp = row.get('prev_tp_name', '')
+        next_tp = row.get('next_tp_name', '')
+        if prev_tp:
+            evidence.append(str(prev_tp))
+        if next_tp:
+            evidence.append(str(next_tp))
+        # Sort by canonical tp index. Unknown tps sink to the end
+        # (1_000_000) so a malformed input doesn't crash the sort.
+        return sorted(
+            set(evidence),
+            key=lambda tp: self._tp_index.get(tp, 1_000_000))
+
+    def _build_evidence_timepoints(self, row) -> str:
+        return ','.join(self._evidence_tps_for_row(row))
+
+    def _build_evidence_max_timepoint(self, row) -> str:
+        tps = self._evidence_tps_for_row(row)
+        return tps[-1] if tps else ''
 
     def _build_error_message(self, row) -> str:
         nz = []
@@ -603,6 +683,9 @@ class PointSpikeChecks:
             'prev_neighbor_z': pd.Series(dtype='float64'),
             'next_neighbor_z': pd.Series(dtype='float64'),
             'num_neighbors_considered': pd.Series(dtype='int64'),
+            # Patch 6 — evidence_timepoints metadata.
+            'evidence_timepoints': pd.Series(dtype='object'),
+            'evidence_max_timepoint': pd.Series(dtype='object'),
             'subject': pd.Series(dtype='object'),
             'displayed_variable': pd.Series(dtype='object'),
             'displayed_timepoint': pd.Series(dtype='object'),
@@ -656,6 +739,8 @@ class PointSpikeChecks:
             ("(net,var,tp) groups skipped — zero/NaN MAD",
              c['tp_groups_skipped_degenerate_mad']),
             ("scored observations", c['scored_observations']),
+            ("scored rows deduped (producer dupes)",
+             c['scored_rows_deduped']),
             ("candidate high-|z| points",
              c['candidate_high_z_points']),
             ("candidates dropped — NaN cohort_z",

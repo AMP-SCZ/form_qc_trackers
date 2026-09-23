@@ -20,62 +20,121 @@ _DEPENDENCY_JSON_CACHE = {}
 _CONFIG_CACHE = {}
 
 
+def _project_root():
+    """Return the repository root using platform-native path semantics."""
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+
+def _validate_testing_enabled(config_info, source_path):
+    """
+    Central validation for config.testing_enabled. Several call sites
+    compare the value to the literal string "True" exactly; a typo like
+    "true", "True " (trailing space), JSON boolean true, or 1 would
+    silently route a test run to production output paths and the live
+    Dropbox folder. Reject anything other than "True" or "False" with
+    a clear fatal error. Missing key is treated as "False" — that is
+    the established default at every existing call site (they fall
+    through to production path on absence).
+    """
+    if 'testing_enabled' not in config_info:
+        config_info['testing_enabled'] = "False"
+        return
+    val = config_info['testing_enabled']
+    if val not in ("True", "False"):
+        raise RuntimeError(
+            f"FATAL: config.testing_enabled at {source_path} must be "
+            f"exactly the string 'True' or 'False'; got {val!r} "
+            f"(type {type(val).__name__}). Refusing to run — silently "
+            f"accepting this typo would route outputs to "
+            f"{'production' if val != 'True' else 'testing'} paths."
+        )
+
+
 def _load_config(absolute_path):
     cached = _CONFIG_CACHE.get(absolute_path)
     if cached is None:
-        with open(f'{absolute_path}/config.json', 'r') as file:
+        config_path = f'{absolute_path}/config.json'
+        with open(config_path, 'r') as file:
             cached = json.load(file)
+        _validate_testing_enabled(cached, config_path)
         _CONFIG_CACHE[absolute_path] = cached
     return cached
 
 
+# Process-wide constant singletons (roadmap #9, safe subset). Utils is
+# constructed ~8x per row on the QC hot path; rebuilding these ~40-entry
+# dicts/lists on every construction was pure per-row allocation. Built once
+# at import and shared. All verified read-only at call sites: concatenations
+# like `missing_code_list + ['']` create new lists, and the site dicts are
+# only read via [] (never reassigned). The mutable `withdrawn_status_list`
+# is intentionally NOT hoisted (stays a fresh per-instance []).
+_MISSING_CODE_LIST = \
+['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',
+'1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,
+'-99.0',999,999.0,'999','999.0']
+_MISSING_CODE_SET = frozenset(_MISSING_CODE_LIST)
+_ALL_PRONET_SITES = ["KC", "BI", "SD", "NL", "OR", "CA", "IR", "MU","YA", "HA",
+"MA", "PI", "PV", "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM','SL','SI','SH','UR','OH']
+_ALL_PRESCIENT_SITES = ['BM', 'CG', 'CP', 'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']
+_ALL_SITES = {'PRONET': list(_ALL_PRONET_SITES), 'PRESCIENT': list(_ALL_PRESCIENT_SITES)}
+_SITE_FULL_NAME_TRANSLATIONS = {'BI': 'Beth Israel (Harvard) (BI)',
+        'CA': 'Calgary, CA (CA)', 'CM': 'Cambridge (CM)', 'GA': 'Georgia (GA)',
+        'HA': 'Hartford (Institute of Living) (HA)', 'IR': 'UC Irvine (IR)',
+        'KC': "King's College, UK (KC)", 'LA': 'UCLA (LA)', 'MA': 'Madrid, Spain (MA)',
+        'MT': 'Montreal, CA (MT)', 'MU': 'Munich, Germany (MU)', 'NC': 'UNC (North Carolina) (NC)',
+        'NL': 'Northwell (NL)', 'NN': 'Northwestern (NN)', 'OR': 'Oregon (OR)',
+        'PA': 'University of Pennsylvania (PA)', 'PI': 'Pittsburgh (UPMC) (PI)',
+        'PV': 'Pavia, Italy (PV)', 'SD': 'UCSD (SD)', 'SF': 'UCSF (Mission Bay) (SF)',
+        'SH': 'Shanghai, China (SH)', 'SI': 'Mt. Sinai (SI)', 'SL': 'Seoul, South Korea (SL)',
+        'TE': 'Temple (TE)', 'WU': 'Washington University (WU)', 'YA': 'Yale (YA)','UR':'University of Rochester (UR)',
+        'OH':'Ohio (OH)', 'BM': 'Birmingham, UK (BM)', 'CG': 'Cologne, DE (CG)',
+        'CP': 'Copenhagen, DK (CP)', 'GW': 'Gwangju, KR (GW)', 'HK': 'Hong Kong (HK)',
+        'JE': 'Jena, DE (JE)', 'LS': 'Lausanne, CH (LS)', 'ME': 'Melbourne (ME)',
+        'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
+        'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
+
+
 class Utils():
     def __init__(self):
-        self.missing_code_list = \
-        ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
-        '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,\
-        '-99.0',999,999.0,'999','999.0']
+        self.missing_code_list = _MISSING_CODE_LIST
+        self.missing_code_set = _MISSING_CODE_SET
 
-        # O(1) membership-test alias for the hot path. The list above is
-        # kept as-is so concatenation patterns like
-        # `self.missing_code_list + ['']` (used at many call sites) and
-        # pandas calls like `df.replace(self.missing_code_list, 0)` /
-        # `Series.isin(self.missing_code_list + [''])` continue to receive
-        # a list with the original ordering.
-        self.missing_code_set = frozenset(self.missing_code_list)
-
-        self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-3])
+        self.absolute_path = _project_root()
 
         self.config_info = _load_config(self.absolute_path)
 
+        # The persistent network scope is defined in config.json. QC_NETWORKS
+        # can override it for a one-off run without changing future scheduled
+        # runs. Every pipeline stage consumes this single validated list,
+        # including Dropbox readback/upload.
+        configured_networks = os.environ.get('QC_NETWORKS')
+        if configured_networks is None:
+            configured_networks = self.config_info.get('pipeline_networks')
+        elif isinstance(configured_networks, str):
+            configured_networks = configured_networks.split(',')
+        if (not isinstance(configured_networks, (list, tuple))
+                or not configured_networks):
+            raise RuntimeError(
+                "Set config.json pipeline_networks to a non-empty list, or "
+                "provide a comma-separated QC_NETWORKS override.")
+        normalized_networks = []
+        for network in configured_networks:
+            normalized = str(network).strip().upper()
+            if normalized not in {'PRONET', 'PRESCIENT'}:
+                raise RuntimeError(
+                    f"Unsupported QC network {network!r}; expected PRONET "
+                    "and/or PRESCIENT.")
+            if normalized not in normalized_networks:
+                normalized_networks.append(normalized)
+        self.pipeline_networks = tuple(normalized_networks)
+
         self.output_path = self.config_info['paths']['output_path']
 
-        self.all_pronet_sites = ["KC", "BI", "SD", "NL", "OR", "CA", "IR", "MU","YA", "HA",\
-        "MA", "PI", "PV", "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM','SL','SI','SH','UR','OH']
-        self.all_prescient_sites = ['BM', 'CG', 'CP', 'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']
+        self.all_pronet_sites = _ALL_PRONET_SITES
+        self.all_prescient_sites = _ALL_PRESCIENT_SITES
+        self.all_sites = _ALL_SITES
+        self.site_full_name_translations = _SITE_FULL_NAME_TRANSLATIONS
 
-        self.all_sites = {'PRONET' :["KC", "BI", "SD", "NL",
-        "OR", "CA", "IR", "MU","YA", "HA","MA", "PI", "PV",
-        "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM',
-        'SL','SI','SH','UR','OH'] ,'PRESCIENT' : ['BM', 'CG', 'CP',
-        'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']}
-        
-        self.site_full_name_translations = {'BI': 'Beth Israel (Harvard) (BI)',\
-                'CA': 'Calgary, CA (CA)', 'CM': 'Cambridge (CM)', 'GA': 'Georgia (GA)',\
-                'HA': 'Hartford (Institute of Living) (HA)', 'IR': 'UC Irvine (IR)',\
-                'KC': "King's College, UK (KC)", 'LA': 'UCLA (LA)', 'MA': 'Madrid, Spain (MA)',\
-                'MT': 'Montreal, CA (MT)', 'MU': 'Munich, Germany (MU)', 'NC': 'UNC (North Carolina) (NC)',\
-                'NL': 'Northwell (NL)', 'NN': 'Northwestern (NN)', 'OR': 'Oregon (OR)',
-                'PA': 'University of Pennsylvania (PA)', 'PI': 'Pittsburgh (UPMC) (PI)',\
-                'PV': 'Pavia, Italy (PV)', 'SD': 'UCSD (SD)', 'SF': 'UCSF (Mission Bay) (SF)',\
-                'SH': 'Shanghai, China (SH)', 'SI': 'Mt. Sinai (SI)', 'SL': 'Seoul, South Korea (SL)',\
-                'TE': 'Temple (TE)', 'WU': 'Washington University (WU)', 'YA': 'Yale (YA)','UR':'University of Rochester (UR)',\
-                'OH':'Ohio (OH)', 'BM': 'Birmingham, UK (BM)', 'CG': 'Cologne, DE (CG)', \
-                'CP': 'Copenhagen, DK (CP)', 'GW': 'Gwangju, KR (GW)', 'HK': 'Hong Kong (HK)',\
-                'JE': 'Jena, DE (JE)', 'LS': 'Lausanne, CH (LS)', 'ME': 'Melbourne (ME)',\
-                'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
-                'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
-        
         self.withdrawn_status_list = []
         self.important_form_vars = self.load_dependency_json(
         'important_form_vars.json')
@@ -245,27 +304,30 @@ class Utils():
         """
     
         depend_path = self.config_info['paths']['dependencies_path']
-        # Deterministic selection: collect all matches, then pick the
-        # lexicographically last one (typically the most recent dated
-        # filename). Previously the loop overwrote on every match without
-        # `break`, returning the *last-listed-by-OS* match (order varies
-        # across platforms and is not stable). If multiple files match,
-        # warn — the operator probably left a backup behind.
+        # Match calculated-field discovery: prefer the exact canonical file,
+        # accept one unambiguous dated variant, and fail when variants compete.
+        dictionary_dir = os.path.join(depend_path, 'data_dictionary')
         matches = sorted(
-            f for f in os.listdir(f"{depend_path}data_dictionary")
-            if match_str in f
+            f for f in os.listdir(dictionary_dir)
+            if match_str in f and f.lower().endswith('.csv')
         )
         if not matches:
             raise FileNotFoundError(
                 f"No data dictionary file matching '{match_str}' found in"
-                f" {depend_path}data_dictionary")
-        if len(matches) > 1:
-            print(f"[utils.read_data_dictionary] WARNING: multiple data"
-                  f" dictionary files match '{match_str}': {matches}."
-                  f" Using {matches[-1]}. Remove old copies to avoid drift.")
-        chosen = matches[-1]
+                f" {dictionary_dir}")
+        exact_name = f"{match_str}.csv"
+        if exact_name in matches:
+            chosen = exact_name
+        elif len(matches) == 1:
+            chosen = matches[0]
+        else:
+            raise FileNotFoundError(
+                f"Multiple data dictionary files match '{match_str}' in "
+                f"{dictionary_dir}: {matches}. Keep the canonical "
+                f"{exact_name}, remove stale variants, or explicitly select "
+                "one dictionary in the standalone tool.")
         data_dictionary_df = pd.read_csv(
-            f"{depend_path}data_dictionary/{chosen}",
+            os.path.join(dictionary_dir, chosen),
             keep_default_na=False)  # setting this to false preserves empty strings
 
         return data_dictionary_df
@@ -293,10 +355,27 @@ class Utils():
         return filtered_df
 
     def save_dependency_json(self, data, filename):
+        # Atomic write: serialize to a PID-stamped tmp file then
+        # os.replace into place. Without this, a crash mid-dump
+        # leaves a truncated JSON file on disk; the next
+        # load_dependency_json call would raise RuntimeError
+        # (post-RH-1) or silently return {} (pre-RH-1, the bug
+        # this avoids). Pattern matches the parquet writes
+        # elsewhere in the pipeline.
         dep_path = self.config_info["paths"]["dependencies_path"]
-        with open(f'{dep_path}{filename}',
-        'w') as json_file:
-            json.dump(data, json_file, indent=4)
+        final_path = f'{dep_path}{filename}'
+        tmp_path = f'{final_path}.{os.getpid()}.tmp'
+        try:
+            with open(tmp_path, 'w') as json_file:
+                json.dump(data, json_file, indent=4)
+            os.replace(tmp_path, final_path)
+        except Exception:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise
         # Invalidate the cache so any subsequent load_dependency_json call
         # in this process picks up the freshly-written content.
         _DEPENDENCY_JSON_CACHE.pop((dep_path, filename), None)
@@ -306,11 +385,28 @@ class Utils():
         cache_key = (dep_path, filename)
         if cache_key in _DEPENDENCY_JSON_CACHE:
             return _DEPENDENCY_JSON_CACHE[cache_key]
+        # Release-hardening (RH-1): corrupt JSON now raises instead
+        # of silently returning {}. The previous behavior was a
+        # silent-misconfig channel — a truncated dep file produced
+        # {} → downstream code saw no subjects / no forms / no
+        # Melbourne RAs and proceeded with wrong data. Failing
+        # loudly here forces the operator to investigate (likely
+        # re-run process_variables) before any QC stage uses the
+        # broken file. FileNotFoundError already propagated; no
+        # change for missing files.
+        full_path = f'{dep_path}{filename}'
         try:
-            with open(f'{dep_path}{filename}','r') as json_file:
+            with open(full_path, 'r') as json_file:
                 json_data = json.load(json_file)
-        except json.JSONDecodeError:
-            return {}
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                f"FATAL: dependency JSON at {full_path} is "
+                f"unreadable ({type(e).__name__}: {e}). Refusing "
+                f"to silently return an empty dict — downstream QC "
+                f"would proceed with missing data. Restore the "
+                f"file (e.g., re-run process_variables) and try "
+                f"again."
+            ) from e
         _DEPENDENCY_JSON_CACHE[cache_key] = json_data
         return json_data
 
@@ -570,7 +666,8 @@ class Utils():
                 return False
             # prescient missingness can also be indicated by the completion var
             if (network == 'PRESCIENT' and
-            getattr(curr_row, compl_var) in self.all_dtype([3,4])):
+                    hasattr(curr_row, compl_var) and
+                    getattr(curr_row, compl_var) in self.all_dtype([3,4])):
                 return True
             if getattr(curr_row, missing_var) not in self.all_dtype([1]):
                 return False
@@ -706,5 +803,3 @@ class Utils():
         diffs_df.to_csv(out_diffs, index=False)
         #pd.DataFrame({"key": only1}).to_csv(out_only_1, index=False)
         #pd.DataFrame({"key": only2}).to_csv(out_only_2, index=False)
-
-

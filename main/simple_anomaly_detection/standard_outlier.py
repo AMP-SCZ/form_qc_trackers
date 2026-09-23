@@ -24,6 +24,13 @@ from .common import (
 ANOMALY_TYPE = "standard_outlier"
 Z_THRESHOLD = 4.0
 MIN_N = 30
+# An individual-cell detector is only meaningful when the flagged tail is
+# actually rare. On discrete, rounded, or mixture-distributed variables a tiny
+# MAD can put a sizeable group above |z|=4; those rows describe a mismatched
+# model/distribution, not dozens of independent entry errors. Allow at least
+# three cells for small slices, otherwise no more than 5% of observed values.
+MAX_FLAG_FRACTION = 0.05
+MIN_FLAG_COUNT_ALLOWANCE = 3
 
 # Per-detector exclusion list (case-insensitive substring match against
 # variable name). Add strings here to suppress this detector's findings
@@ -57,6 +64,46 @@ def detect_per_slice(df: pd.DataFrame, network: str, timepoint: str,
         z = (num - med) / sigma
         bad_mask = z.abs() >= Z_THRESHOLD
         if not bad_mask.any():
+            continue
+
+        n_bad = int(bad_mask.sum())
+        max_rare = max(MIN_FLAG_COUNT_ALLOWANCE,
+                       int(np.ceil(MAX_FLAG_FRACTION * len(valid))))
+        if n_bad > max_rare:
+            # This tail is too common to call its members independent isolated
+            # errors. Emit ONE distribution-level issue instead of either
+            # flooding the sheet or silently dropping a possible batch error.
+            idxs = np.where(bad_mask.values)[0]
+            z_bad = z.iloc[idxs].abs().sort_values(ascending=False)
+            top_idxs = list(z_bad.index[:5])
+            top_bits = []
+            for i in top_idxs:
+                top_bits.append(
+                    f"{df['subjectid'].loc[i]}={short(num.loc[i])} "
+                    f"(z={abs(float(z.loc[i])):.2f})")
+            out.append(Finding(
+                anomaly_type=ANOMALY_TYPE,
+                severity_score=severity_from_z(float(z_bad.iloc[0]),
+                                                Z_THRESHOLD, 10.0),
+                raw_score=float(z_bad.iloc[0]),
+                network=network,
+                timepoint=timepoint,
+                site_id="(multiple)",
+                subjectid=f"({n_bad} rows)",
+                variable=col,
+                observed_value="; ".join(top_bits),
+                expected_value=f"~{med:.4g} (median); sigma={sigma:.4g}",
+                explanation=(
+                    f"{n_bad}/{len(valid)} observed rows ({n_bad/len(valid):.1%}) "
+                    f"exceed |robust z| >= {Z_THRESHOLD}. This is too common "
+                    f"for isolated-cell reporting (limit {max_rare}); review as "
+                    f"a distribution/batch issue. Top examples are shown."
+                ),
+                method="median + MAD; common-tail distribution summary",
+                extra={"n_flagged_rows": n_bad,
+                       "flag_fraction": round(n_bad / len(valid), 4),
+                       "detail_suppressed": n_bad},
+            ).to_row())
             continue
 
         idxs = np.where(bad_mask.values)[0]

@@ -73,20 +73,51 @@ def detect_all(per_slice: Dict, classify: Dict = None, **_) -> List[dict]:
 
 
 def _build_wide(items: List) -> pd.DataFrame:
-    """One row per subject; columns `{variable}@{timepoint}` for numeric vars."""
+    """One unambiguous row per subject and numeric `{variable}@{timepoint}`.
+
+    Subject ids are normalized before uniqueness is evaluated. Exact duplicate
+    numeric rows are harmless and collapse; conflicting duplicate rows are
+    excluded for that timepoint because choosing one arbitrarily can create a
+    synthetic longitudinal trajectory (and therefore a false anomaly).
+    """
     wide = None
-    for tp, df, cats in items:
+    for tp, df, cats in sorted(items, key=lambda item: str(item[0])):
         c = cats if cats is not None else classify_columns(df)
-        nums = [x for x in c["numeric"]
-                if x in df.columns
-                and not matches_excluded_substrings(x, EXTRA_EXCLUDED_SUBSTRINGS)]
+        nums = sorted(
+            (x for x in c["numeric"]
+             if x in df.columns
+             and not matches_excluded_substrings(x, EXTRA_EXCLUDED_SUBSTRINGS)),
+            key=str,
+        )
         if not nums:
             continue
-        sub = df[["subjectid"] + nums].drop_duplicates("subjectid")
-        sub = sub.set_index(sub["subjectid"].astype(str))[nums]
+
+        sid = df["subjectid"].astype("string").str.strip()
+        invalid_sid = sid.isna() | sid.eq("") | sid.str.casefold().isin(
+            {"nan", "none", "<na>"})
+        sub = pd.DataFrame({"_subjectid": sid.loc[~invalid_sid].astype(str)})
+        for col in nums:
+            sub[col] = to_numeric_clean(df.loc[~invalid_sid, col])
+        if sub.empty:
+            continue
+
+        # Collapse genuinely identical producer duplicates, then reject any
+        # subject that still has multiple (conflicting/complementary) rows. A
+        # longitudinal detector cannot safely infer which record is canonical.
+        sub = sub.drop_duplicates(subset=["_subjectid"] + nums)
+        ambiguous = sub["_subjectid"].duplicated(keep=False)
+        n_ambiguous = int(sub.loc[ambiguous, "_subjectid"].nunique())
+        if n_ambiguous:
+            print(f"  [cluster_3d_longitudinal] {tp}: excluded "
+                  f"{n_ambiguous} subject(s) with conflicting duplicate rows")
+            sub = sub.loc[~ambiguous]
+        if sub.empty:
+            continue
+
+        sub = sub.set_index("_subjectid")[nums]
         sub = sub.rename(columns={x: f"{x}@{tp}" for x in nums})
         wide = sub if wide is None else wide.join(sub, how="outer")
-    return wide
+    return wide.sort_index() if wide is not None else None
 
 
 def _detect_network(network: str, items: List) -> List[dict]:
@@ -113,7 +144,9 @@ def _detect_network(network: str, items: List) -> List[dict]:
         tp = c.rsplit("@", 1)[1] if "@" in c else ""
         by_tp_cols.setdefault(tp, []).append(c)
     for tp in by_tp_cols:
-        by_tp_cols[tp].sort(key=lambda c: completeness[c], reverse=True)
+        # Stable name tie-break avoids input-column-order deciding which equally
+        # complete variables make the N_COLS cut.
+        by_tp_cols[tp].sort(key=lambda c: (-completeness[c], str(c)))
     tp_keys = sorted(by_tp_cols)
     cols: List[str] = []
     depth = 0
@@ -165,7 +198,8 @@ def _detect_network(network: str, items: List) -> List[dict]:
             # A point off the cross-time diagonal solely because of a single
             # extreme value (e.g. weight=320 at one visit) is already owned by
             # standard_outlier; surface only genuine cross-time JOINT patterns.
-            exclude_marginal_outliers=True))
+            exclude_marginal_outliers=True,
+            min_triple_corr=MIN_TRIPLE_CORR))
     # Distinct (variable@timepoint) columns the selected triples span -- the
     # same concentration signal as cluster_3d (a few correlated columns can
     # generate most of the triples, so the same combos recur in the output).

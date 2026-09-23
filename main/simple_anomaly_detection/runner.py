@@ -1,5 +1,6 @@
 """SimpleAnomalyDetector - load AMPSCZ combined CSVs, run the configured
-detectors, write one ranked Excel workbook plus per-type CSVs.
+detectors on Clinical-measures variables, and write one ranked Excel workbook
+plus per-type CSVs.
 
 Paths live in ``__init__`` so editing this class is the only configuration step.
 No config.json read; no source-data writes; per-detector try/except isolation.
@@ -25,6 +26,7 @@ from . import (
     format_string,
     whole_subject_site,
     date_anomaly,
+    timeline_anomaly,
     cluster_3d,
     cluster_3d_longitudinal,
     rater_effect,
@@ -32,6 +34,13 @@ from . import (
 from .common import (
     FINDING_COLUMNS, classify_columns, coerce_to_finding_frame,
 )
+from .clinical_variables import (
+    ClinicalVariableContractError,
+    filter_findings_to_clinical,
+    load_clinical_variable_catalog,
+    scope_slices_to_clinical,
+)
+from .selection import select_diverse_findings
 
 
 _DETECTORS = [
@@ -42,6 +51,7 @@ _DETECTORS = [
     ("format_string", format_string),
     ("whole_subject_site", whole_subject_site),
     ("date_anomaly", date_anomaly),
+    ("timeline_anomaly", timeline_anomaly),
     ("cluster_3d", cluster_3d),
     ("cluster_3d_longitudinal", cluster_3d_longitudinal),
     ("rater_effect", rater_effect),
@@ -73,7 +83,15 @@ _COMBO_ANOMALY_TYPES = (cluster_3d.ANOMALY_TYPE, cluster_3d_longitudinal.ANOMALY
 # Per (network, combo) cap on combo-detector rows in combined_ranked (0 disables).
 # Deferred per-subject detail stays in the per-type sheet (+ per-combo index for
 # the cluster detectors); see _diversify_combined for the exact guarantee.
-DEFAULT_COMBINED_MAX_PER_COMBO = 5
+DEFAULT_COMBINED_MAX_PER_COMBO = 10
+
+# Reviewer-facing diversity limits. These apply across each entire tab and to
+# every underlying variable leg, so ``a`` cannot evade a cap by recurring as
+# ``a | b``, ``a | c``, ... or by repeating once per network.
+# The combined headline is intentionally tighter than detail tabs.
+DEFAULT_MAX_ROWS_PER_VARIABLE = 10
+DEFAULT_MAX_ROWS_PER_SUBJECT = 10
+DEFAULT_COMBINED_MAX_PER_VARIABLE = 10
 
 # Per-detector overrides for the per-type row cap. Detectors not listed here use
 # cap_per_type. date_anomaly scans date columns all-pairs (within- and cross-
@@ -134,12 +152,29 @@ class SimpleAnomalyDetector:
         networks    : networks to scan (default both)
         timepoints  : timepoints to scan (default all)
         max_rows_per_csv : optional sample cap when smoke-testing on huge files
+        max_rows_per_variable : per-tab quota for each underlying variable
+            leg in a detector tab (pair/triple labels count against every leg)
+        max_rows_per_subject : per-network subject detail quota per tab
+        combined_max_per_variable : tighter variable-leg quota for the combined
+            headline; defaults to combined_max_per_combo for compatibility
+        dependencies_path : folder holding the metadata contracts
+            (missingness_domain_forms.json, grouped_variables.json,
+            important_form_vars.json, and a data_dictionary/ subfolder).
+            Explicit arg > FORMQC_ANOMALY_DEPENDENCIES > the installed
+            package's own dependencies folder. The per-file arguments below
+            still win individually where supplied.
+        clinical_only : restrict production detection and every report output
+            to variables mapped to the study's Clinical measures domain and
+            confirmed by the REDCap data dictionary to hold measurement data
+        data_dictionary_path : REDCap data dictionary CSV; discovered beside
+            the repository when omitted, and required whenever clinical_only
+            is set
     """
 
     def __init__(
         self,
-        input_path: str = "/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/",
-        output_path: str = "/home/ob001/output",
+        input_path: str = None,
+        output_path: str = None,
         cap_per_type: int = 5000,
         networks: Tuple[str, ...] = NETWORKS,
         timepoints: Tuple[str, ...] = TIMEPOINTS,
@@ -147,6 +182,15 @@ class SimpleAnomalyDetector:
         combined_cap: int = 0,
         combined_max_per_combo: int = DEFAULT_COMBINED_MAX_PER_COMBO,
         per_type_caps: Dict[str, int] = None,
+        max_rows_per_variable: int = DEFAULT_MAX_ROWS_PER_VARIABLE,
+        max_rows_per_subject: int = DEFAULT_MAX_ROWS_PER_SUBJECT,
+        combined_max_per_variable: int = None,
+        dependencies_path: str = None,
+        clinical_only: bool = True,
+        clinical_domain_map_path: str = None,
+        grouped_variables_path: str = None,
+        important_form_vars_path: str = None,
+        data_dictionary_path: str = None,
     ):
         # Resolve paths: explicit arg > env var > error. No machine-specific
         # absolute default is baked in -- the old hardcoded C:/Users/owenb/...
@@ -167,6 +211,18 @@ class SimpleAnomalyDetector:
             output_path = os.path.join(os.path.dirname(self.input_path),
                                        "simple_anomaly_output")
         self.output_path = os.path.abspath(output_path)
+        # Same arg > env var precedence as the I/O paths, but this one has a
+        # sane default (the installed package's own dependencies folder), so an
+        # unset value is not an error.
+        dependencies_path = (dependencies_path
+                             or os.environ.get("FORMQC_ANOMALY_DEPENDENCIES"))
+        if dependencies_path:
+            dependencies_path = os.path.abspath(dependencies_path)
+            if not os.path.isdir(dependencies_path):
+                raise ValueError(
+                    "dependencies_path is not a directory: "
+                    f"{dependencies_path}")
+        self.dependencies_path = dependencies_path
         self.cap_per_type = int(cap_per_type)
         self.networks = tuple(networks)
         self.timepoints = tuple(timepoints)
@@ -178,8 +234,29 @@ class SimpleAnomalyDetector:
         self.combined_max_per_combo = int(combined_max_per_combo)
         # Per-detector per-type cap overrides (detector name -> cap). Detectors
         # absent from this map fall back to cap_per_type.
-        self.per_type_caps = dict(PER_TYPE_CAP_OVERRIDES if per_type_caps is None
-                                  else per_type_caps)
+        self.per_type_caps = {**PER_TYPE_CAP_OVERRIDES, **(per_type_caps or {})}
+        self.max_rows_per_variable = int(max_rows_per_variable)
+        self.max_rows_per_subject = int(max_rows_per_subject)
+        self.combined_max_per_variable = int(
+            self.combined_max_per_combo if combined_max_per_variable is None
+            else combined_max_per_variable)
+        self.clinical_only = bool(clinical_only)
+        self.clinical_domain_map_path = clinical_domain_map_path
+        self.grouped_variables_path = grouped_variables_path
+        self.important_form_vars_path = important_form_vars_path
+        self.data_dictionary_path = data_dictionary_path
+
+    def _form_contract_path(self):
+        """important_form_vars.json, honouring dependencies_path.
+
+        Returns None when neither is set so the detector keeps its own default.
+        """
+        if self.important_form_vars_path:
+            return self.important_form_vars_path
+        if self.dependencies_path:
+            return os.path.join(self.dependencies_path,
+                                "important_form_vars.json")
+        return None
 
     # ------------------------------------------------------------------
     # File discovery
@@ -243,8 +320,6 @@ class SimpleAnomalyDetector:
                                      "status": f"read_error:{type(e).__name__}: {e}"})
                     print(f"  [load] WARN {os.path.basename(path)}: {e}")
                     continue
-                if self.max_rows_per_csv and len(df) > self.max_rows_per_csv:
-                    df = df.sample(self.max_rows_per_csv, random_state=0).reset_index(drop=True)
                 if "subjectid" not in df.columns:
                     for alt in ("subject_id", "src_subject_id", "study_id"):
                         if alt in df.columns:
@@ -256,9 +331,52 @@ class SimpleAnomalyDetector:
                                      "status": "no_subjectid_column"})
                     print(f"  [load] SKIP {os.path.basename(path)}: no subjectid column")
                     continue
+
+                # Every downstream detector assumes one physical row per
+                # participant within a timepoint. Blank IDs can join unrelated
+                # records longitudinally; duplicate IDs can repeat one anomaly
+                # or let an arbitrary first row define a trajectory. Fail
+                # closed for those ambiguous rows and persist the counts.
+                rows_read = int(len(df))
+                before_exact = len(df)
+                df = df.drop_duplicates(keep="first").copy()
+                exact_duplicate_rows = int(before_exact - len(df))
+                sid = df["subjectid"].astype(str).str.strip()
+                # Store the canonical value used by the identity checks.  A
+                # leading/trailing space at one visit must not prevent that
+                # participant from joining their other timeline records or
+                # corrupt the site prefix shown in findings.
+                df["subjectid"] = sid
+                blank = sid.eq("") | sid.str.lower().isin(
+                    {"nan", "none", "na", "n/a"})
+                duplicate_ids = set(sid[~blank & sid.duplicated(keep=False)])
+                ambiguous = blank | sid.isin(duplicate_ids)
+                blank_rows = int(blank.sum())
+                duplicate_subjectids = int(len(duplicate_ids))
+                duplicate_rows = int((~blank & sid.isin(duplicate_ids)).sum())
+                if ambiguous.any():
+                    df = df.loc[~ambiguous].copy().reset_index(drop=True)
+                    print(f"  [load] WARN {network}/{tp}: excluded {blank_rows} "
+                          f"blank-ID row(s) and {duplicate_rows} row(s) across "
+                          f"{duplicate_subjectids} duplicate subject id(s)")
+                rows_after_identity = int(len(df))
+                rows_sampled_out = 0
+                if self.max_rows_per_csv and len(df) > self.max_rows_per_csv:
+                    # Debug-only sample after identity validation so sampling
+                    # cannot accidentally retain one side of a conflicting ID.
+                    df = df.sample(self.max_rows_per_csv,
+                                   random_state=0).reset_index(drop=True)
+                    rows_sampled_out = rows_after_identity - int(len(df))
                 slices[(network, tp)] = df
                 load_log.append({"network": network, "timepoint": tp,
-                                 "path": path, "rows": int(len(df)),
+                                 "path": path, "rows_read": rows_read,
+                                 "rows_after_identity": rows_after_identity,
+                                 "rows": int(len(df)),
+                                 "rows_sampled_out": rows_sampled_out,
+                                 "exact_duplicate_rows_collapsed": exact_duplicate_rows,
+                                 "blank_id_rows_excluded": blank_rows,
+                                 "duplicate_subjectids_excluded": duplicate_subjectids,
+                                 "duplicate_rows_excluded": duplicate_rows,
                                  "status": "loaded"})
                 print(f"  [load] {network}/{tp}: {len(df):>5} rows from "
                       f"{os.path.basename(path)}")
@@ -291,6 +409,58 @@ class SimpleAnomalyDetector:
             self._write_run_marker("no_data")
             return {}
 
+        # Production reports are fail-closed to the study's explicit
+        # ``Clinical measures`` domain.  Scope the DATA before classification
+        # so nonclinical fields cannot influence correlations, clusters, site
+        # statistics, or whole-subject/site composites.  Interview dates and
+        # rater ids survive only as detector context and are blocked again at
+        # the finding-row boundary below.
+        if self.clinical_only:
+            try:
+                catalog = load_clinical_variable_catalog(
+                    domain_map_path=self.clinical_domain_map_path,
+                    grouped_variables_path=self.grouped_variables_path,
+                    important_form_vars_path=self.important_form_vars_path,
+                    data_dictionary_path=self.data_dictionary_path,
+                    dependencies_path=self.dependencies_path,
+                )
+                per_slice, scope_audit = scope_slices_to_clinical(
+                    per_slice, catalog)
+            except Exception:
+                self._clear_report_artifacts()
+                self._write_run_marker("failed_clinical_variable_contract")
+                raise
+            self._clinical_catalog = catalog
+            self._clinical_scope_audit = scope_audit
+            observed_clinical = int((
+                scope_audit.get("disposition", pd.Series(dtype=str))
+                == "retained_clinical").sum())
+            observed_context = int((
+                scope_audit.get("disposition", pd.Series(dtype=str))
+                == "retained_context").sum())
+            observed_excluded = int((
+                scope_audit.get("disposition", pd.Series(dtype=str))
+                == "excluded").sum())
+            if observed_clinical == 0:
+                self._clear_report_artifacts()
+                self._write_run_marker("failed_no_observed_clinical_variables")
+                raise ClinicalVariableContractError(
+                    "Clinical-only anomaly detection found zero observed "
+                    "Clinical measures variables in the loaded CSV slices. "
+                    "The export schema may be wrong or newer than the variable "
+                    "mapping; see RUN_STATUS.txt and update the dependencies "
+                    "instead of falling back to all variables.")
+            print(
+                "[simple_anomaly_detection] clinical scope: "
+                f"{observed_clinical} observed clinical variable(s), "
+                f"{observed_context} context field(s), "
+                f"{observed_excluded} nonclinical/unmapped field(s) excluded "
+                f"across {len(per_slice)} slice(s)"
+            )
+        else:
+            self._clinical_catalog = None
+            self._clinical_scope_audit = pd.DataFrame()
+
         # Classify every slice once and share with detectors. Earlier
         # each detector re-classified per slice (or per stack) and the
         # cumulative cost was 100+ classify_columns calls on big runs.
@@ -320,15 +490,34 @@ class SimpleAnomalyDetector:
             t1 = time.time()
             status = "ok"
             err = ""
-            try:
-                rows = mod.detect_all(per_slice, classify=classify_per_slice)
-            except Exception as e:
-                err = f"{type(e).__name__}: {e}"
-                status = "crashed"
-                print(f"[simple_anomaly_detection] WARNING: {name} crashed: {err}")
-                traceback.print_exc()
+            if self.clinical_only and name in {
+                    "date_anomaly", "timeline_anomaly"}:
+                # Dates are retained solely as elapsed-time context for the
+                # longitudinal detector.  The QC pipeline has a dedicated Date
+                # Report; operational date fields are not clinical measures.
+                # Keep timeline_anomaly's policy explicit as well: running it
+                # and then silently filtering every auxiliary date leg would
+                # waste work and misleadingly report status="ok" with zero.
                 rows = []
+                status = "skipped_clinical_scope"
+            else:
+                try:
+                    detector_kwargs = {"classify": classify_per_slice}
+                    if name == "timeline_anomaly":
+                        detector_kwargs["important_form_vars_path"] = (
+                            self._form_contract_path())
+                    rows = mod.detect_all(per_slice, **detector_kwargs)
+                except Exception as e:
+                    err = f"{type(e).__name__}: {e}"
+                    status = "crashed"
+                    print(f"[simple_anomaly_detection] WARNING: {name} crashed: {err}")
+                    traceback.print_exc()
+                    rows = []
             frame = coerce_to_finding_frame(rows)
+            n_filtered_nonclinical = 0
+            if self.clinical_only:
+                frame, n_filtered_nonclinical = filter_findings_to_clinical(
+                    frame, self._clinical_catalog)
             # Apply the global severity floor here so every downstream sheet
             # (per-type caps, combined_ranked, combo summaries) inherits it.
             if MIN_SEVERITY > 0 and not frame.empty:
@@ -337,7 +526,8 @@ class SimpleAnomalyDetector:
             raw[name] = frame
             detector_log.append({"detector": name, "status": status,
                                  "duration_s": round(time.time() - t1, 2),
-                                 "error": err})
+                                 "error": err,
+                                 "n_filtered_nonclinical": n_filtered_nonclinical})
 
         # Cross-detector suppression on the UNCAPPED frames: when site_network
         # explains a (variable, site) shift, drop individual standard_outlier
@@ -348,21 +538,29 @@ class SimpleAnomalyDetector:
             raw.get("site_network"),
         )
 
-        def _cap_by_severity(df: pd.DataFrame, n: int) -> pd.DataFrame:
-            if df is None or df.empty:
-                return df if df is not None else pd.DataFrame(columns=list(FINDING_COLUMNS))
-            return (df.sort_values("severity_score", ascending=False, na_position="last")
-                      .head(n).reset_index(drop=True))
-
         results: Dict[str, pd.DataFrame] = {}
         for entry in detector_log:
             name = entry["detector"]
             cap = self.per_type_caps.get(name, self.cap_per_type)
-            capped = _cap_by_severity(raw.get(name), cap)
-            results[name] = capped
-            entry["n_flags"] = int(len(capped))
-            print(f"[simple_anomaly_detection] {name}: {len(capped)} flags "
-                  f"({entry['duration_s']:.1f}s)")
+            candidates = raw.get(name)
+            selected = select_diverse_findings(
+                candidates,
+                row_cap=cap,
+                max_per_variable=self.max_rows_per_variable,
+                max_per_subject=self.max_rows_per_subject,
+            )
+            results[name] = selected
+            n_candidates = int(len(candidates)) if candidates is not None else 0
+            entry["n_candidates"] = n_candidates
+            entry["n_flags"] = int(len(selected))
+            entry["n_omitted"] = n_candidates - int(len(selected))
+            entry["row_cap"] = int(cap)
+            entry["max_rows_per_variable"] = self.max_rows_per_variable
+            entry["max_rows_per_subject"] = self.max_rows_per_subject
+            print(f"[simple_anomaly_detection] {name}: {len(selected)} review rows "
+                  f"from {n_candidates} candidates ({entry['n_omitted']} "
+                  f"duplicate/invalid/quota-deferred; "
+                  f"{entry['duration_s']:.1f}s)")
 
         # Build the combined headline. The cluster detectors contribute ONE
         # combo-summary row per (network, variable-combo) -- built from their
@@ -385,21 +583,17 @@ class SimpleAnomalyDetector:
                 combined_parts.append(df)
         if combined_parts:
             combined = pd.concat(combined_parts, ignore_index=True, sort=False)
-            # Cap the remaining combo detector (correlative) per (network,
-            # variable) BEFORE the severity sort/cap, so a flooding dominant
-            # variable can't crowd out other signal. The cluster combos are
-            # already one row per combo, so this is a no-op for them.
             n_before = len(combined)
-            combined = self._diversify_combined(
-                combined, self.combined_max_per_combo, _COMBO_ANOMALY_TYPES)
-            if len(combined) < n_before:
-                print(f"[simple_anomaly_detection] combined: capped combo rows "
-                      f"to <= {self.combined_max_per_combo} per (network, combo) "
-                      f"({n_before - len(combined)} rows deferred to per-type + "
-                      f"combo-index sheets)")
-            combined = (combined.sort_values("severity_score", ascending=False,
-                                             na_position="last")
-                        .head(self.combined_cap).reset_index(drop=True))
+            combined = select_diverse_findings(
+                combined,
+                row_cap=self.combined_cap,
+                max_per_variable=self.combined_max_per_variable,
+                max_per_subject=self.max_rows_per_subject,
+                cap_pseudo_variables=True,
+            )
+            print(f"[simple_anomaly_detection] combined: {len(combined)} review "
+                  f"rows from {n_before} candidates after universal variable, "
+                  f"subject, duplicate, and issue-round limits")
         else:
             combined = pd.DataFrame(columns=list(FINDING_COLUMNS))
 
@@ -408,10 +602,12 @@ class SimpleAnomalyDetector:
         # subject per combo, not just those surviving the per-type severity cap.
         self._raw_frames = raw
         self._detector_log = detector_log
-        self._write_report(results)
+        write_failures = self._write_report(results)
 
         crashed = [r["detector"] for r in detector_log if r["status"] == "crashed"]
-        if crashed:
+        if write_failures:
+            self._write_run_marker(f"completed_with_write_warnings:{len(write_failures)}")
+        elif crashed:
             self._write_run_marker(f"completed_with_detector_crash:{','.join(crashed)}")
         else:
             self._write_run_marker("completed")
@@ -432,13 +628,11 @@ class SimpleAnomalyDetector:
         scale). A subject far beyond the site-level shift is kept -- a wide
         site IQR practically guarantees individuals worth keeping.
 
-        Keyed on (network, variable, site_id) WITHOUT timepoint: site_network
-        pools all timepoints into one network stack and emits timepoint=''
-        rows, so suppression is intentionally cross-timepoint. (Re-adding
-        timepoint to the key would never match the site rows' empty tp and
-        would silently disable suppression entirely.) Pure-variable site rows
-        only -- correlation-drift rows whose variable looks like 'A | B' are
-        ignored.
+        Keyed on (network, timepoint, variable, site_id). site_network now
+        estimates distributions within each timepoint; allowing a baseline
+        site shift to suppress an unrelated month-12 cell would hide evidence.
+        Pure-variable site rows only -- correlation-drift rows whose variable
+        looks like 'A | B' are ignored.
 
         site_network now collapses multi-site rows to one row whose ``site_id``
         is "(N sites)" and whose ``sites`` column lists the concrete sites
@@ -449,16 +643,32 @@ class SimpleAnomalyDetector:
         NOT the collapsed row's group max -- otherwise an individual at a site
         that drifted only weakly would be over-suppressed. Fall back to the
         single ``site_id`` / ``severity_score`` for any uncollapsed row.
+
+        Only the MEDIAN-shift sub-test may cap a value outlier. site_network
+        emits three single-variable drift kinds -- median-shift, spread-shift
+        and missingness-shift -- and all three land here (the ``|`` filter only
+        removes correlation rows). But a site's wide IQR or high missingness
+        says nothing about whether an individual's PRESENT value is a typo, and
+        both reach severity ~95 trivially; letting them build the cap would
+        delete genuine value outliers at any under-collecting / wide-spread
+        site. Restrict the cap to median-shift rows (the sub-test whose signal
+        -- the site's central value is displaced -- is the only one an
+        individual extreme value can be "explained by").
         """
         if std_df is None or std_df.empty or site_df is None or site_df.empty:
             return std_df if std_df is not None else pd.DataFrame()
         single_var = site_df[~site_df["variable"].astype(str).str.contains(r"\|", regex=True)]
+        if "method" in single_var.columns:
+            single_var = single_var[
+                single_var["method"].astype(str) == "cross-site MAD on site medians"
+            ]
         if single_var.empty:
             return std_df
         has_sites_col = "sites" in single_var.columns
         has_sev_col = "site_severities" in single_var.columns
-        # Max explaining site-row severity per (network, variable, site_id).
-        site_sev: Dict[Tuple[str, str, str], float] = {}
+        # Max explaining site-row severity per
+        # (network, timepoint, variable, site_id).
+        site_sev: Dict[Tuple[str, str, str, str], float] = {}
         sev_site = pd.to_numeric(single_var["severity_score"], errors="coerce").fillna(0.0)
         sites_list = (single_var["sites"].astype(str) if has_sites_col
                       else single_var["site_id"].astype(str))
@@ -469,8 +679,12 @@ class SimpleAnomalyDetector:
             t = tok.strip()
             return "" if t.lower() in ("nan", "none") else t
 
-        for net, var, site_id, sites_str, persite_str, sev in zip(
+        tp_values = (single_var["timepoint"].astype(str)
+                     if "timepoint" in single_var.columns
+                     else [""] * len(single_var))
+        for net, tp, var, site_id, sites_str, persite_str, sev in zip(
             single_var["network"].astype(str),
+            tp_values,
             single_var["variable"].astype(str),
             single_var["site_id"].astype(str),
             sites_list,
@@ -497,14 +711,15 @@ class SimpleAnomalyDetector:
             if not pairs:
                 pairs = [(site_id, float(sev))]
             for site, site_s in pairs:
-                key = (net, var, site)
+                key = (net, tp, var, site)
                 if site_s > site_sev.get(key, -1.0):
                     site_sev[key] = site_s
         if not site_sev:
             return std_df
 
         def _keep(r) -> bool:
-            cap = site_sev.get((str(r["network"]), str(r["variable"]), str(r["site_id"])))
+            cap = site_sev.get((str(r["network"]), str(r.get("timepoint", "")),
+                                str(r["variable"]), str(r["site_id"])))
             if cap is None:
                 return True  # no site row explains this triple
             try:
@@ -601,16 +816,49 @@ class SimpleAnomalyDetector:
     def _build_run_status_df(self, results: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         load_log = getattr(self, "_load_log", [])
         detector_log = getattr(self, "_detector_log", [])
+        scope_audit = getattr(self, "_clinical_scope_audit", pd.DataFrame())
         rows: List[dict] = []
         for r in load_log:
             rows.append({"section": "load", **r})
         for r in detector_log:
             rows.append({"section": "detector", **r})
+        catalog = getattr(self, "_clinical_catalog", None)
         rows.append({"section": "summary",
+                     "clinical_only": self.clinical_only,
+                     "clinical_domain": ("Clinical measures"
+                                         if self.clinical_only else "unrestricted"),
+                     # Printed rather than asserted: the allowlist size moves
+                     # whenever the data dictionary is refreshed, and this is
+                     # how that drift becomes visible.
+                     "allowlist_variables": (
+                         len(catalog.clinical_variables) if catalog else 0),
+                     "dictionary_excluded_variables": (
+                         catalog.dictionary_excluded_count if catalog else 0),
+                     "data_dictionary": (
+                         catalog.data_dictionary_path if catalog else ""),
+                     "observed_clinical_variables": int((
+                         scope_audit.get("disposition", pd.Series(dtype=str))
+                         == "retained_clinical").sum()),
+                     "observed_context_variables": int((
+                         scope_audit.get("disposition", pd.Series(dtype=str))
+                         == "retained_context").sum()),
+                     "observed_excluded_variables": int((
+                         scope_audit.get("disposition", pd.Series(dtype=str))
+                         == "excluded").sum()),
                      "loaded_slices": sum(1 for r in load_log if r["status"] == "loaded"),
                      "missing_slices": sum(1 for r in load_log if r["status"] == "missing"),
                      "crashed_detectors": sum(1 for r in detector_log if r["status"] == "crashed"),
-                     "total_flags": sum(int(len(v)) for k, v in results.items() if k != "combined_ranked")})
+                     "total_candidates": sum(int(r.get("n_candidates", 0))
+                                             for r in detector_log),
+                     "total_filtered_nonclinical_findings": sum(int(
+                         r.get("n_filtered_nonclinical", 0))
+                         for r in detector_log),
+                     "total_written": sum(int(len(v)) for k, v in results.items()
+                                          if k != "combined_ranked"),
+                     "total_omitted": sum(int(r.get("n_omitted", 0))
+                                          for r in detector_log),
+                     "combined_written": int(len(results.get(
+                         "combined_ranked", pd.DataFrame())))})
         return pd.DataFrame(rows)
 
     def _build_combo_frames(self, results: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
@@ -636,14 +884,62 @@ class SimpleAnomalyDetector:
                 continue
             summary = cluster_3d.summarize_combos(df.to_dict("records"))
             if summary:
-                frames[f"{name}_combos"] = pd.DataFrame(summary)
+                combo_df = pd.DataFrame(summary)
+                combo_df["anomaly_type"] = f"{name}_combo_summary"
+                combo_df["variable"] = combo_df["variables"]
+                combo_df["severity_score"] = combo_df["max_severity"]
+                combo_df["raw_score"] = combo_df["n_subjects"]
+                combo_df["subjectid"] = "(combo summary)"
+                selected = select_diverse_findings(
+                    combo_df,
+                    row_cap=self.per_type_caps.get(name, self.cap_per_type),
+                    max_per_variable=self.max_rows_per_variable,
+                    max_per_subject=0,
+                    cap_pseudo_variables=True,
+                )
+                frames[f"{name}_combos"] = selected.drop(
+                    columns=["anomaly_type", "variable", "severity_score",
+                             "raw_score", "subjectid"], errors="ignore")
         return frames
 
-    def _write_report(self, results: Dict[str, pd.DataFrame]) -> None:
+    def _write_report(self, results: Dict[str, pd.DataFrame]) -> List[str]:
         os.makedirs(self.output_path, exist_ok=True)
+        no_data = os.path.join(self.output_path, "NO_DATA.txt")
+        if os.path.exists(no_data):
+            try:
+                os.remove(no_data)
+            except OSError:
+                pass
         csv_dir = os.path.join(self.output_path, "by_type")
         os.makedirs(csv_dir, exist_ok=True)
+        audit_dir = os.path.join(self.output_path, "audit_candidates")
+        os.makedirs(audit_dir, exist_ok=True)
         write_failures: List[str] = []
+
+        # One row per observed source column.  This is deliberately outside
+        # anomaly_report.xlsx: the workbook contains clinical finding rows
+        # only, while this sidecar explains exactly what was retained, used as
+        # context, or excluded.
+        if self.clinical_only:
+            scope_path = os.path.join(
+                self.output_path, "clinical_variable_scope.csv")
+            try:
+                self._atomic_to_csv(
+                    getattr(self, "_clinical_scope_audit", pd.DataFrame()),
+                    scope_path,
+                )
+            except Exception as e:
+                print(f"  [write] WARN clinical_variable_scope.csv: {e}")
+                write_failures.append(f"clinical_variable_scope.csv: {e}")
+        else:
+            stale_scope = os.path.join(
+                self.output_path, "clinical_variable_scope.csv")
+            if os.path.exists(stale_scope):
+                try:
+                    os.remove(stale_scope)
+                except OSError as e:
+                    write_failures.append(
+                        f"stale clinical_variable_scope.csv: {e}")
 
         for name, df in results.items():
             path = os.path.join(csv_dir, f"{name}.csv")
@@ -652,6 +948,17 @@ class SimpleAnomalyDetector:
             except Exception as e:
                 print(f"  [write] WARN {name}.csv: {e}")
                 write_failures.append(f"{name}.csv: {e}")
+
+        # Candidate evidence before reviewer-facing duplicate/entity/diversity
+        # selection. Kept outside the workbook so tabs stay concise while every
+        # deferred row remains auditable.
+        for name, df in getattr(self, "_raw_frames", {}).items():
+            path = os.path.join(audit_dir, f"{name}_candidates.csv")
+            try:
+                self._atomic_to_csv(df, path)
+            except Exception as e:
+                print(f"  [write] WARN audit candidate {name}.csv: {e}")
+                write_failures.append(f"audit/{name}.csv: {e}")
 
         # Additive per-combo summaries (cluster detectors). Written as their own
         # by_type CSVs + xlsx sheets; intentionally excluded from summary.csv so
@@ -665,6 +972,23 @@ class SimpleAnomalyDetector:
             print(f"  [write] WARN combo summary: {e}")
             write_failures.append(f"combo_frames: {e}")
             combo_frames = {}
+
+        expected_by_type = {f"{name}.csv" for name in results} | {
+            f"{name}.csv" for name in combo_frames}
+        for fname in os.listdir(csv_dir):
+            if fname.endswith(".csv") and fname not in expected_by_type:
+                try:
+                    os.remove(os.path.join(csv_dir, fname))
+                except OSError as e:
+                    write_failures.append(f"stale by_type/{fname}: {e}")
+        expected_audit = {f"{name}_candidates.csv" for name in getattr(
+            self, "_raw_frames", {})}
+        for fname in os.listdir(audit_dir):
+            if fname.endswith(".csv") and fname not in expected_audit:
+                try:
+                    os.remove(os.path.join(audit_dir, fname))
+                except OSError as e:
+                    write_failures.append(f"stale audit/{fname}: {e}")
         for name, df in combo_frames.items():
             path = os.path.join(csv_dir, f"{name}.csv")
             try:
@@ -673,10 +997,28 @@ class SimpleAnomalyDetector:
                 print(f"  [write] WARN {name}.csv: {e}")
                 write_failures.append(f"{name}.csv: {e}")
 
-        summary = pd.DataFrame(
-            [(k, len(v)) for k, v in results.items() if k != "combined_ranked"],
-            columns=["anomaly_type", "n_flags"],
-        ).sort_values("n_flags", ascending=False)
+        log_by_name = {r.get("detector"): r for r in getattr(
+            self, "_detector_log", [])}
+        summary_rows = []
+        for name, df in results.items():
+            if name == "combined_ranked":
+                continue
+            log = log_by_name.get(name, {})
+            n_candidates = int(log.get("n_candidates", len(df)))
+            n_written = int(len(df))
+            summary_rows.append({
+                "anomaly_type": name,
+                "n_candidates": n_candidates,
+                "n_filtered_nonclinical": int(log.get(
+                    "n_filtered_nonclinical", 0)),
+                "n_written": n_written,
+                "n_omitted": n_candidates - n_written,
+                "row_cap": log.get("row_cap", self.cap_per_type),
+                "max_rows_per_variable": self.max_rows_per_variable,
+                "max_rows_per_subject": self.max_rows_per_subject,
+            })
+        summary = pd.DataFrame(summary_rows).sort_values(
+            "n_candidates", ascending=False)
         try:
             self._atomic_to_csv(summary, os.path.join(self.output_path, "summary.csv"))
         except Exception as e:
@@ -688,6 +1030,7 @@ class SimpleAnomalyDetector:
             self._atomic_to_csv(status_df, os.path.join(self.output_path, "run_status.csv"))
         except Exception as e:
             print(f"  [write] WARN run_status.csv: {e}")
+            write_failures.append(f"run_status.csv: {e}")
 
         # PID + uuid in temp filename so concurrent runs don't collide.
         xlsx_path = os.path.join(self.output_path, "anomaly_report.xlsx")
@@ -735,8 +1078,7 @@ class SimpleAnomalyDetector:
                 except OSError:
                     pass
 
-        if write_failures:
-            self._write_run_marker(f"completed_with_write_warnings:{len(write_failures)}")
+        return write_failures
 
     def _write_run_marker(self, status: str) -> None:
         """A tiny file that records the most recent run's outcome. Lets a
@@ -751,29 +1093,53 @@ class SimpleAnomalyDetector:
                     f"input_path={self.input_path}\n"
                     f"output_path={self.output_path}\n"
                     f"cap_per_type={self.cap_per_type}\n"
+                    f"max_rows_per_variable={self.max_rows_per_variable}\n"
+                    f"max_rows_per_subject={self.max_rows_per_subject}\n"
+                    f"combined_max_per_variable={self.combined_max_per_variable}\n"
+                    f"clinical_only={self.clinical_only}\n"
+                    f"clinical_domain={'Clinical measures' if self.clinical_only else 'unrestricted'}\n"
                 )
+                catalog = getattr(self, "_clinical_catalog", None)
+                if catalog is not None:
+                    f.write(
+                        f"allowlist_variables={len(catalog.clinical_variables)}\n"
+                        f"dictionary_excluded_variables={catalog.dictionary_excluded_count}\n"
+                        f"data_dictionary={catalog.data_dictionary_path}\n"
+                    )
         except Exception:
             pass
 
-    def _write_no_data_marker(self) -> None:
-        """Wipe stale report artifacts and replace with an explicit
-        no-data marker so a reviewer doesn't mistake an old anomaly_report
-        for the current run."""
-        for fname in ("anomaly_report.xlsx", "summary.csv", "run_status.csv"):
+    def _clear_report_artifacts(self) -> None:
+        """Remove only generated report artifacts from an unsuccessful run.
+
+        This prevents an older unrestricted workbook or candidate CSV from
+        remaining beside a failure marker and being mistaken for the current
+        clinical-only result.
+        """
+        for fname in ("anomaly_report.xlsx", "summary.csv", "run_status.csv",
+                      "clinical_variable_scope.csv", "NO_DATA.txt"):
             fp = os.path.join(self.output_path, fname)
             if os.path.exists(fp):
                 try:
                     os.remove(fp)
                 except OSError:
                     pass
-        by_type = os.path.join(self.output_path, "by_type")
-        if os.path.isdir(by_type):
-            for fname in os.listdir(by_type):
+        for subdir in ("by_type", "audit_candidates"):
+            folder = os.path.join(self.output_path, subdir)
+            if not os.path.isdir(folder):
+                continue
+            for fname in os.listdir(folder):
                 if fname.endswith(".csv"):
                     try:
-                        os.remove(os.path.join(by_type, fname))
+                        os.remove(os.path.join(folder, fname))
                     except OSError:
                         pass
+
+    def _write_no_data_marker(self) -> None:
+        """Wipe stale report artifacts and replace with an explicit
+        no-data marker so a reviewer doesn't mistake an old anomaly_report
+        for the current run."""
+        self._clear_report_artifacts()
         marker = os.path.join(self.output_path, "NO_DATA.txt")
         try:
             with open(marker, "w", encoding="utf-8") as f:

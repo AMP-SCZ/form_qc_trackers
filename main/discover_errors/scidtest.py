@@ -7,16 +7,14 @@ import pandas as pd
 
 class SCIDQCChecker:
     TEST_IDS = {
-        "Pronet": ['BI02450', 'CA01089', 'CM01883', 'YA16606', 'LA00834', 'LA00145', 'OR00697', 'PI01355', 'HA04408'],
-        "Prescient": ['ME00772', 'ME78581', 'BM90491', 'ME33634', 'ME20845', 'BM73097', 'ME21922'],
     }
 
     def __init__(self, network="prescient", version="test", id_list=None, ids_file=None, output_csv="scid_qc_output.csv"):
         self.network = network.lower()
         self.Network = self.network.capitalize()
         self.version = version
-        self.ids_file = ids_file or f"/data/pnl/home/gj936/U24/Clinical_qc/flowqc/REAL_DATA/{self.network}_sub_list.txt"
-        self.screening_path = '/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/AMPSCZ-combined-redcap_screening_PRESCIENT-day1to1_v2.csv'
+        self.ids_file = ids_file or f"removed_path_tmp.txt"
+        self.screening_path = 'removed_path_tmp'
         screen_df = pd.read_csv(self.screening_path, 
         keep_default_na = False)
         self.output_csv = output_csv
@@ -33,7 +31,7 @@ class SCIDQCChecker:
 
     def _json_path(self, sid):
         site = sid[:2]
-        return f"/data/predict1/data_from_nda/{self.Network}/PHOENIX/GENERAL/{self.Network}{site}/processed/{sid}/surveys/{sid}.{self.Network}.json"
+        return f"removed_path_tmpremoved_path_tmp"
 
     def _pull(self, sid):
         with open(self._json_path(sid)) as f:

@@ -76,3 +76,5 @@ Werkzeug==3.1.8
 xlsxwriter==3.2.9
 zipp==3.23.1
 zstandard==0.23.0
+# Required by the site-trajectory mixed-effects detector.
+statsmodels>=0.14,<0.15

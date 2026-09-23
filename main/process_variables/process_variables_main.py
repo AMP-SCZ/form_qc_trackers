@@ -19,11 +19,11 @@ from main.process_variables.collect_multi_timepoint_data import MultiTPDataColle
 
 from main.process_variables.collect_raw_csv_info import RawCSVCollector
 
+from main.process_variables.collect_plus_dosage_meds import PlusDosageMedCollector
+
 from main.process_variables.define_ranges import RangeDefiner
 from main.process_variables.find_duplicates import DuplicateFinder
 
-from main.process_variables.map_antipsychotic_meds import APMedMapper
-from main.process_variables.collect_plus_dosage_meds import PlusDosageMedCollector
 
 class ProcessVariables():
     """
@@ -66,20 +66,16 @@ class ProcessVariables():
 
         organize_reports = OrganizeReports()
         organize_reports.run_script()
-
-        ap_med_mappings = APMedMapper()
-        self.utils.save_dependency_json(ap_med_mappings(), 'ap_med_mappings.json')
-
         
         ra_subs = RaSubjects()
         self.utils.save_dependency_json(ra_subs(), 'melbourne_ra_subs.json')
 
         raw_csv_conversions = RawCSVCollector()
         self.utils.save_dependency_json(raw_csv_conversions(), 'raw_csv_conversions.json')
+
         plus_dosage_meds = PlusDosageMedCollector(data_dict_df)
         self.utils.save_dependency_json(plus_dosage_meds(),
         'plus_dosage_med_names.json')
-
 
         # must be called last as it uses dependencies 
         # from preceding classes

@@ -11,6 +11,8 @@ from main.utils.utils import Utils
 from logging_config import logger  
 
 class TestOutput():
+    # Operational comparison script, not a pytest test class.
+    __test__ = False
 
     def __init__(self):
         self.utils = Utils()

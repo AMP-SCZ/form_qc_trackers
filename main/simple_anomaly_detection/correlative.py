@@ -151,13 +151,12 @@ def _dedup_correlative(rows: List[dict]) -> List[dict]:
     Two reductions:
       1. Over timepoints: one row per (subject, network, unordered variable
          pair), keeping the max-severity row.
-      2. Across pairs (the big one): when a single variable for a subject
-         violates its relationship with >=2 OTHER variables, that is one
-         anomalous value re-flagged against every correlated partner. Emit a
-         single finding attributed to that dominant variable, recording the
-         corroborating-pair count (a value flagged by many partners is MORE
-         trustworthy, not 10 separate rows). Pairs not subsumed by a dominant
-         leg are emitted per-pair as before.
+      2. Across pairs: collapse only when the detector explicitly recorded a
+         directional ``residual_target`` for the same target variable in >=2
+         pairs. Graph degree alone is not directional evidence: if A-B and A-C
+         both have large residuals, A may be the shared bad value, or B and C
+         may independently be the residual targets. Without explicit direction
+         we retain the pair-level rows and make no "likely bad variable" claim.
     """
     if not rows:
         return rows
@@ -186,37 +185,44 @@ def _dedup_correlative(rows: List[dict]) -> List[dict]:
         rep = max(grp, key=lambda r: float(r.get("severity_score", 0) or 0))
         collapsed.append((subj, net, a, b, dict(rep)))
 
-    leg_partners: dict = defaultdict(set)
-    leg_rep: dict = {}
     pairs_by_subj: dict = defaultdict(list)
     for (subj, net, a, b, rep) in collapsed:
         pairs_by_subj[(subj, net)].append((a, b, rep))
-        for leg, partner in ((a, b), (b, a)):
-            leg_partners[(subj, net, leg)].add(partner)
-            cur = leg_rep.get((subj, net, leg))
-            if cur is None or float(rep.get("severity_score", 0) or 0) > float(cur.get("severity_score", 0) or 0):
-                leg_rep[(subj, net, leg)] = rep
 
     out: List[dict] = []
     for (subj, net), pairs in pairs_by_subj.items():
-        dom_legs = {leg for leg in {a for a, _, _ in pairs} | {b for _, b, _ in pairs}
-                    if len(leg_partners[(subj, net, leg)]) >= 2}
+        target_pairs: dict = defaultdict(list)
+        for a, b, rep in pairs:
+            target = str(rep.get("residual_target", "") or "").strip()
+            if target and target in (a, b):
+                target_pairs[target].append((a, b, rep))
+
         covered = set()
-        for leg in sorted(dom_legs):
-            parts = sorted(leg_partners[(subj, net, leg)])
-            rep = dict(leg_rep[(subj, net, leg)])
-            rep["variable"] = leg
-            rep["variables_involved"] = leg + " + " + ", ".join(parts[:12])
-            rep["corroborating_pairs"] = len(parts)
+        for target in sorted(target_pairs):
+            target_group = target_pairs[target]
+            pair_ids = {frozenset((a, b)) for a, b, _ in target_group}
+            if len(pair_ids) < 2:
+                continue
+            partners = sorted({b if a == target else a for a, b, _ in target_group})
+            rep = dict(max(
+                (r for _, _, r in target_group),
+                key=lambda r: float(r.get("severity_score", 0) or 0),
+            ))
+            rep["variable"] = target
+            rep["variables_involved"] = (
+                target + " (residual target) + " + ", ".join(partners[:12])
+            )
+            rep["corroborating_pairs"] = len(pair_ids)
             rep["explanation"] = (
-                f"{leg} violates its learned relationship with {len(parts)} other "
-                f"variable(s) ({', '.join(parts[:6])}{'...' if len(parts) > 6 else ''}) "
-                f"for this subject; strongest residual z {rep.get('raw_score')}. "
-                f"Flagged by many partners -> the value of {leg} itself is the likely error."
+                f"Directional residual scoring used {target} as the residual target "
+                f"in {len(pair_ids)} relationship(s) with "
+                f"{', '.join(partners[:6])}{'...' if len(partners) > 6 else ''}; "
+                f"strongest residual z {rep.get('raw_score')}. This corroborates an "
+                f"unusual value for the modeled target but does not prove which source "
+                f"field is erroneous."
             )
             out.append(rep)
-            for p in parts:
-                covered.add(frozenset((leg, p)))
+            covered.update(pair_ids)
         for (a, b, rep) in pairs:
             if frozenset((a, b)) in covered:
                 continue
@@ -491,7 +497,12 @@ def _numeric_numeric_pairs(stacked: pd.DataFrame, numerics: List[str], network: 
                 f"the {tp_val} residual distribution."
             ),
             method="vectorised Spearman + BLAS OLS + trimmed refit + per-tp MAD",
-            extra={"correlation": round(r, 3)},
+            extra={
+                "correlation": round(r, 3),
+                # The fitted direction is b ~= f(a). This is a model target,
+                # not a causal assertion that b is necessarily the bad field.
+                "residual_target": b,
+            },
         ).to_row())
     return out
 
@@ -671,7 +682,11 @@ def _binary_numeric_pairs(stacked: pd.DataFrame, bin_like: List[str], numerics: 
                 f"from the level-specific median."
             ),
             method="vectorised point-biserial screen + per-tp MAD",
-            extra={"point_biserial_r": round(abs_r_val, 3)},
+            extra={
+                "point_biserial_r": round(abs_r_val, 3),
+                # The numeric value is what the within-level MAD scores.
+                "residual_target": ncol,
+            },
         ).to_row())
     return out
 
@@ -682,6 +697,49 @@ def _binary_numeric_pairs(stacked: pd.DataFrame, bin_like: List[str], numerics: 
 
 def _binary_binary_pairs(stacked: pd.DataFrame, bin_like: List[str], network: str) -> List[dict]:
     """Binary / MC x binary / MC, with matrix-multiplication contingency cells.
+
+    Contingency expectations are learned independently within each timepoint.
+    Pooling visits can manufacture a rare cell through Simpson's paradox when
+    both variables' marginal prevalences change over time, even though the cell
+    is ordinary within every visit. Splitting first preserves the vectorized
+    matrix path and bounds work by the same total row count.
+    """
+    if len(bin_like) < 2 or stacked is None or stacked.empty:
+        return []
+
+    if "_tp" not in stacked.columns:
+        return _binary_binary_pairs_one_timepoint(stacked, bin_like, network)
+
+    out: List[dict] = []
+    # iloc on positional group indices avoids copying unrelated index labels;
+    # each stratum still uses the same BLAS-backed contingency implementation.
+    for _, positions in stacked.groupby("_tp", sort=False, dropna=False).indices.items():
+        sub = stacked.iloc[np.asarray(positions, dtype=int)]
+        out.extend(_binary_binary_pairs_one_timepoint(sub, bin_like, network))
+    # Preserve the existing global pair budget. The conditioned unit is now a
+    # (timepoint, level-pair), so select the sharpest such units and retain all
+    # subject rows belonging to each selected cell.
+    pair_scores = {}
+    for row in out:
+        key = (str(row.get("timepoint", "")), str(row.get("variable", "")))
+        pair_scores[key] = max(
+            float(row.get("raw_score", 0) or 0), pair_scores.get(key, float("-inf"))
+        )
+    if len(pair_scores) > TOP_K_PAIRS_BB:
+        keep_keys = {
+            key for key, _ in sorted(
+                pair_scores.items(), key=lambda kv: kv[1], reverse=True
+            )[:TOP_K_PAIRS_BB]
+        }
+        out = [row for row in out
+               if (str(row.get("timepoint", "")), str(row.get("variable", "")))
+               in keep_keys]
+    return out
+
+
+def _binary_binary_pairs_one_timepoint(
+        stacked: pd.DataFrame, bin_like: List[str], network: str) -> List[dict]:
+    """Vectorized binary/MC contingency screen for one timepoint stratum.
 
     Each (column, level) becomes a 0/1 indicator (NaN preserved). All
     cell counts for every (level_a, level_b) pair are then four matrix

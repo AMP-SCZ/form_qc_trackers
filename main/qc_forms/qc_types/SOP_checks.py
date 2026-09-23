@@ -23,8 +23,8 @@ class SOPChecks(FormCheck):
     ):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
-        self.call_checks(row)
         self.conversion_subs = self.raw_csv_converters.keys()
+        self.call_checks(row)
         
     def __call__(self):
         return self.final_output_list

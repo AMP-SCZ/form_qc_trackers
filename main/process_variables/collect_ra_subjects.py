@@ -3,13 +3,15 @@ import os
 from datetime import datetime
 import json
 
+from main.utils.utils import Utils
+
 class RaSubjects():
 
     def __init__(self):
         self.ra_output = {}
-        self.prescient_raw_csv_path = \
-        '/data/predict1/data_from_nda/Prescient/PHOENIX/PROTECTED/'
-
+        self.prescient_raw_csv_path = Utils().config_info['paths'].get(
+            'prescient_raw_csv_path',
+            '/data/predict1/data_from_nda/Prescient/PHOENIX/PROTECTED/')
         self.all_dates_list = []
         self.ra_assignments = {}
 

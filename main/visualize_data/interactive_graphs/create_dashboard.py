@@ -888,6 +888,13 @@ def build_main():
 
 app.layout = dbc.Container([
     dcc.Store(id='refresh-counter', data=0),
+    # Tracks the last (min, max) date the callback auto-wrote to the
+    # picker. On the next callback fire, if the picker's State still
+    # matches this, the user hasn't dragged it — push the picker
+    # forward to the new data range so a refresh actually reveals
+    # newly-arrived dates. If it diverges, the user has narrowed the
+    # range manually and we preserve their selection.
+    dcc.Store(id='date-range-auto', data={'start': None, 'end': None}),
     dbc.Navbar(dbc.Container([
         dbc.NavbarBrand('QC Dashboard', className='fw-bold'),
         html.Div(id='freshness-banner', className='ms-3 small'),
@@ -958,14 +965,16 @@ def on_refresh(n_clicks, counter):
     Output('date-range', 'max_date_allowed'),
     Output('date-range', 'start_date'),
     Output('date-range', 'end_date'),
+    Output('date-range-auto', 'data'),
     Input('refresh-counter', 'data'),
     State('network-select', 'value'),
     State('timepoint-select', 'value'),
     State('date-range', 'start_date'),
     State('date-range', 'end_date'),
+    State('date-range-auto', 'data'),
 )
 def update_filter_options(_counter, current_net, current_tps,
-                          current_start, current_end):
+                          current_start, current_end, last_auto):
     """
     Rebuild sidebar dropdown options whenever DATA changes (initial
     load + every refresh). Preserves the user's current selection when
@@ -1011,13 +1020,36 @@ def update_filter_options(_counter, current_net, current_tps,
     else:
         net_value = 'PRONET'
 
-    # Date pickers — preserve user range when still within bounds.
-    start_value = current_start or (min_date.isoformat() if min_date else None)
-    end_value = current_end or (max_date.isoformat() if max_date else None)
+    # Date pickers. The picker has no `start_date`/`end_date` props at
+    # layout time, so on first render its State is (None, None) — this
+    # callback's own Output sets it to (min_date, max_date). That means
+    # on every subsequent fire (including a Refresh click), the State
+    # we read here is whatever we previously wrote, not "no choice yet".
+    # The old code did `current_end or max_date`, which preserved that
+    # stale auto-written value forever, so a refresh that added newer
+    # dates left the chart capped at the original max.
+    #
+    # Fix: track our last auto-write in a Store. If the picker's State
+    # still matches it, the user hasn't dragged the picker — push the
+    # range out to the new data bounds. If it diverges, the user has
+    # filtered manually and we preserve their selection.
+    new_min_iso = min_date.isoformat() if min_date else None
+    new_max_iso = max_date.isoformat() if max_date else None
+    last_auto = last_auto or {'start': None, 'end': None}
+    if current_start is None or current_start == last_auto.get('start'):
+        start_value = new_min_iso
+    else:
+        start_value = current_start
+    if current_end is None or current_end == last_auto.get('end'):
+        end_value = new_max_iso
+    else:
+        end_value = current_end
+    new_auto = {'start': new_min_iso, 'end': new_max_iso}
     return (
         tp_options, tp_value,
         net_options, net_value,
         min_date, max_date, start_value, end_value,
+        new_auto,
     )
 
 

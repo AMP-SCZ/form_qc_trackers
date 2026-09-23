@@ -7,6 +7,9 @@ this file. For synthetic data instead, use ``python -m simple_anomaly_detection
 --demo``.
 
     FORMQC_ANOMALY_INPUT=/path/to/combined_csvs python simple_anomaly_detection/run.py
+
+Production runs are clinical-only by default, using the repository's
+``Clinical measures`` missingness-domain mapping.
 """
 
 import os

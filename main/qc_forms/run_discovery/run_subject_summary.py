@@ -46,10 +46,19 @@ def main():
         return 1
     with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
         cfg = json.load(f)
-    enabled = bool(
-        cfg.get('discovery', {})
-           .get('subject_summary', {})
-           .get('enabled', True))
+    # Sprint 1 P0-2: strict enabled-flag parsing. subject_summary
+    # defaults to True (the aggregator runs unless explicitly
+    # disabled), so the omitted-key path returns True; strict
+    # parsing applies only when the key IS present.
+    ss_cfg = cfg.get('discovery', {}).get('subject_summary', {})
+    if 'enabled' not in ss_cfg:
+        enabled = True
+    else:
+        try:
+            from qc_types.discovery._common import is_truthy_enabled
+            enabled = is_truthy_enabled(ss_cfg['enabled'])
+        except ImportError:
+            enabled = bool(ss_cfg['enabled'])
     if not enabled:
         print(
             "[run_subject_summary] discovery.subject_summary "

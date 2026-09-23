@@ -77,7 +77,11 @@ def detect_all(per_slice: Dict, classify: Dict = None, **_) -> List[dict]:
             # Classify the network stack ONCE; both composites reused it.
             cats = classify_columns(stacked)
             rows.extend(_subject_composite(stacked, alive, network, cats))
-            rows.extend(_site_composite(stacked, alive, network, cats))
+            # Do not emit the legacy whole-site composite. It pooled visit
+            # phases and combined incommensurate raw component scales, so site
+            # visit mix could create an opaque, non-actionable row. The
+            # timepoint-conditioned site_network detector now owns site-level
+            # findings and names the concrete variable/method responsible.
         except Exception as e:
             print(f"  [whole_subject_site] WARN network {network}: {e}")
     return rows
@@ -89,11 +93,13 @@ def _alive_cols_per_tp(items: List) -> Dict[str, set]:
     missing for every month-12 subject (structural missingness)."""
     out: Dict[str, set] = {}
     for tp, df, _cats in items:
-        # We don't reuse classify_columns here because that function
-        # discards columns that fall outside its categories (dates,
-        # too-sparse strings) -- we still want those tracked for the
-        # missingness denominator. We just need a notna count.
-        non_miss = (~df.isna() & (df.astype(str) != "")).sum(axis=0)
+        # Use the same missing-code semantics as every scoring path. A raw
+        # notna/empty check counted -9/-99/999 as present, making subjects/sites
+        # carrying sentinels look artificially complete.
+        non_miss = pd.Series({
+            c: int(clean_missing_string(df[c].astype(object)).notna().sum())
+            for c in df.columns
+        })
         out[tp] = set(non_miss[non_miss >= MIN_ALIVE_PER_SLICE].index)
     return out
 
@@ -137,22 +143,25 @@ def _subject_composite(stacked: pd.DataFrame, alive: Dict[str, set], network: st
 
     for col in cat_vars:
         ser_clean = clean_missing_string(stacked[col].astype(object))
-        freq = ser_clean.value_counts(normalize=True, dropna=True)
-        if freq.empty:
-            continue
-        rarity_map = (-np.log10(freq.clip(lower=1e-6))).astype(float)
-        # Vectorize: map each row's value to its rarity, drop NaN, then aggregate.
-        rar = ser_clean.map(rarity_map).astype(float)
-        valid_mask = rar.notna() & (rar > 0)
-        if not valid_mask.any():
-            continue
-        valid_idx = np.where(valid_mask.to_numpy())[0]
-        rar_vals = rar.to_numpy()
-        for ridx in valid_idx:
-            subj = subj_arr[ridx]
-            d = by_subj.setdefault(subj, _empty_subj_dict())
-            d["rar_sum"] += float(rar_vals[ridx])
-            d["rar_n"] += 1
+        # Clinical category distributions can legitimately change by visit.
+        # Estimate rarity within timepoint so a normal month-12 response is not
+        # called rare merely because baseline contributes more rows.
+        for tp_val in np.unique(tp_arr):
+            tp_mask = tp_arr == tp_val
+            sub = ser_clean[tp_mask]
+            freq = sub.value_counts(normalize=True, dropna=True)
+            if freq.empty:
+                continue
+            rarity_map = (-np.log10(freq.clip(lower=1e-6))).astype(float)
+            rar = sub.map(rarity_map).astype(float)
+            valid_mask = rar.notna() & (rar > 0)
+            if not valid_mask.any():
+                continue
+            for ridx, value in rar[valid_mask].items():
+                subj = subj_arr[int(ridx)]
+                d = by_subj.setdefault(subj, _empty_subj_dict())
+                d["rar_sum"] += float(value)
+                d["rar_n"] += 1
 
     # Per-row missingness vectorized per (tp) block. Replaces the
     # previous per-row Python loop that did .iloc[ridx] N*V times.
@@ -163,8 +172,8 @@ def _subject_composite(stacked: pd.DataFrame, alive: Dict[str, set], network: st
             continue
         tp_mask = tp_arr == tp_val
         block = stacked.loc[tp_mask, alive_cols]
-        # treat empty-string-like cells as missing too
-        is_miss = block.isna() | block.astype(str).apply(lambda c: c.str.strip() == "")
+        is_miss = block.apply(
+            lambda c: clean_missing_string(c.astype(object)).isna())
         rate = is_miss.mean(axis=1).to_numpy(dtype=float)
         idx_arr = np.where(tp_mask)[0]
         for k, ridx in enumerate(idx_arr):
@@ -313,7 +322,8 @@ def _site_composite(stacked: pd.DataFrame, alive: Dict[str, set], network: str, 
             block = sub.loc[sub["_tp"].astype(str) == tp_val, alive_cols]
             if block.empty:
                 continue
-            is_miss = block.isna() | block.astype(str).apply(lambda c: c.str.strip() == "")
+            is_miss = block.apply(
+                lambda c: clean_missing_string(c.astype(object)).isna())
             rates = is_miss.mean(axis=1).to_numpy(dtype=float)
             miss_sum += float(np.sum(rates))
             miss_rows += int(rates.size)

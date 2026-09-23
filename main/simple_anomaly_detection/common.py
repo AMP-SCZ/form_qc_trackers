@@ -79,6 +79,39 @@ EXCLUDED_VARIABLE_SUBSTRINGS: Tuple[str, ...] = (
     "barcode",
     "rack",
     "_box",
+    # Synthetic / administrative identifiers. Rater fields are consumed
+    # directly by rater_effect.py before classification; they must not also be
+    # treated as numeric, categorical, or free-text clinical measurements.
+    "redcap_",
+    "_ampscz_id",
+    "record_id",
+    "_tp",
+    # Pharmaceutical fields use the ``chrpharm_*`` prefix in the production
+    # dictionary (not the historical ``_pharm_`` spelling above). Medication
+    # course/dose changes are intentionally outside this generic anomaly model.
+    "chrpharm",
+    # Known rater/user fields with legacy spelling variants. They remain
+    # available to the dedicated rater detector but are not clinical values for
+    # the general anomaly models.
+    "chrcssrsfu_redacp_user",
+    "chrpps_redcao_user",
+    "chrpred_username",
+)
+
+# REDCap descriptive/calculated display fields. These suffixes cover thousands
+# of instruction, table, validation-message, and piping-helper variables in the
+# AMPSCZ dictionary. Their generated text is not participant data and otherwise
+# produces large, non-actionable format/categorical tails.
+_EXCLUDED_VARIABLE_SUFFIX_RE = re.compile(
+    r"(?:_inst\d*|_table|_list|_err|^chrpsychs_.*_app)$", re.IGNORECASE)
+
+# Several legacy entries above were documented as "substrings", but literal
+# substring matching creates real collisions (``_count`` in
+# ``current_country`` and ``rack`` in ``crackle``). Treat these as variable-name
+# tokens. The remaining entries are safe prefixes/substrings.
+_TOKEN_EXCLUSION_RE = re.compile(
+    r"(?:^|_)(?:complete|missing|count|other|comment|note|description|rack|box)(?:_|$)",
+    re.IGNORECASE,
 )
 
 # Identity columns that every detector should leave alone.
@@ -139,10 +172,21 @@ FINDING_COLUMNS: Tuple[str, ...] = (
 def is_excluded_variable(name: str) -> bool:
     if not isinstance(name, str):
         return True
-    s = name.lower()
+    s = name.lower().strip()
     if s in {c.lower() for c in ID_COLUMNS}:
         return True
-    return any(p in s for p in EXCLUDED_VARIABLE_SUBSTRINGS)
+    if s == "_tp" or _EXCLUDED_VARIABLE_SUFFIX_RE.search(s):
+        return True
+    if _TOKEN_EXCLUSION_RE.search(s):
+        return True
+    # Token-like entries are handled by _TOKEN_EXCLUSION_RE so they cannot
+    # collide with meaningful names such as current_country / crackle.
+    token_entries = {
+        "_complete", "_missing", "_count", "_other", "comment", "note",
+        "description", "rack", "_box", "_tp",
+    }
+    return any(p in s for p in EXCLUDED_VARIABLE_SUBSTRINGS
+               if p not in token_entries)
 
 
 def matches_excluded_substrings(name: str, substrings: Sequence[str]) -> bool:
@@ -198,32 +242,86 @@ _SENTINEL_DATES = frozenset(
 
 
 def clean_dates_series(s: pd.Series) -> pd.Series:
-    """Return a datetime64 Series with AMPSCZ date sentinels stripped first.
+    """Return a tz-naive datetime64 Series with AMPSCZ date sentinels stripped.
 
     pd.to_datetime would happily parse '1909-09-09' as a real date and feed it
     into gap / order calculations as a 100-year-old visit. Replace the known
     sentinels with NaN, then parse. A second pass after parsing nulls any value
     that lands on a sentinel calendar date regardless of how it was spelled in
     the source (e.g. '1909-09-09 00:00:00', '09/09/1909', '1909-9-9').
+
+    ISO date/datetime inputs are first reduced to their source calendar date;
+    interview dates are calendar observations, not instants to be shifted
+    across time zones. Parsing then uses ``utc=True, format="mixed"`` on pandas
+    2.x and a scalar compatibility path on pandas 1.x. Two failure modes this
+    guards, both of which otherwise make
+    date_anomaly's coarse per-network try/except swallow EVERY date finding for
+    the whole network: (a) a column that mixes UTC offsets parses to an
+    OBJECT-dtype Series whose ``.dt`` accessor raises -- ``utc=True`` forces one
+    tz-aware dtype instead; (b) a column that mixes naive and offset-bearing
+    (or otherwise differently-formatted) strings, where a single inferred
+    format silently coerces the non-matching rows to NaT -- ``format="mixed"``
+    parses each element independently so no real date is dropped.
+    The result is normalized to tz-naive midnight so time-of-day and offset
+    differences cannot manufacture a fractional-day reversal.
     """
     if s is None:
         return pd.Series(dtype="datetime64[ns]")
     obj = s.astype(object).where(s.notna(), np.nan)
     sentinel_set = set(DATE_SENTINEL_STRINGS) | set(MISSING_STRING_CODES)
-    cleaned = obj.map(
-        lambda v: np.nan
-        if (isinstance(v, str) and v.strip() in sentinel_set)
-        else v
-    )
-    parsed = pd.to_datetime(cleaned, errors="coerce")
+    # Compare the textual scalar representation for every dtype, not just
+    # strings.  The runner reads CSVs as strings, but direct/programmatic
+    # detector calls can supply numeric -3/-9/-99/999; pandas would otherwise
+    # interpret those numbers as nanoseconds after 1970 and fabricate a date.
+    iso_prefix = re.compile(
+        r"^\s*(\d{4})-(\d{1,2})-(\d{1,2})(?:\s|T|$)")
+
+    def _calendar_input(value):
+        text = str(value).strip()
+        if text in sentinel_set:
+            return np.nan
+        match = iso_prefix.match(text)
+        if match:
+            try:
+                calendar_date = pd.Timestamp(
+                    year=int(match.group(1)), month=int(match.group(2)),
+                    day=int(match.group(3))).date().isoformat()
+            except (TypeError, ValueError):
+                return value
+            # This pre-parse sweep also catches sentinel timestamps whose UTC
+            # conversion would cross midnight (e.g. 1903-03-03T00:30+14:00).
+            return (np.nan if calendar_date in DATE_SENTINEL_STRINGS
+                    else calendar_date)
+        return value
+
+    cleaned = obj.map(_calendar_input)
+
+    # ``format='mixed'`` was introduced in pandas 2.0.  Under the older pandas
+    # used by some pipeline deployments it can coerce every valid value to NaT
+    # when errors='coerce', rather than raising.  Select the supported parser
+    # explicitly so timeline coverage cannot silently disappear by version.
+    try:
+        pandas_major = int(str(pd.__version__).split(".", 1)[0])
+    except (TypeError, ValueError):
+        pandas_major = 2
+    if pandas_major >= 2:
+        parsed = pd.to_datetime(
+            cleaned, errors="coerce", utc=True, format="mixed")
+    else:  # pragma: no cover - exercised in the production pandas-1.x job
+        # pandas 1.x lacks format='mixed' and can lock onto the first inferred
+        # shape, silently coercing other valid shapes to NaT. Parse each
+        # remaining scalar independently, then coerce the mapped series back to
+        # one UTC-aware datetime dtype. This branch favors correctness over the
+        # vectorized pandas-2.x fast path used on current environments.
+        parsed = cleaned.map(
+            lambda value: pd.to_datetime(
+                value, errors="coerce", utc=True))
+        parsed = pd.to_datetime(parsed, errors="coerce", utc=True)
+    if getattr(parsed.dt, "tz", None) is not None:
+        parsed = parsed.dt.tz_localize(None)
+    parsed = parsed.dt.normalize()
     if _SENTINEL_DATES and parsed.notna().any():
-        norm = parsed.dt.normalize()
-        # An offset-bearing source string parses to a tz-AWARE series; its
-        # normalized midnights would never match the tz-naive _SENTINEL_DATES,
-        # silently bypassing the sweep. Drop the tz before comparing.
-        if getattr(norm.dt, "tz", None) is not None:
-            norm = norm.dt.tz_localize(None)
-        parsed = parsed.mask(norm.isin(_SENTINEL_DATES))
+        parsed = parsed.mask(parsed.dt.normalize().isin(_SENTINEL_DATES))
     return parsed
 
 
@@ -231,7 +329,10 @@ def looks_like_date_column(name: str, sample: pd.Series) -> bool:
     """Cheap detector. Used for excluding dates from numeric checks AND for
     feeding the date anomaly detector. Errs on the side of accepting."""
     n = name.lower()
-    if "date" in n or "dob" in n or "_dt" in n or n.endswith("_d"):
+    # Date-like TOKENS only. A raw substring check classified every
+    # ``*_update_*`` variable as a date because "update" contains "date";
+    # those categorical fields then disappeared from all applicable checks.
+    if re.search(r"(?:^|_)(?:date|dob|dt)(?:_|$)", n):
         return True
     if sample.dtype == object:
         # Exclude sentinel-shaped values from the heuristic so a column
@@ -339,13 +440,6 @@ def robust_center_scale(values: np.ndarray) -> Tuple[float, float]:
     if sigma <= 0:
         return (med, float("nan"))
     return (med, sigma)
-
-
-def robust_z(values: np.ndarray) -> np.ndarray:
-    med, sigma = robust_center_scale(values)
-    if not np.isfinite(sigma):
-        return np.full(values.shape, np.nan)
-    return (values - med) / sigma
 
 
 # ---------------------------------------------------------------------------

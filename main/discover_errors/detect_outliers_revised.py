@@ -21,7 +21,6 @@ class NumericalOutliers:
 
     def __init__(self):
         self.absolute_path = '/PHShome/ob001/anaconda3/new_forms_qc/QC/'
-        self.combined_df_folder = '/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/'
 
         self.utils = Utils()
 

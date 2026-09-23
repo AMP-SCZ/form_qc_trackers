@@ -400,8 +400,11 @@ def test_empty_output_schema(detector_factory):
         'source_form', 'value', 'value_numeric',
         'expected_value', 'observed_value',
         'algorithm', 'metric_name', 'metric_value',
-        'severity_score', 'threshold', 'error_message',
-        'dates_detected',
+        # Sprint 1 P0-7 — severity_normalized added.
+        'severity_score', 'severity_normalized', 'threshold',
+        'error_message', 'dates_detected',
+        # Evidence timepoints metadata (Patch 6).
+        'evidence_timepoints', 'evidence_max_timepoint',
         # Tracker-compatible aliases.
         'subject', 'displayed_variable', 'displayed_timepoint',
         'affected_variables', 'affected_timepoints',
@@ -465,3 +468,139 @@ def test_file_output_atomic_and_readable(
     # 3. atomic write left no .tmp residue.
     tmps = list(out_dir.glob("*.tmp"))
     assert len(tmps) == 0, f"unexpected .tmp files: {tmps}"
+
+
+# -------------------------------------------------- LA-6: floating/conversion exclusion
+
+def test_la6_floating_and_conversion_rows_excluded(detector_factory):
+    """
+    Patch 4: N1 must exclude floating/conversion timepoints from
+    scoring. Otherwise the conversion-event measurement gets folded
+    into the subject's own median (self-masking) and inflates the
+    pooled MAD against surrounding scheduled tps.
+
+    Build: 12 normal subjects on scheduled tps (no flags), plus
+    OUTLIER who has scheduled tp_1/tp_2/tp_3 stable and an extreme
+    value at the 'conversion' timepoint. With the exclusion in
+    place, the conversion row never enters scoring and OUTLIER is
+    not flagged at all. Without the exclusion the OUTLIER subject's
+    median would be dragged toward the conversion value.
+    """
+    detector = detector_factory()
+    rows = _make_normal_subjects(n_subjects=12)
+    for tp, val in [
+        ('tp_1', 50.0),
+        ('tp_2', 51.0),
+        ('tp_3', 49.0),
+        ('conversion', 9999.0),
+    ]:
+        rows.append({
+            'subjectid': 'OUTLIER',
+            'timepoint': tp,
+            'variable': 'test_var',
+            'value': str(val),
+            'value_numeric': val,
+            'is_missing_code': False,
+        })
+    long_df = _make_long_df(rows)
+    result = detector._compute_anomalies(long_df)
+
+    # Zero rows at the excluded timepoints in the output.
+    excluded_in_output = result[
+        result['timepoint'].isin({'floating', 'conversion'})]
+    assert len(excluded_in_output) == 0
+    # Counter bumped for the conversion row we injected.
+    assert (detector._counters['rows_excluded_non_longitudinal_tp']
+            == 1)
+
+
+def test_la7_floating_row_excluded_from_scoring(detector_factory):
+    """
+    Same shape as LA-6 but using `floating` instead of `conversion`.
+    """
+    detector = detector_factory()
+    rows = _make_normal_subjects(n_subjects=12)
+    for tp, val in [
+        ('tp_1', 50.0),
+        ('tp_2', 51.0),
+        ('tp_3', 49.0),
+        ('floating', 7777.0),
+    ]:
+        rows.append({
+            'subjectid': 'FL',
+            'timepoint': tp,
+            'variable': 'test_var',
+            'value': str(val),
+            'value_numeric': val,
+            'is_missing_code': False,
+        })
+    long_df = _make_long_df(rows)
+    result = detector._compute_anomalies(long_df)
+
+    assert (result['timepoint'] == 'floating').sum() == 0
+    assert (detector._counters['rows_excluded_non_longitudinal_tp']
+            == 1)
+
+
+def test_la8_scheduled_rows_still_score(detector_factory):
+    """
+    Same as LA-1 (single outlier with stable scale) — purely
+    scheduled tps. The exclusion patch must not change anything
+    on this input.
+    """
+    detector = detector_factory()
+    rows = _make_normal_subjects(n_subjects=11)
+    for j, val in enumerate([50.0, 51.0, 49.0, 200.0]):
+        rows.append({
+            'subjectid': 'OUTLIER',
+            'timepoint': f'tp_{j+1}',
+            'variable': 'test_var',
+            'value': str(val),
+            'value_numeric': val,
+            'is_missing_code': False,
+        })
+    long_df = _make_long_df(rows)
+    result = detector._compute_anomalies(long_df)
+
+    assert len(result) == 1
+    assert result.iloc[0]['subjectid'] == 'OUTLIER'
+    assert result.iloc[0]['observed_value'] == 200.0
+    assert (detector._counters['rows_excluded_non_longitudinal_tp']
+            == 0)
+
+
+# -------------------------------------------------- LA-9: evidence_timepoints
+
+def test_la9_evidence_timepoints_metadata(detector_factory):
+    """
+    Patch 6: each N1 flag must carry evidence_timepoints (the
+    subject's set of observed scoring tps consulted in its
+    subject_median) and evidence_max_timepoint (canonically-latest
+    of those, falling back to lexical input order when no
+    create_timepoint_list is exposed).
+    """
+    detector = detector_factory()
+    rows = _make_normal_subjects(n_subjects=11)
+    for j, val in enumerate([50.0, 51.0, 49.0, 200.0]):
+        rows.append({
+            'subjectid': 'OUTLIER',
+            'timepoint': f'tp_{j+1}',
+            'variable': 'test_var',
+            'value': str(val),
+            'value_numeric': val,
+            'is_missing_code': False,
+        })
+    long_df = _make_long_df(rows)
+    result = detector._compute_anomalies(long_df)
+    assert len(result) == 1
+    flag = result.iloc[0]
+    assert 'evidence_timepoints' in flag.index
+    assert 'evidence_max_timepoint' in flag.index
+    evidence = flag['evidence_timepoints'].split(',')
+    assert set(evidence) == {'tp_1', 'tp_2', 'tp_3', 'tp_4'}
+    # evidence_max_timepoint must be one of the subject's observed
+    # tps. With no canonical order exposed (FakeUtils does not
+    # provide create_timepoint_list), the fallback path keeps the
+    # iteration-order result deterministic; we accept any of the
+    # four observed tps here.
+    assert flag['evidence_max_timepoint'] in evidence

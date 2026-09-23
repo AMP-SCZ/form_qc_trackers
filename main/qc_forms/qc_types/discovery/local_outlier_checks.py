@@ -9,12 +9,14 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
     is_excluded_variable,
     atomic_write_parquet,
     normalize_zscore_severity,
+    _is_form_blank,
 )
 
 """
@@ -99,7 +101,8 @@ class LocalOutlierChecks:
     ]
 
     REQUIRED_INPUT_COLUMNS = [
-        'subjectid', 'network', 'timepoint', 'variable',
+        # Sprint 1 P0-3: 'cohort' added for stratification.
+        'subjectid', 'network', 'timepoint', 'cohort', 'variable',
         'source_form', 'value', 'value_numeric', 'is_missing_code',
     ]
 
@@ -125,7 +128,13 @@ class LocalOutlierChecks:
         self.min_obs_per_variable = int(
             cfg.get('min_obs_per_variable', 30))
         self.min_joint_obs = int(cfg.get('min_joint_obs', 30))
-        self.max_form_rows = int(cfg.get('max_form_rows', 10000))
+        # Production form sizes can hit n_subj * n_tps (e.g. 5000 * 16
+        # = 80k) — well above the original 10k cap. At 100k the
+        # pairwise float64 matrix is ~80 GB (n²·8 bytes) which is
+        # still untenable; operators with that cohort size should
+        # either subsample, partition by tp, or accept that LOF
+        # is silently skipped for the largest forms.
+        self.max_form_rows = int(cfg.get('max_form_rows', 100000))
         self.residual_z_threshold = float(
             cfg.get('residual_z_threshold', 4.0))
         self.excluded_source_form_patterns = tuple(
@@ -208,6 +217,7 @@ class LocalOutlierChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -242,9 +252,14 @@ class LocalOutlierChecks:
 
         today = str(datetime.today().date())
         records = []
-        for (net, form), grp in scoring.groupby(
-                ['network', 'source_form'], sort=False):
-            if not form:
+        # Sprint 1 P0-3: cohort stratification — joint matrix is
+        # built within (network, source_form, cohort).
+        scoring['cohort'] = (
+            scoring['cohort'].astype(object)
+            .fillna('').astype(str).str.lower())
+        for (net, form, _coh), grp in scoring.groupby(
+                ['network', 'source_form', 'cohort'], sort=False):
+            if _is_form_blank(form):
                 continue
             self._counters['form_groups_considered'] += 1
             form_records = self._evaluate_form(
@@ -303,9 +318,9 @@ class LocalOutlierChecks:
             self._counters['form_groups_skipped_too_few_joint'] += 1
             return []
         if n_joint > self.max_form_rows:
-            # Bound O(n²) memory. If the cohort is too large for a
-            # full pairwise matrix, the operator can lift this with
-            # max_form_rows or implement a kd-tree variant.
+            # Bound memory. With the kd-tree path below this cap is
+            # conservative (O(n log n) memory rather than O(n²)),
+            # but the operator can still want it tight for runtime.
             self._counters['form_groups_skipped_too_many_rows'] += 1
             return []
         if n_joint <= self.n_neighbors:
@@ -319,23 +334,29 @@ class LocalOutlierChecks:
         sigma = X.std(axis=0, ddof=1)
         sigma = np.where(sigma > 0, sigma, 1.0)
         Z = (X - mu) / sigma
-        # Pairwise squared Euclidean distance via the ‖a−b‖² =
-        # ‖a‖² + ‖b‖² − 2·a·b identity (faster + lower memory than
-        # broadcasting subtraction for these matrix sizes).
-        sq_norms = (Z ** 2).sum(axis=1)
-        # gram = Z @ Z.T → (n, n); sq_dist[i,j] = sq_norms[i] +
-        # sq_norms[j] − 2·gram[i,j]. Clip negatives from floating
-        # error.
-        gram = Z @ Z.T
-        sq_dist = (
-            sq_norms[:, None] + sq_norms[None, :] - 2.0 * gram)
-        np.fill_diagonal(sq_dist, np.inf)  # exclude self-distance
-        sq_dist = np.maximum(sq_dist, 0.0)
-        dist = np.sqrt(sq_dist)
-        # k-th NN distance per row (k = n_neighbors). np.partition
-        # places the kth-smallest at index (k-1) without sorting.
-        kth = np.partition(dist, self.n_neighbors - 1, axis=1)[
-            :, self.n_neighbors - 1]
+        # Sprint 1 P0-6: kth-NN distance via sklearn NearestNeighbors
+        # (kd-tree / ball-tree, O(n log n) memory) instead of the
+        # previous dense Z @ Z.T gram matrix (O(n²) memory). At the
+        # form-group sizes we expect (n_joint up to max_form_rows =
+        # 100_000) the dense matrix is ~80 GB; the tree-based query
+        # is well within RAM for AMPSCZ scale.
+        #
+        # Query `n_neighbors + 1` and drop the self-distance at
+        # index 0; the (k)-th element of the remaining row is the
+        # k-th NN distance.
+        from sklearn.neighbors import NearestNeighbors
+        nn = NearestNeighbors(
+            n_neighbors=self.n_neighbors + 1,
+            algorithm='auto',
+            metric='euclidean',
+        )
+        nn.fit(Z)
+        # Returns (distances, indices) both shape (n_joint,
+        # n_neighbors+1). distances[:, 0] is the zero self-distance.
+        distances, _ = nn.kneighbors(
+            Z, n_neighbors=self.n_neighbors + 1,
+            return_distance=True)
+        kth = distances[:, self.n_neighbors]
         center = float(np.median(kth))
         mad = float(np.median(np.abs(kth - center)))
         scale = mad * 1.4826

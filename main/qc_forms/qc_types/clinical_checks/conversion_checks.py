@@ -16,19 +16,22 @@ class ConversionChecks(FormCheck):
     criteria across timepoints or at the conversion timepoint).
     """
 
+    # Pure-literal constant (never mutated — only iterated via .items()).
+    # Promoted to class scope so it is not rebuilt on every per-row
+    # ConversionChecks construction.
+    gt_var_val_pairs = {
+        "chrbprs_bprs_somc": 5,
+        "chrbprs_bprs_guil": 5,
+        "chrbprs_bprs_gran": 5,
+        "chrbprs_bprs_susp": 5,
+        "chrbprs_bprs_hall": 5,
+        "chrbprs_bprs_unus": 5,
+        "chrbprs_bprs_bizb": 5,
+        "chrbprs_bprs_conc": 5,
+    }
+
     def __init__(self, row, timepoint, network, form_check_info):
         super().__init__(timepoint, network, form_check_info)
-
-        self.gt_var_val_pairs = {
-            "chrbprs_bprs_somc": 5,
-            "chrbprs_bprs_guil": 5,
-            "chrbprs_bprs_gran": 5,
-            "chrbprs_bprs_susp": 5,
-            "chrbprs_bprs_hall": 5,
-            "chrbprs_bprs_unus": 5,
-            "chrbprs_bprs_bizb": 5,
-            "chrbprs_bprs_conc": 5,
-        }
 
         # Sourced from dependencies/conversion_criteria_thresholds.json
         # so process_variables/collect_subject_info.py can read the

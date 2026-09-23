@@ -119,6 +119,10 @@ class OrganizeReports():
         'Identifier?']!='y') &(~filtered_df['Form Name'].isin(self.all_psychs_forms))) | (filtered_df[
         'Variable / Field Name'].isin(additional_blank_check_vars))]
 
+        # Keep this blank-only exclusion separate from general QC exclusions.
+        filtered_df = filtered_df[
+            filtered_df['Variable / Field Name'] != 'chrpharm_interview_date']
+
         return filtered_df
 
     def define_additional_blank_check_vars(self):
@@ -241,7 +245,7 @@ class OrganizeReports():
         'chrscid_othersub_yn','chrscid_sedhypanx_yn',
         'chrscid_stimulant_yn','chrscid_hallucinogen_yn','chrscid_cannabis_yn',
         'chrpharm_date_first','chrpharm_med1_comp_2',
-        'chrpharm_med1_mo','chrpharm_interm_meds_1','chrtbi_subject_age','chrtbi_sourceinfo','chrtbi_severe_inj'
+        'chrpharm_med1_mo','chrpharm_interm_meds_1','chrtbi_subject_age'
         ])}
 
         for x in range(1,16):

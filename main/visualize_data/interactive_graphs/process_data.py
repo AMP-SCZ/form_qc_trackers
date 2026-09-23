@@ -437,7 +437,7 @@ class ProcessData():
                       f'({e}); keeping raw history.')
         return history_df
 
-    def _fetch_history_incremental(self, network, sample_every_days=1,
+    def _fetch_history_incremental(self, network, sample_every_days=4,
                                    page_limit=100):
         """
         Walk Dropbox revisions newer than the cache's

@@ -36,7 +36,7 @@ The unit of analysis is a SUBJECT, not a form
 ---------------------------------------------
 Forms are pooled across timepoints (a rater is the same person across visits)
 and then collapsed to one row per (rater, subject) carrying that subject's
-MODAL value for the item (ties -> smallest value, deterministically). This is
+MODAL value for the item (ties use numeric-aware smallest-value ordering). This is
 deliberate: the same subject rated by the same rater at every visit is NOT
 independent evidence, so counting forms would both inflate the test and let a
 SINGLE subject a rater always scores ``v`` masquerade as a scoring tendency.
@@ -108,6 +108,8 @@ rater's site, mirroring how the site detectors emit ``(site-level)`` rows.
 from __future__ import annotations
 
 from collections import defaultdict
+import json
+import os
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -205,6 +207,21 @@ def _load_var_to_form() -> Tuple[Dict[str, str], str]:
     break this package's numpy/pandas-only self-containment and its demo.
     Read-only; never writes, never raises.
     """
+    # The repository dependency is available in local/offline runs even when
+    # Utils cannot construct (common on Windows). Load it directly first rather
+    # than returning early into unsafe name-prefix scoping.
+    try:
+        dep_path = os.path.join(os.path.dirname(__file__), "..", "..", "..",
+                                "dependencies", "grouped_variables.json")
+        with open(dep_path, "r", encoding="utf-8") as fh:
+            gv = json.load(fh)
+        var_forms = gv.get("var_forms") if isinstance(gv, dict) else None
+        if isinstance(var_forms, dict) and var_forms:
+            return {str(k): str(v) for k, v in var_forms.items()}, \
+                "grouped_variables.var_forms"
+    except Exception:
+        pass
+
     try:
         from utils.utils import Utils  # noqa: PLC0415 (lazy on purpose)
         u = Utils()
@@ -352,17 +369,22 @@ def _canonicalize_values(ser: pd.Series) -> pd.Series:
 def _collapse_modal(rater: pd.Series, subj: pd.Series,
                     val: pd.Series) -> pd.DataFrame:
     """One row per (rater, subject) with the subject's MODAL value for that
-    rater (ties broken to the smallest value, deterministically). Removes the
-    repeated-visit pseudoreplication so the test unit is a subject."""
+    rater. Ties use numeric-aware ordering so 2 sorts before 10; nonnumeric
+    categories use stable lexical ordering. Removes repeated-visit
+    pseudoreplication so the test unit is a subject."""
     df = pd.DataFrame({"rater": rater.to_numpy(),
                        "subj": subj.to_numpy(),
                        "val": val.to_numpy()})
     cnt = df.groupby(["rater", "subj", "val"]).size().reset_index(name="n")
-    # Most frequent value wins; ties -> smallest value (stable, rater-neutral).
-    cnt = cnt.sort_values(["rater", "subj", "n", "val"],
-                          ascending=[True, True, False, True])
+    parsed = pd.to_numeric(cnt["val"], errors="coerce")
+    cnt["_is_text"] = parsed.isna()
+    cnt["_num"] = parsed
+    cnt = cnt.sort_values(
+        ["rater", "subj", "n", "_is_text", "_num", "val"],
+        ascending=[True, True, False, True, True, True], kind="stable",
+        na_position="last")
     return cnt.drop_duplicates(["rater", "subj"], keep="first")[
-        ["rater", "subj", "val"]]
+        ["rater", "subj", "val"]].reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------
@@ -468,7 +490,52 @@ def detect_all(per_slice: Dict, classify: Dict = None, **_) -> List[dict]:
             rows.extend(_detect_network(network, items, var_to_form, source))
         except Exception as e:
             print(f"  [rater_effect] WARN network {network}: {e}")
-    return rows
+    return _collapse_value_patterns(rows)
+
+
+def _collapse_value_patterns(rows: List[dict]) -> List[dict]:
+    """One reviewer-facing row per (network, rater, item, confidence tier).
+
+    Adjacent ordinal values are positively dependent: one rater tendency can
+    legitimately clear the screen for values 4 and 5, but two near-identical
+    rows are one actionable issue. Keep the strongest value as the
+    representative and retain every corroborating value/rate in compact audit
+    columns.
+    """
+    if not rows:
+        return rows
+    groups: Dict[tuple, List[dict]] = defaultdict(list)
+    for row in rows:
+        groups[(str(row.get("network", "")), str(row.get("rater_id", "")),
+                str(row.get("rater_variable", "")), str(row.get("variable", "")),
+                str(row.get("confidence", "")))].append(row)
+
+    out: List[dict] = []
+    for grp in groups.values():
+        def _sev(r):
+            try:
+                return float(r.get("severity_score", 0) or 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        ranked = sorted(grp, key=_sev, reverse=True)
+        rep = dict(ranked[0])
+        rep["n_scored_values_flagged"] = len(ranked)
+        rep["corroborating_values"] = "; ".join(
+            f"{r.get('scored_value', '')} "
+            f"({float(r.get('rate_rater', 0) or 0):.0%} vs "
+            f"{float(r.get('rate_compare', 0) or 0):.0%})"
+            for r in ranked
+        )
+        if len(ranked) > 1:
+            rep["explanation"] = (
+                str(rep.get("explanation", ""))
+                + f" Collapsed {len(ranked)} over-used value categories for "
+                  f"this rater/item; see corroborating_values."
+            )
+        out.append(rep)
+    return sorted(out, key=lambda r: float(r.get("severity_score", 0) or 0),
+                  reverse=True)
 
 
 def _detect_network(network: str, items: List, var_to_form: Dict[str, str],

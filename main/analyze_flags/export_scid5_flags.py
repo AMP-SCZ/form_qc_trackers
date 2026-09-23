@@ -35,10 +35,12 @@ import sys
 
 import pandas as pd
 
-parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
-sys.path.insert(1, parent_dir)
+parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(1, parent_dir)
 from utils.utils import Utils
 from analyze_flags.canonicalize import normalize_form_name
+from analyze_flags.manual_review import _write_workbook
 from analyze_flags.paths import (
     ensure_analyze_flags_artifact_dir,
     open_tracker_row_history_csv_basename,
@@ -70,6 +72,10 @@ class ScidFlagExporter():
         'example_variable',
     ]
 
+    REQUIRED_HISTORY_COLUMNS = frozenset([
+        'General_Flag', 'canonical_template', 'is_currently_open', 'variable',
+    ])
+
     def __init__(self):
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
@@ -88,16 +94,66 @@ class ScidFlagExporter():
             if not os.path.exists(csv_path):
                 print(
                     f"{network}: no merged history CSV at {csv_path}; "
-                    f"run estimate_resolved.py first. Skipping."
+                    f"run estimate_resolved.py first. Preserving the prior "
+                    f"{self.OUTPUT_BASENAME}, if any."
                 )
-                continue
-            df = pd.read_csv(csv_path, keep_default_na=False)
-            if 'General_Flag' not in df.columns:
+                return False
+            try:
+                df = pd.read_csv(csv_path, keep_default_na=False)
+            except (pd.errors.EmptyDataError, pd.errors.ParserError,
+                    UnicodeDecodeError, OSError) as e:
                 print(
-                    f"{network}: General_Flag column missing in {csv_path}; "
-                    f"file may be in an older row-level format. Skipping."
+                    f"{network}: could not read {csv_path} "
+                    f"({type(e).__name__}: {str(e)[:200]}). Preserving the "
+                    f"prior {self.OUTPUT_BASENAME}, if any."
                 )
-                continue
+                return False
+            missing = sorted(self.REQUIRED_HISTORY_COLUMNS - set(df.columns))
+            if missing:
+                print(
+                    f"{network}: required columns {missing} are missing in "
+                    f"{csv_path}; preserving the prior {self.OUTPUT_BASENAME}, "
+                    f"if any."
+                )
+                return False
+            if 'resolution_eligible' in df.columns:
+                eligible_raw = (
+                    df['resolution_eligible'].astype(str).str.strip()
+                    .str.casefold()
+                )
+                invalid_eligible = ~eligible_raw.isin(
+                    {'true', 'false', '1', '0', 'yes', 'no'}
+                )
+                if invalid_eligible.any():
+                    print(
+                        f"{network}: invalid resolution_eligible value(s) in "
+                        f"{csv_path}; preserving the prior "
+                        f"{self.OUTPUT_BASENAME}, if any."
+                    )
+                    return False
+                eligible = eligible_raw.isin({'true', '1', 'yes'})
+            elif network == 'PRONET' and 'source' in df.columns:
+                # Backward compatibility for histories written before the
+                # explicit field. PRONET V2 is testing-only.
+                eligible = df['source'].map(
+                    lambda value: 'V1' in str(value).split('+'))
+            else:
+                eligible = pd.Series(True, index=df.index)
+            df = df[eligible].copy()
+            open_raw = (
+                df['is_currently_open'].astype(str).str.strip().str.casefold()
+            )
+            invalid_open = ~open_raw.isin(
+                {'true', 'false', '1', '0', 'yes', 'no'}
+            )
+            if invalid_open.any():
+                print(
+                    f"{network}: invalid is_currently_open value(s) in "
+                    f"{csv_path}; preserving the prior "
+                    f"{self.OUTPUT_BASENAME}, if any."
+                )
+                return False
+            df['is_currently_open'] = open_raw.isin({'true', '1', 'yes'})
             # Compare on stripped keys; rewrite matches to the
             # canonical V2 spelling so example_form is consistent.
             lookup = {normalize_form_name(f): f for f in self.SCID5_FORMS}
@@ -124,12 +180,14 @@ class ScidFlagExporter():
 
         summary_df = self._build_summary(network_dfs)
         out_path = os.path.join(self.analyze_flags_dir, self.OUTPUT_BASENAME)
-        with pd.ExcelWriter(out_path, engine='openpyxl') as writer:
-            summary_df.to_excel(writer, sheet_name='Templates', index=False)
+        written = _write_workbook(
+            out_path, {'Templates': summary_df},
+        )
         print(
-            f"Wrote {out_path}: {len(summary_df)} canonical templates "
+            f"Wrote {written}: {len(summary_df)} canonical templates "
             f"across {summary_df['network'].nunique() if not summary_df.empty else 0} networks."
         )
+        return True
 
     def _build_summary(self, network_dfs):
         """One row per (network, canonical_template). Sorted by
@@ -141,7 +199,8 @@ class ScidFlagExporter():
                 continue
             # is_currently_open round-trips through CSV as 'True'/'False'.
             open_mask = (
-                df['is_currently_open'].astype(str).str.strip().eq('True')
+                df['is_currently_open'].astype(str).str.strip().str.casefold()
+                .isin({'true', '1', 'yes'})
             )
             grouped = df.groupby('canonical_template', dropna=False)
             for canon, group in grouped:

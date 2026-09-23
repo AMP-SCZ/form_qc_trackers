@@ -28,7 +28,9 @@ class RawCSVCollector():
         subject raw CSV
         """
         for network in ['Prescient']:
-            raw_csv_folder = f'/data/predict1/data_from_nda/{network}/PHOENIX/PROTECTED'
+            raw_csv_folder = self.utils.config_info['paths'].get(
+                'prescient_raw_csv_path',
+                f'/data/predict1/data_from_nda/{network}/PHOENIX/PROTECTED')
             for site in os.listdir(raw_csv_folder):
                 if re.search(rf'{network}[a-zA-Z]', site):
                     sub_folder = f'{raw_csv_folder}/{site}/raw/'

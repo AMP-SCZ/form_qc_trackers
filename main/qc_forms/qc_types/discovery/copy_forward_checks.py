@@ -9,12 +9,14 @@ sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
 from qc_types.discovery._common import (
+    is_finite_numeric_mask,
     DEFAULT_EXCLUDED_FORM_PATTERNS,
     DEFAULT_EXCLUDED_VARIABLE_PATTERNS,
     is_excluded_form,
     is_excluded_variable,
     atomic_write_parquet,
     normalize_passthrough_severity,
+    _is_form_blank,
 )
 
 """
@@ -211,6 +213,7 @@ class CopyForwardChecks:
     ) -> pd.DataFrame:
         scoring = long_df[
             long_df['value_numeric'].notna()
+            & is_finite_numeric_mask(long_df['value_numeric'])
             & (~long_df['is_missing_code'])
         ].copy()
         scoring = scoring[
@@ -256,7 +259,7 @@ class CopyForwardChecks:
         today = str(datetime.today().date())
         for (net, subj, form), grp in scoring.groupby(
                 ['network', 'subjectid', 'source_form'], sort=False):
-            if not form:
+            if _is_form_blank(form):
                 continue
             self._counters['subject_form_groups_considered'] += 1
             wide = grp.pivot_table(
