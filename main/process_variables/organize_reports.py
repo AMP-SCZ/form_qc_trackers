@@ -27,7 +27,13 @@ class OrganizeReports():
 
         self.rel_psychs_vars = self.collect_psychs_variables()
 
-        self.variables_added_later = {'scid5_psychosis_mood_substance_abuse': {'chrscid_missing': '2024-12-25'}}
+        self.variables_added_later = {'scid5_psychosis_mood_substance_abuse':
+        {'chrscid_missing': '2024-12-25'}}
+
+
+        self.excluded_forms = {"PRESCIENT": ["gcp_current_health_status",
+        "gcp_cbc_with_differential","adverse_events","coenrollment_form"],
+        "PRONET":[]}
 
     def run_script(self):
         self.organize_variable_checks()
@@ -38,7 +44,8 @@ class OrganizeReports():
             "missing_code_vars" : self.organize_missing_code_check_vars(),
             "specific_val_check_vars" : self.organize_spec_val_check_vars(),
             "checkbox_vars" : self.organize_checkbox_vars(),
-            "excluded_vars" : self.define_excluded_variables()
+            "excluded_vars" : self.define_excluded_variables(),
+            "excluded_forms" : self.excluded_forms
         }
 
         self.utils.save_dependency_json(
@@ -51,7 +58,6 @@ class OrganizeReports():
         self.variables_added_later, 'variables_added_later.json')
         
     def organize_blank_check_vars(self):
-
         # applies filters that are relevant to both reports
         filtered_df = self.filter_blank_check_df()
         
@@ -60,8 +66,11 @@ class OrganizeReports():
         ['notes','descriptive'])) | (filtered_df[
         'Variable / Field Name'].isin(self.define_additional_blank_check_vars()))]
 
-        main_report_df = main_report_df[
+        main_reports = {'PRONET':[],'PRESCIENT':[]}
+        main_reports['PRONET'] = main_report_df[
         ~main_report_df['Form Name'].isin(self.self_report_forms)]
+
+        main_reports['PRESCIENT'] = main_report_df
 
         secondary_report_df = filtered_df[(
         filtered_df['Field Type'].isin(
@@ -71,7 +80,7 @@ class OrganizeReports():
         blank_check_vars = {"PRONET" : {}, "PRESCIENT" : {}}
         for network in blank_check_vars.keys():
             blank_check_vars[network] = {
-            'Main Report':main_report_df.groupby(
+            'Main Report':main_reports[network].groupby(
             'Form Name')['Variable / Field Name'].apply(list).to_dict(),
 
             'Secondary Report':secondary_report_df.groupby(
@@ -81,7 +90,6 @@ class OrganizeReports():
         return blank_check_vars
     
     def organize_missing_code_check_vars(self):
-
         filtered_df = self.data_dict_df
         missing_code_check_vars = {"PRONET" : {}, "PRESCIENT" : {}}
         for network in missing_code_check_vars.keys():
@@ -111,6 +119,10 @@ class OrganizeReports():
         'Identifier?']!='y') &(~filtered_df['Form Name'].isin(self.all_psychs_forms))) | (filtered_df[
         'Variable / Field Name'].isin(additional_blank_check_vars))]
 
+        # Keep this blank-only exclusion separate from general QC exclusions.
+        filtered_df = filtered_df[
+            filtered_df['Variable / Field Name'] != 'chrpharm_interview_date']
+
         return filtered_df
 
     def define_additional_blank_check_vars(self):
@@ -119,11 +131,15 @@ class OrganizeReports():
         'chrchs_timeslept','chrdemo_age_mos_chr',
         'chrdemo_age_mos_hc','chrdemo_age_mos2','chroasis_oasis_1',
         'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']
-        
-        pharm_vars_df = self.data_dict_df[
-        (self.data_dict_df['Variable / Field Name'].str.contains('chrpharm_med')
-        & self.data_dict_df['Variable / Field Name'].str.contains('name_past'))]
 
+        # removed timeslept due to false flags
+        additional_blank_check_vars = [
+        'chrpsychs_av_dev_desc', 'chrcrit_included','chrdemo_age_mos_chr',
+        'chrdemo_age_mos_hc','chrdemo_age_mos2','chroasis_oasis_1',
+        'chroasis_oasis_3','chrblood_rack_barcode','chrcrit_inc3']
+
+        pharm_vars_df = self.data_dict_df[
+        self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
         ap_vars_df = self.data_dict_df[
                 self.data_dict_df['Form Name'].isin(['lifetime_ap_exposure_screen'])]
         
@@ -132,7 +148,8 @@ class OrganizeReports():
         
         ap_vars = ap_vars_df['Variable / Field Name'].tolist()
 
-        pharm_vars = pharm_vars_df['Variable / Field Name'].tolist()
+        pharm_vars = self.collect_pharm_vars()
+        
         scid_df = self.data_dict_df[
         self.data_dict_df['Form Name'] == 'scid5_psychosis_mood_substance_abuse']
         all_scid_vars = scid_df['Variable / Field Name'].tolist()
@@ -143,7 +160,27 @@ class OrganizeReports():
         additional_blank_check_vars.extend(ap_vars)
 
         return additional_blank_check_vars
-    
+
+    def collect_pharm_vars(self):
+        """
+        Defines which pharamceutical
+        form variables will be included
+        in the standard blank checks
+        """
+
+        pharm_vars_df = self.data_dict_df[
+        self.data_dict_df['Form Name'].str.contains('pharmaceutical')]
+
+        keywords = ['tp','name','onset','dosage','use',
+        'frequency','datasource','indication','other']
+
+        pharm_vars_df = pharm_vars_df[pharm_vars_df[
+        'Variable / Field Name'].apply(lambda x: any(term in str(x) for term in keywords))]
+
+        vars_for_blank_check = pharm_vars_df['Variable / Field Name'].tolist()
+
+        return vars_for_blank_check
+
     def organize_spec_val_check_vars(self):
         specific_value_check_dictionary = {'chrspeech_upload':
             {'correlated_variable':'chrspeech_upload',
@@ -199,25 +236,47 @@ class OrganizeReports():
 
         excluded_strings =  {'PRONET':pronet_excl_strings,
         
-        'PRESCIENT':(pronet_excl_strings + ['chrdemo_racial','chrsaliva_food',
+        'PRESCIENT':(pronet_excl_strings + self.prescient_scid_excluded_vars()+ [
+        'chrdemo_racial','chrsaliva_food',
         'chrscid_overview_version','chrblood_freezerid',
         'chrdbb_phone_model','chrdbb_phone_software',
         'wb3id','se3id','se2id','wb2id','chrblood_rack_barcode','chrscid_inhalant_yn',
         'chrscid_opioids_yn','chrscid_phencyclidine_yn',
         'chrscid_othersub_yn','chrscid_sedhypanx_yn',
-        'chrscid_stimulant_yn','chrscid_hallucinogen_yn','chrscid_cannabis_yn'
+        'chrscid_stimulant_yn','chrscid_hallucinogen_yn','chrscid_cannabis_yn',
+        'chrpharm_date_first','chrpharm_med1_comp_2',
+        'chrpharm_med1_mo','chrpharm_interm_meds_1','chrtbi_subject_age'
         ])}
 
         for x in range(1,16):
             excluded_strings['PRESCIENT'].append(f'chrscid_s{x}_yn')
 
+        excluded_strings['PRESCIENT'].extend(self.collect_excluded_floating_vars())
+
         for network in ['PRONET','PRESCIENT']:
             filtered_df = self.utils.apply_df_str_filter(
             self.data_dict_df, excluded_strings[network], 'Variable / Field Name')
             excluded_vars[network] = filtered_df['Variable / Field Name'].tolist()
-                
+            
         return excluded_vars
+    
+    def collect_excluded_floating_vars(self):
+        """
+        Excludes psychosocial_treatment_form
+        and resource_use_log from prescient output
+        """
 
+        filtered_df = self.data_dict_df[
+        self.data_dict_df['Form Name'].isin([
+        'psychosocial_treatment_form',
+        'resource_use_log'])]
+
+        vars = filtered_df[
+        'Variable / Field Name'].tolist()
+        print(vars)
+
+        return vars
+        
     def collect_psychs_variables(self):
         """
         Function to collect all of the Psychs
@@ -245,7 +304,27 @@ class OrganizeReports():
             'chrpsychs_fu_e27_app','hcpsychs_fu_e27','hcpsychs_fu_e27_app'])
 
         return essential_psychs_vars
-    
+
+
+    def prescient_scid_excluded_vars(self):
+        excluded_scid_vars = ['chrscid_a55','chrscid_a56',
+        'chrscid_a64','chrscid_a65','chrscid_a73','chrscid_a74',
+        'chrscid_a81','chrscid_a82','chrscid_a93','chrscid_a94',
+        'chrscid_a102','chrscid_a103','chrscid_a111',
+        'chrscid_a112','chrscid_a119','chrscid_a120',
+        'chrscid_d29','chrscid_e1_a','chrscid_e1_b','chrscid_e15','chrscid_e20',
+        'chrscid_e39','chrscid_e40','chrscid_e41','chrscid_e42','chrscid_e43',
+        'chrscid_e44','chrscid_e45','chrscid_e46','chrscid_e160-161','chrscid_e165-166',
+        'chrscid_e169-170','chrscid_e173-174','chrscid_e177-178','chrscid_e181-182',
+        'chrscid_e185-186','chrscid_e189-190','chrscid_e194','chrscid_e195',
+        'chrscid_e196','chrscid_e197','chrscid_e198','chrscid_e199','chrscid_e200',
+        'chrscid_e201','chrscid_e299-300','chrscid_e303-304','chrscid_e307-308',
+        'chrscid_e311-312','chrscid_e315-316','chrscid_e319-320','chrscid_e323-324',
+        'chrscid_e327-328','chrscid_e341','chrscid_e342','chrscid_e343','chrscid_e344',
+        'chrscid_e345','chrscid_e346','chrscid_e347','chrscid_e348']
+
+        return excluded_scid_vars
+            
     def find_new_added_vars(self):
         depen_path = self.config_info['paths']['dependencies_path']
         old_data_dict_path = depen_path + 'data_dictionary/'
@@ -278,7 +357,7 @@ class OrganizeReports():
         all_team_forms = []
         all_forms  = self.data_dict_df['Form Name'].unique().tolist()
 
-        for key,value in team_reports.items():
+        for key, value in team_reports.items():
             for form in value:
                 if form not in all_team_forms:
                     all_team_forms.append(form)
@@ -286,6 +365,8 @@ class OrganizeReports():
             if form not in all_team_forms:
                 if form not in non_team_forms:
                     non_team_forms.append(form)
+
+        non_team_forms.append('scid5_psychosis_mood_substance_abuse')
 
         # all forms not yet defined in the above dictionary
         team_reports['Non Team Forms'] = non_team_forms 

@@ -2,7 +2,6 @@
 import os
 import pandas as pd
 
-import pandas as pd
 
 import os
 import sys
@@ -15,14 +14,15 @@ from main.process_variables.process_variables_main import ProcessVariables
 from main.qc_forms.qc_forms_main import QCFormsMain
 from main.generate_reports.generate_reports_main import GenerateReports
 
+
 """
 QC ORDER
 1. move combined output from new to old output folder
 2. rerun qc to generate new combined output
-3. determine resolved errors in new output by comparing to old, 
+3. determine resolved errors in new output by comparing to old,
 then merge them with the appropriate errors marked resolved.
-4. save merged df as current output. 
-5. pull data (manually resolved and comments columns) from combined formatted 
+4. save merged df as current output.
+5. pull data (manually resolved and comments columns) from combined formatted
 dropbox outputs and add it to file in old output folder
 6. loop through each network, report, site, and RA (for melbourne) to create
 formatted outputs for each. for the sites only
@@ -30,8 +30,19 @@ include the main report (for melbourne, non team form report)
 7. save all formatted outputs to folder and upload them to dropbox
 """
 
-# started at 7:44
-class RunQC():        
+#soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+#resource.setrlimit(resource.RLIMIT_AS, (64 * 1024 ** 3, hard))
+
+# The resource module is Unix-only; Windows uses its platform limits.
+try:
+    import resource
+except ImportError:
+    resource = None
+if resource is not None:
+    soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
+    resource.setrlimit(resource.RLIMIT_FSIZE, (166000 * 1024 ** 2, hard))
+
+class RunQC():
     def run_script(self):
         #self.process_vars = ProcessVariables()
         #self.process_vars.run_script()

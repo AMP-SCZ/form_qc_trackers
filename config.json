@@ -1,9 +1,437 @@
 {
-    "paths" : {
-        "combined_csv_path" : "/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/",
-        "dependencies_path" : "/PHShome/ob001/anaconda3/refactored_qc/dependencies/",
-        "error_log_path" : "/PHShome/ob001/anaconda3/refactored_qc/error_logs/",
-        "output_path": "/PHShome/ob001/anaconda3/refactored_qc/output/"
+  "paths": {
+    "combined_csv_path": "/data/predict1/data_from_nda/formsdb/generated_outputs/combined/PROTECTED/",
+    "dependencies_path": "/home/ob001/refactored_qc/dependencies/",
+    "error_log_path": "/home/ob001/refactored_qc/error_logs/",
+    "output_path": "/home/ob001/output/",
+    "prescient_raw_csv_path": "/data/predict1/data_from_nda/Prescient/PHOENIX/PROTECTED/"
+  },
+  "testing_enabled": "True",
+  "withdrawn_enabled": true,
+  "recruited_only": false,
+  "longitudinal_anomaly": {
+    "enabled": true,
+    "merge_into_main_tracker": false,
+    "networks": [
+      "PRONET",
+      "PRESCIENT"
+    ],
+    "min_points_per_subject": 3,
+    "min_observations_per_variable": 30,
+    "min_distinct_values": 5,
+    "robust_z_threshold": 3.5,
+    "exclude_integer_low_cardinality": true,
+    "max_integer_distinct_for_categorical": 6,
+    "keep_non_numeric_audit_rows": true,
+    "max_flags_to_write": null,
+    "excluded_name_patterns": [
+      "comment",
+      "note",
+      "describe",
+      "_specify",
+      "_other"
+    ],
+    "categorical_field_types": [
+      "radio",
+      "dropdown",
+      "yesno",
+      "checkbox"
+    ],
+    "data_dictionary_path": ""
+  },
+  "pipeline_networks": [
+    "PRESCIENT",
+    "PRONET"
+  ],
+  "discovery": {
+    "copy_forward": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_match_fraction": 0.85,
+      "min_form_vars": 4,
+      "min_cohort_obs_per_variable": 20,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_to_write": 300
     },
-    "testing_enabled" : "True"
+    "longitudinal_delta": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_observations_per_variable": 30,
+      "min_deltas_per_tp_pair": 10,
+      "robust_z_threshold": 4.0,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_to_write": 500
+    },
+    "point_spike": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_observations_per_tp": 20,
+      "high_threshold": 4.0,
+      "low_threshold": 2.0,
+      "require_at_least_one_neighbor": true,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_per_variable": 25,
+      "max_flags_to_write": 500
+    },
+    "internal_consistency": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "max_flags_to_write": 500
+    },
+    "pairwise_relationship": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_obs_per_pair": 30,
+      "min_correlation": 0.6,
+      "residual_z_threshold": 4.0,
+      "max_vars": 40,
+      "max_flags_per_pair": 50,
+      "max_flags_per_variable": 25,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_to_write": 500
+    },
+    "mahalanobis": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "max_tuple_size": 5,
+      "min_tuple_size": 3,
+      "min_obs_per_variable": 30,
+      "min_joint_obs": 30,
+      "shrinkage_lambda": 0.01,
+      "residual_z_threshold": 4.0,
+      "covariance_estimator": "sample",
+      "mcd_subset_fraction": 0.75,
+      "mcd_max_iter": 20,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_per_form": 50,
+      "max_flags_to_write": 500
+    },
+    "pca_reconstruction": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_vars": 3,
+      "max_vars": 40,
+      "min_obs_per_variable": 30,
+      "min_joint_obs": 30,
+      "variance_explained_target": 0.9,
+      "max_components": 10,
+      "residual_z_threshold": 4.0,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_per_form": 50,
+      "max_flags_to_write": 500
+    },
+    "local_outlier": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "n_neighbors": 5,
+      "min_vars": 3,
+      "max_vars": 30,
+      "min_obs_per_variable": 30,
+      "min_joint_obs": 30,
+      "max_form_rows": 100000,
+      "residual_z_threshold": 4.0,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_per_form": 50,
+      "max_flags_to_write": 300
+    },
+    "trajectory_shape": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_tps": 3,
+      "min_obs_per_tp": 20,
+      "min_valid_tps_per_subject": 3,
+      "min_subjects": 30,
+      "variance_explained_target": 0.85,
+      "max_components": 5,
+      "residual_z_threshold": 4.0,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_per_variable": 25,
+      "max_flags_to_write": 500
+    },
+    "isolation_forest": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_vars": 3,
+      "max_vars": 40,
+      "min_obs_per_variable": 30,
+      "min_joint_obs": 30,
+      "n_estimators": 100,
+      "max_samples": "auto",
+      "contamination": "auto",
+      "residual_z_threshold": 4.0,
+      "random_state": 42,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_per_form": 50,
+      "max_flags_to_write": 300
+    },
+    "duplicate_record": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_cols_for_fingerprint": 12,
+      "dup_cols_cap": 30,
+      "cross_subject_min_group_size": 2,
+      "cross_subject_min_match_fraction": 0.85,
+      "within_subject_min_match_fraction": 0.85,
+      "within_subject_min_form_vars": 8,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_to_write": 500
+    },
+    "missingness_summary": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_rows_per_slice": 20,
+      "robust_z_threshold": 3.0,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_rows_to_write": 200
+    },
+    "date_anomaly": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "robust_z_threshold": 4.0,
+      "min_observations_per_variable": 30,
+      "min_intervals_per_tp_pair": 10,
+      "min_monotonicity_days_back": 1,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_to_write": 500
+    },
+    "multi_tp_consistency": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "max_flags_to_write": 500
+    },
+    "cohort_trajectory_deviation": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_observations_per_tp": 30,
+      "z_threshold": 4.0,
+      "stratify_by_cohort": true,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_per_variable": 25,
+      "max_flags_to_write": 500
+    },
+    "site_distribution_drift": {
+      "enabled": true,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_n_per_cell": 30,
+      "z_threshold_median": 3.0,
+      "z_threshold_iqr": 3.0,
+      "delta_floor_ceiling_threshold": 0.15,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_to_write": 500,
+      "max_audit_rows": 5000
+    },
+    "site_correlation_drift": {
+      "enabled": false,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "min_n_per_cell": 30,
+      "delta_fisher_z_threshold": 0.4,
+      "default_min_ref_rho": 0.2,
+      "max_flags_to_write": 500,
+      "max_audit_rows": 5000
+    },
+    "site_trajectory_slope": {
+      "enabled": false,
+      "networks": [
+        "PRONET",
+        "PRESCIENT"
+      ],
+      "variables_allowlist": [],
+      "allow_unbounded": false,
+      "min_obs_per_subject": 3,
+      "min_subjects_per_site": 20,
+      "min_eligible_sites": 3,
+      "z_threshold": 2.5,
+      "excluded_source_form_patterns": [
+        "digital_biomarkers_"
+      ],
+      "excluded_variable_patterns": [
+        "_complete",
+        "_date",
+        "_count",
+        "_other",
+        "_pharm_"
+      ],
+      "max_flags_to_write": 500
+    },
+    "subject_summary": {
+      "enabled": true,
+      "max_subjects": 500
+    }
+  }
 }

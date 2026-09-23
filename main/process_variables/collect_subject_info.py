@@ -28,12 +28,18 @@ class CollectSubjectInfo():
         self.var_translations = {
             'chrcrit_included': {1:'included',0: 'excluded'},
             'chrcrit_part' : {1: 'CHR', 2: 'HC'},
-            'chrdemo_sexassigned' : {1 : 'Male', 2 : 'Female'}
+            'chrdemo_sexassigned' : {1 : 'Male', 2 : 'Female'},
+            'chr_statusform_screenfail' : {1 : 'true', 0 : 'false'},
+            'chr_subject_eos' : {1 : 'true', 0 : 'false'}
         }
 
     def __call__(self):
         self.collect_screening_info()
         self.collect_baseline_info()
+        self.collect_floating_info()
+        self.collect_conversion_info()
+        self.collect_conversion_criteria_info()
+        self.collect_blood_interview_dates()
 
         return self.subject_info
 
@@ -45,7 +51,8 @@ class CollectSubjectInfo():
         return 'unknown'
     
     def collect_age(self,row):
-        for age_var in ['chrdemo_age_mos_chr','chrdemo_age_mos_hc', 'chrdemo_age_mos2']:
+        for age_var in ['chrdemo_age_mos_chr',
+        'chrdemo_age_mos_hc', 'chrdemo_age_mos2']:
             if not hasattr(row,age_var):
                 continue
             age_val = getattr(row,age_var)
@@ -60,15 +67,25 @@ class CollectSubjectInfo():
 
     def collect_screening_info(self):
         tp = 'screening'
-        for network in ['PRONET','PRESCIENT']:
+        # roadmap #11: this method only ever uses the handful of columns in
+        # col_list, so read just those (usecols) instead of parsing the full
+        # wide CSV and discarding ~all of it. Byte-identical (loops access
+        # columns by name, so order is irrelevant) but a fraction of the
+        # parse cost + memory. The existing intersection/reorder below is
+        # kept so a missing column behaves exactly as before.
+        col_list = ['subjectid','visit_status_string',
+        'chrcrit_part', 'chrcrit_included',
+        'chrpsychs_scr_interview_date',
+        'chric_actigraphy','chric_passive','chrpharm_interview_date']
+        _wanted = set(col_list)
+        for network in self.utils.pipeline_networks:
             combined_df = pd.read_csv(
-                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
-            col_list = ['subjectid','visit_status_string',
-            'chrcrit_part', 'chrcrit_included']
-            col_list = [col for col in col_list if col in combined_df.columns]
-            combined_df = combined_df[['subjectid','visit_status_string',
-            'chrcrit_part', 'chrcrit_included','chrpsychs_scr_interview_date',
-            'chric_actigraphy','chric_passive']]
+                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'),
+                keep_default_na = False, usecols=lambda c: c in _wanted)
+            present_cols = [col for col in col_list if col in combined_df.columns]
+            combined_df = combined_df[present_cols]
             for row in combined_df.itertuples():
                 sub = row.subjectid
                 self.subject_info.setdefault(sub, {})
@@ -86,14 +103,23 @@ class CollectSubjectInfo():
                 'axivity_opt'] = row.chric_actigraphy 
                 self.subject_info[sub][
                 'mindlamp_opt'] = row.chric_passive
+                self.subject_info[sub][
+                'past_pharm_date'] = row.chrpharm_interview_date
 
     def collect_baseline_info(self):
         tp = 'baseline'
-        for network in ['PRONET','PRESCIENT']:
-            combined_df = pd.read_csv(
-                f'{self.comb_csv_path}combined-{network}-{tp}-day1to1.csv', keep_default_na=False)
+        for network in self.utils.pipeline_networks:
+            # roadmap #11: read only the needed columns (usecols), not the
+            # full wide CSV. Byte-identical (columns accessed by name below).
             col_list = ['subjectid','chrdemo_age_mos_chr',
-            'chrdemo_age_mos_hc', 'chrdemo_age_mos2', 'chrdemo_sexassigned']
+            'chrdemo_age_mos_hc', 'chrdemo_age_mos2',
+            'chrdemo_sexassigned','chrdemo_interview_date']
+            _wanted = set(col_list)
+            combined_df = pd.read_csv(
+                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'),
+                keep_default_na = False, usecols=lambda c: c in _wanted)
             col_list = [col for col in col_list if col in combined_df.columns]
             combined_df = combined_df[col_list]
             for row in combined_df.itertuples():
@@ -104,5 +130,271 @@ class CollectSubjectInfo():
                 self.var_translations['chrdemo_sexassigned'], row.chrdemo_sexassigned)
                 self.subject_info[sub][
                 'age'] = self.collect_age(row)
+                self.subject_info[sub][
+                'demographics_date'] = getattr(row,'chrdemo_interview_date')
 
-    
+    def collect_floating_info(self):
+        tp = 'floating'
+        for network in (
+                n for n in self.utils.pipeline_networks if n == 'PRONET'):
+            # roadmap #11: read only the needed columns (usecols).
+            col_list = ['subjectid','chr_statusform_screenfail',
+            'chr_subject_eos','chrpharm_date_first','chrpharm_date_mod',
+            'chrpharm_date_mod_2']
+            _wanted = set(col_list)
+            combined_df = pd.read_csv(
+                (f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'),
+                keep_default_na = False, usecols=lambda c: c in _wanted)
+            col_list = [col for col in col_list if col in combined_df.columns]
+            combined_df = combined_df[col_list]
+            for row in combined_df.itertuples():
+                sub = row.subjectid
+                self.subject_info.setdefault(sub, {})
+                self.subject_info[sub][
+                'screenfail'] = self.translate_var_vals(
+                self.var_translations['chr_statusform_screenfail'],
+                row.chr_statusform_screenfail)
+                self.subject_info[sub][
+                'completed_study'] = self.translate_var_vals(
+                self.var_translations['chr_subject_eos'],
+                row.chr_subject_eos)
+                self.subject_info[sub][
+                'curr_pharm_date'] = row.chrpharm_date_first
+                self.subject_info[sub][
+                'chrpharm_date_mod'] = row.chrpharm_date_mod
+                self.subject_info[sub][
+                'chrpharm_date_mod_2'] = row.chrpharm_date_mod_2
+
+    def collect_conversion_info(self):
+        """
+        Collect per-subject conversion status from the floating-forms CSV
+        and stamp it onto subject_info[sub]['converted'].
+
+        The conversion form (chrconv_conv) is filed at the floating
+        timepoint, but the resulting status is consumed by per-row checks
+        (`conversion_criteria_check` and `marked_converted_no_criteria_check`
+        in clinical_checks_main.py) at every timepoint. Collecting it here
+        lets those checks read it directly off subject_info without
+        re-opening the floating CSV.
+
+        chrconv_conv == 1 → marked converted. Anything else (blank,
+        missing-coded, 0, etc.) → not converted. Subjects without a
+        floating-CSV row simply don't get the key; the consumer uses
+        `subject_info.get(sid, {}).get('converted', False)` as default.
+
+        Loops over both networks so PRESCIENT subjects are covered too;
+        wraps the read in try/FileNotFoundError so a missing floating
+        CSV for one network just skips that network with a warning rather
+        than aborting all of process_variables.
+        """
+        tp = 'floating'
+        converted_codes = self.utils.all_dtype([1])
+        for network in self.utils.pipeline_networks:
+            csv_path = (
+                f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                f'_{network.replace("PRONET","ProNET")}-day1to1.csv'
+            )
+            # roadmap #11: only subjectid + chrconv_conv are used.
+            try:
+                combined_df = pd.read_csv(
+                    csv_path, keep_default_na=False,
+                    usecols=lambda c: c in ('subjectid', 'chrconv_conv'))
+            except FileNotFoundError:
+                print(
+                    f"[collect_subject_info] floating CSV not found for "
+                    f"{network}: {csv_path}. Skipping conversion-status "
+                    f"collection for this network."
+                )
+                continue
+            if 'chrconv_conv' not in combined_df.columns:
+                print(
+                    f"[collect_subject_info] {network} floating CSV has no "
+                    f"chrconv_conv column. Skipping conversion-status "
+                    f"collection for this network."
+                )
+                continue
+            col_list = [c for c in ['subjectid', 'chrconv_conv']
+                        if c in combined_df.columns]
+            combined_df = combined_df[col_list]
+            for row in combined_df.itertuples():
+                sub = row.subjectid
+                self.subject_info.setdefault(sub, {})
+                val = getattr(row, 'chrconv_conv', '')
+                if val in converted_codes:
+                    self.subject_info[sub]['converted'] = True
+                else:
+                    self.subject_info[sub].setdefault('converted', False)
+
+    def collect_conversion_criteria_info(self):
+        """
+        Aggregate cross-timepoint psychs / scid conversion-criteria
+        flags onto subject_info. Consumed by
+        `clinical_checks_main.marked_converted_no_criteria_check` at
+        the floating row, where chrconv_method picks which set of
+        criteria the operator used to determine conversion.
+
+        The criteria values themselves can appear at any timepoint
+        (psychs / scid forms aren't floating-only), so we sweep every
+        per-tp combined CSV for both networks and OR-accumulate
+        booleans onto:
+          subject_info[sub]['has_psychs_criteria']
+          subject_info[sub]['has_scid_criteria']
+
+        We additionally track conversion-tp-only versions, which only
+        flip True from rows in the `conversion` tp CSV, consumed by
+        `marked_converted_no_conv_tp_criteria_check`:
+          subject_info[sub]['has_psychs_criteria_at_conversion_tp']
+          subject_info[sub]['has_scid_criteria_at_conversion_tp']
+
+        Threshold spec is sourced from
+        dependencies/conversion_criteria_thresholds.json so the
+        consumer in clinical_checks_main reads the same file.
+        """
+        criteria = self.utils.load_dependency_json(
+            'conversion_criteria_thresholds.json'
+        )
+        psychs_thresholds = criteria['psychs']
+        scid_thresholds = criteria['scid']
+        # roadmap #11: this method re-reads all ~36 per-(network,tp) combined
+        # CSVs but only ever touches subjectid + the psychs/scid threshold
+        # variables. Read just those columns (usecols) instead of parsing the
+        # full wide frame 36 times. Byte-identical (columns accessed by name;
+        # the psychs_cols/scid_cols intersection below is unchanged).
+        _wanted_criteria = {'subjectid'} | set(psychs_thresholds) | set(scid_thresholds)
+
+        tp_list = self.utils.create_timepoint_list()
+        tp_list.extend(['floating', 'conversion'])
+
+        for network in self.utils.pipeline_networks:
+            for tp in tp_list:
+                csv_path = (
+                    f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                    f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                    f'_{network.replace("PRONET","ProNET")}-day1to1.csv'
+                )
+                try:
+                    combined_df = pd.read_csv(
+                        csv_path, keep_default_na=False,
+                        usecols=lambda c: c in _wanted_criteria)
+                except FileNotFoundError:
+                    continue
+                if 'subjectid' not in combined_df.columns:
+                    continue
+
+                psychs_cols = [c for c in psychs_thresholds
+                               if c in combined_df.columns]
+                scid_cols = [c for c in scid_thresholds
+                             if c in combined_df.columns]
+                col_list = ['subjectid'] + psychs_cols + scid_cols
+                combined_df = combined_df[col_list]
+
+                for row in combined_df.itertuples():
+                    sub = row.subjectid
+                    self.subject_info.setdefault(sub, {})
+                    self.subject_info[sub].setdefault(
+                        'has_psychs_criteria', False)
+                    self.subject_info[sub].setdefault(
+                        'has_scid_criteria', False)
+                    self.subject_info[sub].setdefault(
+                        'has_psychs_criteria_at_conversion_tp', False)
+                    self.subject_info[sub].setdefault(
+                        'has_scid_criteria_at_conversion_tp', False)
+
+                    psychs_hit = False
+                    if not self.subject_info[sub]['has_psychs_criteria'] \
+                            or (tp == 'conversion' and not
+                                self.subject_info[sub][
+                                    'has_psychs_criteria_at_conversion_tp']):
+                        for var in psychs_cols:
+                            var_val = getattr(row, var, '')
+                            if var_val in self.utils.missing_code_set:
+                                continue
+                            if (self.utils.can_be_float(var_val)
+                                and float(var_val) == psychs_thresholds[var]):
+                                psychs_hit = True
+                                break
+                    if psychs_hit:
+                        self.subject_info[sub]['has_psychs_criteria'] = True
+                        if tp == 'conversion':
+                            self.subject_info[sub][
+                                'has_psychs_criteria_at_conversion_tp'] = True
+
+                    scid_hit = False
+                    if not self.subject_info[sub]['has_scid_criteria'] \
+                            or (tp == 'conversion' and not
+                                self.subject_info[sub][
+                                    'has_scid_criteria_at_conversion_tp']):
+                        for var in scid_cols:
+                            var_val = getattr(row, var, '')
+                            if var_val in self.utils.missing_code_set:
+                                continue
+                            if (self.utils.can_be_float(var_val)
+                                and float(var_val) == scid_thresholds[var]):
+                                scid_hit = True
+                                break
+                    if scid_hit:
+                        self.subject_info[sub]['has_scid_criteria'] = True
+                        if tp == 'conversion':
+                            self.subject_info[sub][
+                                'has_scid_criteria_at_conversion_tp'] = True
+
+    def collect_blood_interview_dates(self):
+        """
+        Collect the blood-draw form interview date (chrblood_interview_date)
+        at baseline and month2 for each subject, so the cross-timepoint
+        90-day-gap check in FluidChecks can compare them without re-opening a
+        CSV. Mirrors collect_conversion_info: per-network read of just the two
+        relevant timepoints, stamping the raw date onto subject_info.
+
+        The date is stored only when the blood form is NOT marked missing at
+        that timepoint (self.utils.check_if_missing), so a missing visit can't
+        produce a spurious gap flag. Date-validity / missing-code handling is
+        left to the consumer so the raw cell value is preserved for the error
+        message. Subjects with no (non-missing) row at a timepoint simply
+        don't get that field; the consumer defaults via subject_info.get(...).
+        """
+        form = 'blood_sample_preanalytic_quality_assurance'
+        blood_date_var = self.utils.important_form_vars[form]['interview_date_var']
+        missing_var = self.utils.important_form_vars[form]['missing_var']
+        # PRESCIENT marks completion via the _rpms completion variable, which
+        # check_if_missing reads directly for PRESCIENT rows; include it so the
+        # column is available under the usecols projection.
+        prescient_compl_var = (
+            self.utils.important_form_vars[form]['completion_var'] + '_rpms')
+        needed_cols = {'subjectid', blood_date_var, missing_var,
+                       prescient_compl_var}
+        tp_to_field = {
+            'baseline': 'blood_interview_date_baseline',
+            'month2': 'blood_interview_date_month2',
+        }
+        for network in self.utils.pipeline_networks:
+            for tp, field in tp_to_field.items():
+                csv_path = (
+                    f'{self.comb_csv_path}AMPSCZ-combined-redcap_'
+                    f'{tp.replace("month","month_").replace("floating","floating_forms")}'
+                    f'_{network.replace("PRONET","ProNET")}-day1to1.csv'
+                )
+                try:
+                    combined_df = pd.read_csv(
+                        csv_path, keep_default_na=False,
+                        usecols=lambda c: c in needed_cols)
+                except FileNotFoundError:
+                    print(
+                        f"[collect_subject_info] blood-date CSV not found for "
+                        f"{network} {tp}: {csv_path}. Skipping blood interview "
+                        f"date collection for this timepoint.")
+                    continue
+                if blood_date_var not in combined_df.columns:
+                    print(
+                        f"[collect_subject_info] {network} {tp} CSV has no "
+                        f"{blood_date_var} column. Skipping.")
+                    continue
+                for row in combined_df.itertuples():
+                    if self.utils.check_if_missing(row, form, tp, network):
+                        continue
+                    sub = row.subjectid
+                    self.subject_info.setdefault(sub, {})
+                    self.subject_info[sub][field] = getattr(row, blood_date_var)

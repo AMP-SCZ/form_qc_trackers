@@ -7,11 +7,8 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-4])
 sys.path.insert(1, parent_dir)
 
 from main.utils.utils import Utils
-from tests.unit_tests.test_process_variables.test_define_important_variables import (
-     TestDefineVariables
-)
 
-class TestProcessVariables():
+class ProcessVariablesHarness():
 
     def __init__(self):
         self.utils = Utils()
@@ -22,8 +19,11 @@ class TestProcessVariables():
         print(self.absolute_path)
 
     def run_script(self):
+        from tests.unit_tests.test_process_variables.test_define_important_variables import (
+            TestDefineVariables
+        )
         data_dict_df = self.read_data_dictionary()
-        self.test_define_variables = TestDefineVariables(data_dict_df)
+        self.test_define_variables = TestDefineVariables()
         self.test_define_variables.run_script()
 
     def read_data_dictionary(self):
@@ -37,6 +37,6 @@ class TestProcessVariables():
         return data_dictionary_df
  
 if __name__ == '__main__':
-    TestProcessVariables().run_script()
+    ProcessVariablesHarness().run_script()
 
-        
+

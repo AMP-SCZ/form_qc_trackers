@@ -26,6 +26,7 @@ class GenerateReports():
         self.formatted_column_names = {
             "PRONET" : {"combined": {
             "subject":"Participant",
+            "cohort":"Cohort",
             "displayed_timepoint":"Timepoint",
             "displayed_form" : "Form",
             "flag_count" : "Flag Count",
@@ -40,6 +41,7 @@ class GenerateReports():
 
             "PRESCIENT" :{"combined":{
             "subject":"Participant",
+            "cohort":"Cohort",
             "displayed_timepoint":"Timepoint",
             "displayed_form" : "Form",
             "flag_count" : "Flag Count",
@@ -56,7 +58,6 @@ class GenerateReports():
         self.formatted_column_names['PRONET']['sites'] = self.formatted_column_names['PRONET']['combined']
         self.formatted_column_names['PRESCIENT']['sites'] = self.formatted_column_names['PRESCIENT']['combined']
 
-
         if not os.path.exists(col_names_json):
             self.utils.save_dependency_json(self.formatted_column_names, col_names_json)
 
@@ -67,7 +68,8 @@ class GenerateReports():
         else:
             dbx_col_names = self.formatted_column_names
         
-        """self.formatted_column_names['sites'] = {'PRONET' : {}, 'PRESCIENT' : {}}
+        """
+        self.formatted_column_names['sites'] = {'PRONET' : {}, 'PRESCIENT' : {}}
         for network in ['PRONET','PRESCIENT']:
             for orig, trans in self.formatted_column_names[network].items():
                 if orig == 'comments':
@@ -76,7 +78,8 @@ class GenerateReports():
                 self.formatted_column_names['sites'][network][orig] = trans
 
             self.formatted_column_names['sites'][network] = self.formatted_column_names[network]
-            self.formatted_column_names['sites'][network][] """
+            self.formatted_column_names['sites'][network][]
+        """
 
         self.utils = Utils()
         self.calc_resolved = CalculateResolvedErrors(dbx_col_names)
@@ -85,4 +88,4 @@ class GenerateReports():
     def run_script(self):
         self.calc_resolved.run_script()
         self.create_trackers.run_script()
-   
+

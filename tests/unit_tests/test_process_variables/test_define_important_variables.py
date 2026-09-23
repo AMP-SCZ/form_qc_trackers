@@ -11,9 +11,14 @@ from main.utils.utils import Utils
 from logging_config import logger  
 
 class TestDefineVariables(unittest.TestCase):
-    def __init__(self):
-        self.utils = Utils()
-        data_dictionary_df = self.utils.read_data_dictionary()
+    def setUp(self):
+        try:
+            self.utils = Utils()
+            data_dictionary_df = self.utils.read_data_dictionary()
+        except FileNotFoundError:
+            self.skipTest(
+                "external dependencies/data_dictionary fixture is unavailable"
+            )
         self.important_form_vars = DefineEssentialFormVars(data_dictionary_df)
         self.data_dictionary_df = data_dictionary_df
 
@@ -47,6 +52,7 @@ class TestDefineVariables(unittest.TestCase):
         'inclusionexclusion_criteria_review','informed_reconsent','mri_run_sheet']} 
 
     def run_script(self):
+        self.setUp()
         self.test_assign_variables_to_forms()
 
     def test_assign_variables_to_forms(self):
@@ -73,4 +79,3 @@ class TestDefineVariables(unittest.TestCase):
 
 if __name__ == '__main__':
     TestDefineVariables().run_script()
-

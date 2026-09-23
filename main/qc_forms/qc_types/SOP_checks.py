@@ -11,13 +11,20 @@ import re
 withdrawn_status_list = []
 
 class SOPChecks(FormCheck):
+    """
+    QC Checks that compare 
+    forms from different timepoints 
+    using the dataframe that combines 
+    each timepoint for specified variables
+    """  
+
     def __init__(self,
         row, timepoint, network, form_check_info
     ):
         super().__init__(timepoint, network, form_check_info)
         self.test_val = 0
-        self.call_checks(row)
         self.conversion_subs = self.raw_csv_converters.keys()
+        self.call_checks(row)
         
     def __call__(self):
         return self.final_output_list
@@ -53,8 +60,21 @@ class SOPChecks(FormCheck):
         and is not marked missing)
         and when the next visit should be
         """
-
-        cohort = self.subject_info[row.subjectid]['cohort']
+        if row.subjectid in self.subject_info.keys():
+            cohort = self.subject_info[row.subjectid]['cohort']
+            inclusion = self.subject_info[row.subjectid]['inclusion_status']
+            if self.network == 'PRONET':
+                screen_fail = self.subject_info[row.subjectid]['screenfail']
+                completed_study = self.subject_info[row.subjectid]['completed_study']
+            else:
+                screen_fail = 'false'
+                completed_study = 'false'
+        else:
+            return
+        if (cohort.lower() == 'unknown' or 
+        inclusion != 'included' or screen_fail == 'true'
+        or completed_study == 'true'):
+            return
         
         if row.subjectid in self.tp_date_ranges.keys():
             for tp, dates in self.tp_date_ranges[row.subjectid].items():
@@ -64,7 +84,7 @@ class SOPChecks(FormCheck):
                 visit = tp
             if visit != self.timepoint:
                 return
-            days_until_next_tp = self.utils.time_to_next_visit(visit)
+            days_until_next_tp = self.utils.time_to_next_visit(visit,cohort)
             if days_until_next_tp != None:
                 days_since_form = self.utils.days_since_today(most_recent_date)
                 days_over_expected = days_until_next_tp - days_since_form

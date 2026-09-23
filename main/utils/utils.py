@@ -4,44 +4,137 @@ import json
 import re
 import dropbox
 from datetime import datetime
+
+# Module-level cache for dependency JSONs. The pipeline instantiates Utils()
+# (and thus loads `important_form_vars.json` + `variables_added_later.json`)
+# inside every per-row FormCheck subclass — at ~10K subjects × 14 timepoints
+# × 2 networks × 5 checker classes that's ~1.4M Utils() constructions per
+# run, each previously doing 2 fresh disk reads + JSON parses. With this
+# cache, subsequent loads are O(1) dict lookups. Keyed by (dep_path, filename)
+# so test environments with a different dependencies dir don't get crossed.
+_DEPENDENCY_JSON_CACHE = {}
+
+# config.json is loaded read-only at runtime. Without this cache, every
+# Utils() construction re-opens and re-parses it. Keyed by absolute_path
+# so a different project root (test harness) recomputes correctly.
+_CONFIG_CACHE = {}
+
+
+def _project_root():
+    """Return the repository root using platform-native path semantics."""
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+
+def _validate_testing_enabled(config_info, source_path):
+    """
+    Central validation for config.testing_enabled. Several call sites
+    compare the value to the literal string "True" exactly; a typo like
+    "true", "True " (trailing space), JSON boolean true, or 1 would
+    silently route a test run to production output paths and the live
+    Dropbox folder. Reject anything other than "True" or "False" with
+    a clear fatal error. Missing key is treated as "False" — that is
+    the established default at every existing call site (they fall
+    through to production path on absence).
+    """
+    if 'testing_enabled' not in config_info:
+        config_info['testing_enabled'] = "False"
+        return
+    val = config_info['testing_enabled']
+    if val not in ("True", "False"):
+        raise RuntimeError(
+            f"FATAL: config.testing_enabled at {source_path} must be "
+            f"exactly the string 'True' or 'False'; got {val!r} "
+            f"(type {type(val).__name__}). Refusing to run — silently "
+            f"accepting this typo would route outputs to "
+            f"{'production' if val != 'True' else 'testing'} paths."
+        )
+
+
+def _load_config(absolute_path):
+    cached = _CONFIG_CACHE.get(absolute_path)
+    if cached is None:
+        config_path = f'{absolute_path}/config.json'
+        with open(config_path, 'r') as file:
+            cached = json.load(file)
+        _validate_testing_enabled(cached, config_path)
+        _CONFIG_CACHE[absolute_path] = cached
+    return cached
+
+
+# Process-wide constant singletons (roadmap #9, safe subset). Utils is
+# constructed ~8x per row on the QC hot path; rebuilding these ~40-entry
+# dicts/lists on every construction was pure per-row allocation. Built once
+# at import and shared. All verified read-only at call sites: concatenations
+# like `missing_code_list + ['']` create new lists, and the site dicts are
+# only read via [] (never reassigned). The mutable `withdrawn_status_list`
+# is intentionally NOT hoisted (stays a fresh per-instance []).
+_MISSING_CODE_LIST = \
+['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',
+'1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,
+'-99.0',999,999.0,'999','999.0']
+_MISSING_CODE_SET = frozenset(_MISSING_CODE_LIST)
+_ALL_PRONET_SITES = ["KC", "BI", "SD", "NL", "OR", "CA", "IR", "MU","YA", "HA",
+"MA", "PI", "PV", "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM','SL','SI','SH','UR','OH']
+_ALL_PRESCIENT_SITES = ['BM', 'CG', 'CP', 'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']
+_ALL_SITES = {'PRONET': list(_ALL_PRONET_SITES), 'PRESCIENT': list(_ALL_PRESCIENT_SITES)}
+_SITE_FULL_NAME_TRANSLATIONS = {'BI': 'Beth Israel (Harvard) (BI)',
+        'CA': 'Calgary, CA (CA)', 'CM': 'Cambridge (CM)', 'GA': 'Georgia (GA)',
+        'HA': 'Hartford (Institute of Living) (HA)', 'IR': 'UC Irvine (IR)',
+        'KC': "King's College, UK (KC)", 'LA': 'UCLA (LA)', 'MA': 'Madrid, Spain (MA)',
+        'MT': 'Montreal, CA (MT)', 'MU': 'Munich, Germany (MU)', 'NC': 'UNC (North Carolina) (NC)',
+        'NL': 'Northwell (NL)', 'NN': 'Northwestern (NN)', 'OR': 'Oregon (OR)',
+        'PA': 'University of Pennsylvania (PA)', 'PI': 'Pittsburgh (UPMC) (PI)',
+        'PV': 'Pavia, Italy (PV)', 'SD': 'UCSD (SD)', 'SF': 'UCSF (Mission Bay) (SF)',
+        'SH': 'Shanghai, China (SH)', 'SI': 'Mt. Sinai (SI)', 'SL': 'Seoul, South Korea (SL)',
+        'TE': 'Temple (TE)', 'WU': 'Washington University (WU)', 'YA': 'Yale (YA)','UR':'University of Rochester (UR)',
+        'OH':'Ohio (OH)', 'BM': 'Birmingham, UK (BM)', 'CG': 'Cologne, DE (CG)',
+        'CP': 'Copenhagen, DK (CP)', 'GW': 'Gwangju, KR (GW)', 'HK': 'Hong Kong (HK)',
+        'JE': 'Jena, DE (JE)', 'LS': 'Lausanne, CH (LS)', 'ME': 'Melbourne (ME)',
+        'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
+        'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
+
+
 class Utils():
     def __init__(self):
-        self.missing_code_list = \
-        ['-3','-9',-3,-9,-3.0,-9.0,'-3.0','-9.0',\
-        '1909-09-09','1903-03-03','1901-01-01','-99',-99,-99.0,\
-        '-99.0',999,999.0,'999','999.0'] 
+        self.missing_code_list = _MISSING_CODE_LIST
+        self.missing_code_set = _MISSING_CODE_SET
 
-        self.absolute_path  = "/".join(os.path.realpath(__file__).split("/")[0:-3])
+        self.absolute_path = _project_root()
 
-        with open(f'{self.absolute_path}/config.json','r') as file:
-            self.config_info = json.load(file)
+        self.config_info = _load_config(self.absolute_path)
 
-        self.all_pronet_sites = ["KC", "BI", "SD", "NL", "OR", "CA", "IR", "MU","YA", "HA",\
-        "MA", "PI", "PV", "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM','SL','SI','SH','UR','OH']
-        self.all_prescient_sites = ['BM', 'CG', 'CP', 'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']
+        # The persistent network scope is defined in config.json. QC_NETWORKS
+        # can override it for a one-off run without changing future scheduled
+        # runs. Every pipeline stage consumes this single validated list,
+        # including Dropbox readback/upload.
+        configured_networks = os.environ.get('QC_NETWORKS')
+        if configured_networks is None:
+            configured_networks = self.config_info.get('pipeline_networks')
+        elif isinstance(configured_networks, str):
+            configured_networks = configured_networks.split(',')
+        if (not isinstance(configured_networks, (list, tuple))
+                or not configured_networks):
+            raise RuntimeError(
+                "Set config.json pipeline_networks to a non-empty list, or "
+                "provide a comma-separated QC_NETWORKS override.")
+        normalized_networks = []
+        for network in configured_networks:
+            normalized = str(network).strip().upper()
+            if normalized not in {'PRONET', 'PRESCIENT'}:
+                raise RuntimeError(
+                    f"Unsupported QC network {network!r}; expected PRONET "
+                    "and/or PRESCIENT.")
+            if normalized not in normalized_networks:
+                normalized_networks.append(normalized)
+        self.pipeline_networks = tuple(normalized_networks)
 
-        self.all_sites = {'PRONET' :["KC", "BI", "SD", "NL",
-        "OR", "CA", "IR", "MU","YA", "HA","MA", "PI", "PV",
-        "MT", "SF", "NC",'NN','PA','WU',"LA",'GA','TE','CM',
-        'SL','SI','SH','UR','OH'] ,'PRESCIENT' : ['BM', 'CG', 'CP',
-        'GW', 'HK', 'JE', 'LS', 'ME', 'SG', 'ST']}
-        
-        self.site_full_name_translations = {'BI': 'Beth Israel (Harvard) (BI)',\
-                'CA': 'Calgary, CA (CA)', 'CM': 'Cambridge (CM)', 'GA': 'Georgia (GA)',\
-                'HA': 'Hartford (Institute of Living) (HA)', 'IR': 'UC Irvine (IR)',\
-                'KC': "King's College, UK (KC)", 'LA': 'UCLA (LA)', 'MA': 'Madrid, Spain (MA)',\
-                'MT': 'Montreal, CA (MT)', 'MU': 'Munich, Germany (MU)', 'NC': 'UNC (North Carolina) (NC)',\
-                'NL': 'Northwell (NL)', 'NN': 'Northwestern (NN)', 'OR': 'Oregon (OR)',
-                'PA': 'University of Pennsylvania (PA)', 'PI': 'Pittsburgh (UPMC) (PI)',\
-                'PV': 'Pavia, Italy (PV)', 'SD': 'UCSD (SD)', 'SF': 'UCSF (Mission Bay) (SF)',\
-                'SH': 'Shanghai, China (SH)', 'SI': 'Mt. Sinai (SI)', 'SL': 'Seoul, South Korea (SL)',\
-                'TE': 'Temple (TE)', 'WU': 'Washington University (WU)', 'YA': 'Yale (YA)','UR':'University of Rochester (UR)',\
-                'OH':'Ohio (OH)', 'BM': 'Birmingham, UK (BM)', 'CG': 'Cologne, DE (CG)', \
-                'CP': 'Copenhagen, DK (CP)', 'GW': 'Gwangju, KR (GW)', 'HK': 'Hong Kong (HK)',\
-                'JE': 'Jena, DE (JE)', 'LS': 'Lausanne, CH (LS)', 'ME': 'Melbourne (ME)',\
-                'SG': 'Singapore (SG)', 'ST': 'Santiago (ST)',
-                'PRONET':'PRONET','PRESCIENT':'PRESCIENT','AMPSCZ':'AMPSCZ'}
-        
+        self.output_path = self.config_info['paths']['output_path']
+
+        self.all_pronet_sites = _ALL_PRONET_SITES
+        self.all_prescient_sites = _ALL_PRESCIENT_SITES
+        self.all_sites = _ALL_SITES
+        self.site_full_name_translations = _SITE_FULL_NAME_TRANSLATIONS
+
         self.withdrawn_status_list = []
         self.important_form_vars = self.load_dependency_json(
         'important_form_vars.json')
@@ -211,12 +304,31 @@ class Utils():
         """
     
         depend_path = self.config_info['paths']['dependencies_path']
-        for file in os.listdir(f"{depend_path}data_dictionary"):
-            # loops through directory to search for current data dictionary
-            if match_str in file:
-                data_dictionary_df = pd.read_csv(
-                f"{depend_path}data_dictionary/{file}",
-                keep_default_na=False) # setting this to false preserves empty strings
+        # Match calculated-field discovery: prefer the exact canonical file,
+        # accept one unambiguous dated variant, and fail when variants compete.
+        dictionary_dir = os.path.join(depend_path, 'data_dictionary')
+        matches = sorted(
+            f for f in os.listdir(dictionary_dir)
+            if match_str in f and f.lower().endswith('.csv')
+        )
+        if not matches:
+            raise FileNotFoundError(
+                f"No data dictionary file matching '{match_str}' found in"
+                f" {dictionary_dir}")
+        exact_name = f"{match_str}.csv"
+        if exact_name in matches:
+            chosen = exact_name
+        elif len(matches) == 1:
+            chosen = matches[0]
+        else:
+            raise FileNotFoundError(
+                f"Multiple data dictionary files match '{match_str}' in "
+                f"{dictionary_dir}: {matches}. Keep the canonical "
+                f"{exact_name}, remove stale variants, or explicitly select "
+                "one dictionary in the standalone tool.")
+        data_dictionary_df = pd.read_csv(
+            os.path.join(dictionary_dir, chosen),
+            keep_default_na=False)  # setting this to false preserves empty strings
 
         return data_dictionary_df
     
@@ -243,20 +355,60 @@ class Utils():
         return filtered_df
 
     def save_dependency_json(self, data, filename):
+        # Atomic write: serialize to a PID-stamped tmp file then
+        # os.replace into place. Without this, a crash mid-dump
+        # leaves a truncated JSON file on disk; the next
+        # load_dependency_json call would raise RuntimeError
+        # (post-RH-1) or silently return {} (pre-RH-1, the bug
+        # this avoids). Pattern matches the parquet writes
+        # elsewhere in the pipeline.
         dep_path = self.config_info["paths"]["dependencies_path"]
-        with open(f'{dep_path}{filename}',
-        'w') as json_file:
-            json.dump(data, json_file, indent=4)  
+        final_path = f'{dep_path}{filename}'
+        tmp_path = f'{final_path}.{os.getpid()}.tmp'
+        try:
+            with open(tmp_path, 'w') as json_file:
+                json.dump(data, json_file, indent=4)
+            os.replace(tmp_path, final_path)
+        except Exception:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise
+        # Invalidate the cache so any subsequent load_dependency_json call
+        # in this process picks up the freshly-written content.
+        _DEPENDENCY_JSON_CACHE.pop((dep_path, filename), None)
 
     def load_dependency_json(self, filename):
         dep_path = self.config_info["paths"]["dependencies_path"]
-
+        cache_key = (dep_path, filename)
+        if cache_key in _DEPENDENCY_JSON_CACHE:
+            return _DEPENDENCY_JSON_CACHE[cache_key]
+        # Release-hardening (RH-1): corrupt JSON now raises instead
+        # of silently returning {}. The previous behavior was a
+        # silent-misconfig channel — a truncated dep file produced
+        # {} → downstream code saw no subjects / no forms / no
+        # Melbourne RAs and proceeded with wrong data. Failing
+        # loudly here forces the operator to investigate (likely
+        # re-run process_variables) before any QC stage uses the
+        # broken file. FileNotFoundError already propagated; no
+        # change for missing files.
+        full_path = f'{dep_path}{filename}'
         try:
-            with open(f'{dep_path}{filename}','r') as json_file:
-                json_data = json.load(json_file) 
-                return json_data 
-        except json.JSONDecodeError:
-            return {}
+            with open(full_path, 'r') as json_file:
+                json_data = json.load(json_file)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                f"FATAL: dependency JSON at {full_path} is "
+                f"unreadable ({type(e).__name__}: {e}). Refusing "
+                f"to silently return an empty dict — downstream QC "
+                f"would proceed with missing data. Restore the "
+                f"file (e.g., re-run process_variables) and try "
+                f"again."
+            ) from e
+        _DEPENDENCY_JSON_CACHE[cache_key] = json_data
+        return json_data
 
 
     def all_dtype(self, inp_list):
@@ -377,7 +529,7 @@ class Utils():
         """
         recent_date_var = ''
         for date_var, date in dates.items():
-            if date in self.missing_code_list:
+            if date in self.missing_code_set:
                 continue
             curr_date = datetime.strptime(date, "%Y-%m-%d")
             if curr_date > datetime.today():
@@ -391,7 +543,7 @@ class Utils():
         return recent_date_var
     
     def time_to_next_visit(
-        self, curr_tp : str
+        self, curr_tp : str, cohort :str,
     ) -> int:
         """
         Calculates the number of days that there
@@ -407,6 +559,9 @@ class Utils():
         else:
             curr_tp_ind = timepoints.index(curr_tp)
             next_tp = timepoints[curr_tp_ind + 1]
+            if cohort.lower() == 'hc' and curr_tp == 'month2':
+                next_tp = 'month12'
+                
             months_btwn = int(next_tp.replace('month',''))-int(curr_tp.replace('month',''))
             days_btwn = months_btwn * 30
         
@@ -458,16 +613,20 @@ class Utils():
         date_var : str
             date variable being checked
         """
-        date_added = self.vars_added_later[form]
+        if form not in self.vars_added_later.keys():
+            return True
+        if date_var not in self.vars_added_later[form].keys():
+            return True
+        date_added = self.vars_added_later[form][date_var]
         if hasattr(curr_row, date_var):
             date_val = getattr(curr_row, date_var)
             date_val = str(date_val)
             try:
                 date_val = datetime.strptime(date_val, '%Y-%m-%d')
+                if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
+                    return True
             except Exception as e:
                 return False
-            if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
-                return True
         
         return False
 
@@ -507,7 +666,8 @@ class Utils():
                 return False
             # prescient missingness can also be indicated by the completion var
             if (network == 'PRESCIENT' and
-            getattr(curr_row, compl_var) in self.all_dtype([3,4])):
+                    hasattr(curr_row, compl_var) and
+                    getattr(curr_row, compl_var) in self.all_dtype([3,4])):
                 return True
             if getattr(curr_row, missing_var) not in self.all_dtype([1]):
                 return False
@@ -548,7 +708,7 @@ class Utils():
             the sprecified category
         """
 
-        variable_type_distributions = self.utils.load_dependency_json(
+        variable_type_distributions = self.load_dependency_json(
         'variable_type_distributions.json')
         all_type_vars = []
         for var, distributions in variable_type_distributions.items():
@@ -558,14 +718,88 @@ class Utils():
                 if distributions[data_type]/total > threshold:
                     all_type_vars.append(var)
 
-        return all_type_vars
+        return all_type_vars            
+    
+    def date_ranges_overlap(self, start1, end1, start2, end2):
+        """
+        Check if two date ranges [start1, end1] and [start2, end2] overlap.
+
+        Parameters:
+        - start1, end1: datetime objects for the first range
+        - start2, end2: datetime objects for the second range
+
+        Returns:
+        - True if the ranges overlap, False otherwise
+        """
+        return start1 <= end2 and start2 <= end1
 
 
         
+    def convert_range_to_list(self, 
+        range_str, str_conv = False
+    ):
+        """
+        Converts string with number range to a list of 
+        the numbers included in that range. Used for IQ age checks.
 
-            
+        Parameters
+        -------------
+        range_str: str
+            string of number range
+        str_conv: bool
+            whether or not input needs
+            to be converted to a string first
+        """
+        
+        range_list = []
+        if '-' not in range_str:
+            if str_conv ==True:
+                return [str(range_str).replace(' ','')]
+            else:
+                return range_str
+        first_item = int(range_str.split('-')[0])
+        last_item = int(range_str.split('-')[1])
+        for x in range(first_item, last_item+1):
+            if str_conv ==True:
+                new_item = str(x).replace(' ','')
+            else:
+                new_item = x
+            range_list.append(new_item)
+        return range_list
 
+    def compare_dataframes(self, df1, df2,out_diffs,out_only_1,out_only_2):
+        KEY_COL = "subjectid"
+        if KEY_COL not in df1.columns or KEY_COL not in df2.columns:
+            raise ValueError(f"Key column '{KEY_COL}' must exist in both files.")
 
+        df1 = df1.set_index(KEY_COL)
+        df2 = df2.set_index(KEY_COL)
 
+        keys1 = set(df1.index)
+        keys2 = set(df2.index)
 
+        common_keys = sorted(keys1 & keys2)
+        only1 = sorted(keys1 - keys2)
+        only2 = sorted(keys2 - keys1)
 
+        # compare columns (all columns except the key)
+        compare_cols = sorted(set(df1.columns) | set(df2.columns))
+
+        diffs = []
+        for k in common_keys:
+            r1 = df1.loc[k]
+            r2 = df2.loc[k]
+
+            if isinstance(r1, pd.DataFrame) or isinstance(r2, pd.DataFrame):
+                raise ValueError(f"Duplicate key found: {k}. This simple script requires unique keys.")
+
+            for col in compare_cols:
+                v1 = r1[col] if col in r1.index else ""
+                v2 = r2[col] if col in r2.index else ""
+                if v1 != v2:
+                    diffs.append({"key": k, "column": col, "file1_value": v1, "file2_value": v2})
+        diffs_df = pd.DataFrame(diffs)
+        diffs_df = diffs_df[diffs_df['column'].str.contains('figs')]       
+        diffs_df.to_csv(out_diffs, index=False)
+        #pd.DataFrame({"key": only1}).to_csv(out_only_1, index=False)
+        #pd.DataFrame({"key": only2}).to_csv(out_only_2, index=False)

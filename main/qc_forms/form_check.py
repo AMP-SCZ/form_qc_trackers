@@ -8,18 +8,58 @@ parent_dir = "/".join(os.path.realpath(__file__).split("/")[0:-2])
 sys.path.insert(1, parent_dir)
 
 from utils.utils import Utils
+from utils.branching_logic_eval import (
+    compile_branching_logic,
+    evaluate_branching_logic,
+)
+
+# Module-level cache: branching-logic source string → compiled code object.
+# Each unique string is parsed by Python exactly once per process. Without
+# this cache, `eval(bl)` below re-parses the same string on every check
+# call. With ~280K subject-rows × ~10 bl-gated checks per row, that's ~2.8M
+# parse+compile cycles per run — measured in minutes. The compiled object
+# evaluates in microseconds.
+_compile_bl = compile_branching_logic
+
+
+# config.json is loaded read-only at runtime and is identical across every
+# FormCheck subclass instantiation. Without this cache, the file is opened
+# and JSON-parsed once per per-row checker construction (~5 × N rows per
+# run). Keyed by absolute_path so test environments with a different
+# project root don't get crossed.
+_CONFIG_CACHE = {}
+
+
+def _load_config(absolute_path):
+    cached = _CONFIG_CACHE.get(absolute_path)
+    if cached is None:
+        with open(f'{absolute_path}/config.json', 'r') as file:
+            cached = json.load(file)
+        _CONFIG_CACHE[absolute_path] = cached
+    return cached
+
 
 class FormCheck():
 
+    # Process-wide cache of the canonical timepoint list. create_timepoint_list
+    # returns a constant 16-element sequence; rebuilding it on every per-row
+    # FormCheck construction (~8 per row × N rows) is wasted allocation. Cached
+    # the first time any FormCheck is built and shared thereafter. self.tp_list
+    # is read-only here (only .index() in check_if_next_tp), so sharing the same
+    # object is safe; callers that need a mutable copy must not mutate self.tp_list.
+    _tp_list_cache = None
+
     def __init__(self, timepoint : str,
         network : str, form_check_info : str
-    ): 
+    ):
         self.utils = Utils()
         self.timepoint = timepoint
         self.network = network   
         self.absolute_path = self.utils.absolute_path
         self.final_output_list = []
-        self.tp_list = self.utils.create_timepoint_list()
+        if FormCheck._tp_list_cache is None:
+            FormCheck._tp_list_cache = self.utils.create_timepoint_list()
+        self.tp_list = FormCheck._tp_list_cache
         self.subject_info = form_check_info['subject_info'] 
         self.general_check_vars = form_check_info['general_check_vars'] 
         self.important_form_vars = form_check_info['important_form_vars'] 
@@ -32,6 +72,9 @@ class FormCheck():
         self.raw_csv_converters = form_check_info['raw_csv_conversions']
         self.variable_ranges = form_check_info['variable_ranges']
         self.tp_date_ranges = form_check_info['earliest_latest_dates_per_tp']
+        self.missingness_domain_forms = form_check_info.get(
+            'missingness_domain_forms', {})
+        self.cognition_csvs = form_check_info['cognition_csvs']
         self.missing_code_list = self.utils.missing_code_list
         
         self.prescient_forms_no_compl_status = [
@@ -44,6 +87,15 @@ class FormCheck():
         self.priority_timepoints = ['screening']
         self.module_b_vars = self.grouped_vars['scid_vars']['module_b_vars']
         self.module_c_vars = self.grouped_vars['scid_vars']['module_c_vars']
+
+        # QCFormsMain supplies the freshly loaded configuration snapshot for
+        # this run. Keep the loader fallback for standalone checks/tests, but
+        # do not let a separate FormCheck cache make recruited_only or other
+        # routing options stale during same-process reruns.
+        self.config_info = form_check_info.get('config_info')
+        if self.config_info is None:
+            self.config_info = _load_config(self.absolute_path)
+
 
     def call_checks(self):
         pass
@@ -58,20 +110,21 @@ class FormCheck():
             # excludes subjects with no cohort
             if cohort.lower() not in ["hc", "chr"]:
                 return
+
             # excludes forms not in timepoint
-            curr_tp_forms = instance.forms_per_tp[cohort][instance.timepoint]
-            if not (all(form in curr_tp_forms for form in filtered_forms)):
-                return
+            if instance.timepoint != 'multiple_timepoints':
+                curr_tp_forms = instance.forms_per_tp[cohort.lower()][instance.timepoint]
+                if not (all(form in curr_tp_forms for form in filtered_forms)):
+                    return
 
             # filters out forms with standard_form_filter function
             if not (all(instance.standard_form_filter(
             curr_row, form) for form in filtered_forms)):
                 return
-
+                
             # filters out form if variables not in dataframe
             if not all(hasattr(curr_row, var) for var in all_vars):
                 return
-
             # filters out form if variables in excluded variables 
             if filter_excl_vars:
                 excl_vars = instance.general_check_vars['excluded_vars'][instance.network]
@@ -80,17 +133,21 @@ class FormCheck():
 
             # error message set to what the QC function returns
             error_message = func(instance, curr_row,
-            filtered_forms,all_vars,changed_output_vals={},
-            bl_filtered_vars=[],filter_excl_vars=True, *args, **kwargs)
+            filtered_forms, all_vars,
+            changed_output_vals=changed_output_vals,
+            bl_filtered_vars=bl_filtered_vars,
+            filter_excl_vars=filter_excl_vars, *args, **kwargs)
             if error_message == None:
                 return
+
             # filtered out variables if branching logic is false
             if bl_filtered_vars != []:
                 for var in bl_filtered_vars:
                     if var in instance.excl_bl.keys():
-                        return 
+                        return
                     bl = instance.conv_bl[var]["converted_branching_logic"]
-                    if bl != "" and eval(bl) == False:
+                    if (bl != "" and not evaluate_branching_logic(
+                            bl, curr_row=curr_row, instance=instance)):
                         return
             error_output = instance.create_row_output(
             curr_row,filtered_forms,all_vars,error_message, changed_output_vals)
@@ -121,50 +178,60 @@ class FormCheck():
         non_bl_vars = self.important_form_vars[form]["non_branch_logic_vars"]
         formatted_visit_status = (curr_row.visit_status).replace('_','')
         completion_filter = False
-        if (compl_var == "" or not hasattr(curr_row, compl_var)):
-            return False
 
+        if (compl_var == "" or not hasattr(curr_row, compl_var)):
+            completion_filter = False
         # will not check the form if it is not marked as complete
         # or the subject has not moved onto the next timepoint (prescient only)        
         if ((self.network == 'PRESCIENT' and self.check_if_next_tp(curr_row) == True)
-        or getattr(curr_row, compl_var) in self.utils.all_dtype([2])):
+        or (hasattr(curr_row, compl_var) and
+        getattr(curr_row, compl_var) in self.utils.all_dtype([2]))):
             completion_filter = True
+
         if (self.network == 'PRESCIENT' and form
         in self.prescient_forms_no_compl_status 
         and self.check_if_next_tp(curr_row) == False):
             completion_filter = False
-        
+        if self.network == 'PRESCIENT' and self.timepoint == 'floating':
+            completion_filter = True
         if completion_filter == False:
             return False
-
         if self.check_if_missing(curr_row, form) == True:
             return False
-
         if self.extra_form_conditions(curr_row, form) == False:
             return False
-                   
+            
         return True
 
     def extra_form_conditions(
         self,curr_row : tuple, form : str
     ) -> bool:
-        if form == 'pubertal_developmental_scale':
-            age = self.subject_info[curr_row.subjectid]["age"]
-            if not self.utils.can_be_float(age) or float(age) > 18:
+        if curr_row.subjectid in self.subject_info.keys():
+            sub_info = self.subject_info[curr_row.subjectid]
+            if form == 'pubertal_developmental_scale':
+                if "age" not in sub_info.keys():
+                    return False
+                age = sub_info["age"]
+                if not self.utils.can_be_float(age) or float(age) > 18:
+                    return False
+                return True
+            elif 'axivity' in form:
+                if "axivity_opt" not in sub_info.keys():
+                    return False
+                opt_in = sub_info["axivity_opt"]
+                if opt_in in self.utils.all_dtype([1]):
+                    return True      
                 return False
-            return True
-        elif 'axivity' in form:
-            opt_in = self.subject_info[curr_row.subjectid]["axivity_opt"]
-            if opt_in in self.utils.all_dtype([1]):
-                return True      
-            return False
-        elif 'mindlamp' in form:
-            opt_in = self.subject_info[curr_row.subjectid]["mindlamp_opt"]
-            if opt_in in self.utils.all_dtype([1,2]):
-                return True      
-            return False
-        else: 
-            return True
+            elif 'mindlamp' in form:
+                if "mindlamp_opt" not in sub_info.keys():
+                    return False
+                opt_in = sub_info["mindlamp_opt"]
+                if opt_in in self.utils.all_dtype([1,2]):
+                    return True      
+                return False
+            else: 
+                return True
+        return True
     
     def check_if_missing(self,
         curr_row : tuple, form : str
@@ -194,21 +261,22 @@ class FormCheck():
         non_bl_vars_filled_out = 0        
         if missing_var != "" and not (form in self.vars_added_later.keys()
         and missing_var in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):                
+        self.utils.check_if_after_date(curr_row, form, date_var) == False):                
             if not hasattr(curr_row, missing_var):
                 return False
             # prescient missingness can also be indicated by the completion var
             if (self.network == 'PRESCIENT' and
+            hasattr(curr_row, compl_var) and 
             getattr(curr_row, compl_var) in self.utils.all_dtype([3,4])):
                 return True
             if getattr(curr_row, missing_var) not in self.utils.all_dtype([1]):
                 return False
             else:
                 return True
-        
+
         elif missing_var == "" or (form in self.vars_added_later.keys() and missing_var
         in self.vars_added_later[form].keys() and
-        self.check_if_after_date(curr_row, form, date_var) == False):
+        self.utils.check_if_after_date(curr_row, form, date_var) == False):
             for non_bl_var in non_bl_vars:
                 if (hasattr(curr_row,non_bl_var)
                 and getattr(curr_row,non_bl_var) != ''):
@@ -217,39 +285,7 @@ class FormCheck():
                 return True
             else:
                 return False
-
-    def check_if_after_date(self, 
-        curr_row : tuple,
-        form : str, date_var : str
-    ) -> bool:
-        """
-        Checks to make sure date 
-        is after it was added in 
-        particularly for missing_data
-        buttons that were added later
-
-        Parameters
-        --------------
-        curr_row : tuple
-            current dataframe row being checked \
-        form : str
-            current form being checked
-        date_var : str
-            date variable being checked
-        """
-        date_added = self.vars_added_later[form]
-        if hasattr(curr_row, date_var):
-            date_val = getattr(curr_row, date_var)
-            date_val = str(date_val)
-            try:
-                date_val = datetime.strptime(date_val, '%Y-%m-%d')
-            except Exception as e:
-                return False
-            if date_val > datetime.strptime(date_added, '%Y-%m-%d'):
-                return True
-        
-        return False
-    
+              
     def create_row_output(
         self, curr_row : tuple, forms: list,
         variables : list, error_message : str,
@@ -276,6 +312,7 @@ class FormCheck():
             dictionary of current row in
             output
         """
+        
         subject = curr_row.subjectid
         if curr_row.visit_status_string == 'removed':
             removed_status = True
@@ -287,6 +324,12 @@ class FormCheck():
         row_output = {
             "network" : self.network,
             "subject" : subject,
+            # HC vs CHR (or 'unknown' when chrcrit_part didn't translate).
+            # Collected in lockstep with inclusion_status in
+            # collect_subject_info.collect_screening_info, so it is present
+            # for any subject that reaches create_row_output; .get keeps a
+            # safe default. See generate_reports for how it is surfaced.
+            "cohort" : self.subject_info[subject].get("cohort", "unknown"),
             "affected_timepoints" : [self.timepoint],
             "subject_current_timepoint" : self.subject_info[subject]["visit_status"],
             "affected_forms": forms,
@@ -302,7 +345,8 @@ class FormCheck():
             "inclusion_status" : incl_status,
             "excluded_enabled" : False,
             "withdrawn_enabled" : False,
-            "nda_excluder" : False,  
+            "nda_excluder" : False,
+            "priority" : False,
             "priority_item" : False,
             "dates_detected" : str(datetime.today().date()).split(' ')[0],
             "time_since_last_detection":"",
@@ -341,11 +385,24 @@ class FormCheck():
             row_output['priority_item'] = True
 
         if (row_output['withdrawn_enabled'] == False
-        and removed_status == True):
+        and removed_status == True and
+        self.config_info["withdrawn_enabled"] == False):
+            row_output['reports'] = []
+        
+        # ``recruited_only=True`` means keep tracker routes only for recruited
+        # participants. The old condition did the inverse: it blanked reports
+        # for recruited participants while leaving every raw QC row in the
+        # parquet output. That made True/False appear to produce the same raw
+        # output even though recruited flags silently disappeared from Excel.
+        recruitment_status = str(
+            curr_row.recruitment_status_v2).strip().lower()
+        if (self.config_info["recruited_only"] is True
+                and recruitment_status != 'recruited'):
             row_output['reports'] = []
 
         if (row_output['excluded_enabled'] == False
-        and incl_status.lower() != 'included'):
+        and (incl_status.lower() != 'included' or
+        recruitment_status == 'negative_screen')):
             row_output['reports'] = []
                 
         for key in row_output.keys():
@@ -396,10 +453,6 @@ class FormCheck():
             formatted string
         """
 
-        inp_list = [str(item) for item in inp_list]
-        output_str = '|'.join(output_str)
+        output_str = '|'.join(str(item) for item in inp_list)
 
         return output_str
-
-
-

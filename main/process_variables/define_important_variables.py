@@ -93,7 +93,8 @@ class DefineEssentialFormVars():
         # col_to_check contains any string in strings_to_check
         filtered_df = self.data_dictionary_df[
             self.data_dictionary_df[col_to_check].str.contains(
-                '|'.join(strings_to_check), regex=True
+                '|'.join(strings_to_check), regex=True,
+                case=False, na=False
             )
         ]
 
@@ -380,19 +381,17 @@ class CollectMiscVariables():
         pharm_df = self.data_dictionary_df[
         self.data_dictionary_df[
         'Form Name'].str.contains('pharmaceutical')]
-        
         col_renames = {'Variable / Field Name':'var',
         'Form Name':'form'}
-
         pharm_df = pharm_df[list(col_renames.keys())]
-
         pharm_df = pharm_df.rename(columns=col_renames)
 
         pharm_vars_categorized = {
         'name_vars':[],
         'firstdose_vars':[],
         'med_status_vars':[],
-        'timepoint_vars' : []
+        'timepoint_vars' : [],
+        'compliance_vars':[]
         }
         
         pattern = r"chrpharm_med\d*_mo\d*"
@@ -401,8 +400,12 @@ class CollectMiscVariables():
                 pharm_vars_categorized['med_status_vars'].append(row.var)
             if 'name' in row.var and 'chrpharm' in row.var:
                 pharm_vars_categorized['name_vars'].append(row.var)
+            if 'firstdose' in row.var and 'chrpharm' in row.var:
+                pharm_vars_categorized['firstdose_vars'].append(row.var)
             if 'chrpharm_med' in row.var and '_tp' in row.var:
                 pharm_vars_categorized['timepoint_vars'].append(row.var)
+            if 'chrpharm_med' in row.var and 'comp' in row.var:
+                pharm_vars_categorized['compliance_vars'].append(row.var)
+
 
         return pharm_vars_categorized
-
