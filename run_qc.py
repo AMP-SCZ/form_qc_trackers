@@ -13,6 +13,7 @@ import random
 from main.process_variables.process_variables_main import ProcessVariables
 from main.qc_forms.qc_forms_main import QCFormsMain
 from main.generate_reports.generate_reports_main import GenerateReports
+from main.visualize_data.graph_errors import GraphErrors
 
 
 """
@@ -28,6 +29,7 @@ dropbox outputs and add it to file in old output folder
 formatted outputs for each. for the sites only
 include the main report (for melbourne, non team form report)
 7. save all formatted outputs to folder and upload them to dropbox
+8. generate and upload the error graphs from the new reports
 """
 
 #soft, hard = resource.getrlimit(resource.RLIMIT_AS)
@@ -50,6 +52,8 @@ class RunQC():
         self.qc_forms.run_script()
         self.generate_reports = GenerateReports()
         self.generate_reports.run_script()
+        self.graph_errors = GraphErrors()
+        self.graph_errors.run_script()
 
 if __name__ == '__main__':
     RunQC().run_script()

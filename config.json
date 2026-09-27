@@ -40,8 +40,7 @@
     "data_dictionary_path": ""
   },
   "pipeline_networks": [
-    "PRESCIENT",
-    "PRONET"
+    "PRESCIENT"
   ],
   "discovery": {
     "copy_forward": {

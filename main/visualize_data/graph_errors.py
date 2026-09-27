@@ -15,6 +15,7 @@ import dropbox
 from io import BytesIO
 from xml.etree.ElementTree import ParseError as XMLParseError
 from utils.utils import Utils
+from analyze_flags.paths import pipeline_output_path_from_config
 
 from datetime import datetime, timedelta, date
 import json
@@ -41,8 +42,9 @@ class GraphErrors():
         # we don't re-open config.json). The v2 trackers live under
         # `formatted_outputs/dropbox_files/` and are named with the V2 suffix.
         self.config_info = self.utils.config_info
-        self.output_path = self.config_info['paths']['output_path']
-        self.tracker_abs_path = f'{self.output_path}formatted_outputs/dropbox_files'
+        self.output_path = pipeline_output_path_from_config(self.config_info)
+        self.tracker_abs_path = os.path.join(
+            self.output_path, 'formatted_outputs', 'dropbox_files')
         self.absolute_path = self.utils.absolute_path
         # Honor testing_enabled the same way create_trackers does, otherwise
         # graphs from a test run would overwrite the production dashboards.
@@ -75,12 +77,12 @@ class GraphErrors():
 
     def run_script(self) -> None:
         """
-        Loops through both networks
+        Loops through the networks selected for this pipeline run
         and calls functions to visualize
         the number of errors per site.
         """
 
-        for network in ['PRESCIENT']:
+        for network in self.utils.pipeline_networks:
             tracker_path = (
                 f'{self.tracker_abs_path}/{network}/combined/'
                 f'{network}_Output_V2.xlsx'
@@ -749,12 +751,12 @@ class GraphErrors():
             Current network (PRONET or PRESCIENT)
         """
 
+        self.site_errors.setdefault(network, {})
         df.columns = df.columns.str.replace(' ', '_')
         for row in df.itertuples():
             if "SH" in row.Participant:
                 continue
             priority = False
-            self.site_errors.setdefault(network, {})
             self.site_errors[network].setdefault(
                 row.Participant[:2],
                 {'under_thirty': 0, 'over_thirty': 0,
@@ -812,8 +814,8 @@ class GraphErrors():
             errors['site'] = site
             raw_data_list.append(errors)
 
-        raw_data_df = pd.DataFrame(raw_data_list)
-        raw_data_df = raw_data_df[['site', 'priority', 'non_priority']]
+        raw_data_df = pd.DataFrame(
+            raw_data_list, columns=['site', 'priority', 'non_priority'])
         csv_path = (
             f'{self.tracker_abs_path}/{network}/combined/'
             f'{network}_errors_per_site.csv'
