@@ -17,19 +17,8 @@ python run_qc.py
 ```
 
 The runner performs QC, generates and uploads the reports, then generates and
-uploads the error graphs. Dependency preparation through `ProcessVariables`
-is currently commented out in the runner, so its outputs must already exist.
-
-## Code guide
-
-The three main workflow folders below list each class, including internal
-helpers and unfinished placeholders. File paths in their tables are relative
-to the named folder. The remaining folders are summarized at folder level.
-
-### `main/qc_forms`
-
-Runs form checks and builds the combined QC findings. It also contains
-separate discovery tools, shared rule helpers, and older exploratory checks.
+uploads the error graphs. 
+ 
 
 #### Core and clinical checks
 
@@ -47,11 +36,6 @@ separate discovery tools, shared rule helpers, and older exploratory checks.
 | `PharmChecks` | `qc_types/clinical_checks/pharm_checks.py` | Checks medication names, dates, overlapping courses, ongoing status, compliance, frequency, and antipsychotic-history consistency. |
 | `ScidChecks` | `qc_types/clinical_checks/scid_checks.py` | Checks SCID diagnoses and mood-episode classifications against supporting criteria and responses. |
 
-#### Cross Checks and Proposed Checks
-
-Cross Checks runs during the current pipeline. The `ProposedChecks` invocation
-is currently commented out in `QCFormsMain`; its supporting classes are listed
-here for reference.
 
 | Class | File | Summary |
 | --- | --- | --- |
@@ -93,16 +77,6 @@ These configurable detectors produce separate review artifacts. The
 | `SiteTrajectorySlopeChecks` | `qc_types/discovery/site_trajectory_slope_checks.py` | Uses mixed-effects models to identify sites with unusual longitudinal slopes. |
 | `SubjectSummary` | `qc_types/discovery/subject_summary.py` | Combines discovery findings into subject-level counts and severity summaries across detectors. |
 | `TrajectoryShapeChecks` | `qc_types/discovery/trajectory_shape_checks.py` | Finds unusual longitudinal shapes using variability in residuals from the cohort median trajectory. |
-
-#### Standalone, legacy, and unfinished checks
-
-| Class | File | Summary |
-| --- | --- | --- |
-| `MultiTPChecks` | `qc_types/multi_tp_checks.py` | Checks cross-timepoint blood IDs and FIGS/PPS ages; its dispatch in `QCFormsMain` is currently commented out. |
-| `ExcludedChecks` | `manual_checks/excluded_beyond_screening.py` | Reports excluded subjects recorded beyond screening, including their latest form dates. |
-| `ClusterAnalysis` | `anomaly_detection/cluster_analysis.py` | Provides exploratory numeric-outlier, variable-pair, and rater analyses; its current entry point produces baseline numeric-outlier scores. |
-| `HarmonizationQC` | `anomaly_detection/network_harmonization_qc.py` | Compares PRONET and PRESCIENT numeric medians and percentage differences by variable and timepoint. |
-| `NumericalOutliers` | `anomaly_detection/detect_numerical_outliers.py` | Unimplemented placeholder whose empty class body currently prevents the module from importing. |
 
 ### `main/generate_reports`
 
@@ -150,27 +124,6 @@ These classes are not invoked by `ProcessVariables.run_script()`.
 | `MultiTPLongFormatProducer` | `produce_multi_tp_long.py` | Produces per-network long-format Parquet datasets for eligible numeric variables, retaining missingness metadata. |
 | `MultiTPDatesLongFormatProducer` | `produce_multi_tp_dates_long.py` | Produces per-network long-format Parquet datasets for eligible date variables after metadata and distinct-date filtering. |
 
-#### Calculated-field translation
-
-All classes below are in `transform_calculated_fields.py`; the helper classes
-support the translator rather than serving as separate programs.
-
-| Class | Summary |
-| --- | --- |
-| `TransformCalculatedFields` | Converts calculated fields into validated Python expressions, analyzes their dependencies, and records conversion results and exclusions. |
-| `CalculationTranslationError` | Reports an invalid calculation translation, optionally identifying the source character position. |
-| `UnsupportedCalculationError` | Reports well-formed REDCap calculation syntax that the translator does not support. |
-| `CalculationSchemaError` | Reports a data dictionary that fails the translator's input requirements. |
-| `Token` | Stores a calculation token's type, value, source position, and original text. |
-| `LiteralNode` | Represents a literal value in a parsed calculation. |
-| `NumberNode` | Preserves a numeric literal's original spelling for accurate translation. |
-| `FieldNode` | Represents a field reference with optional event, checkbox-choice, and repeating-instance qualifiers. |
-| `UnaryNode` | Represents a unary operator and its operand. |
-| `BinaryNode` | Represents a binary operator and its left and right operands. |
-| `CallNode` | Represents a calculation function call and its arguments. |
-| `CalculationTokenizer` | Converts a REDCap calculation into a validated token stream. |
-| `CalculationParser` | Builds a syntax tree while preserving operator precedence, nested calls, and qualified field references. |
-| `CalculationEvaluation` | Stores an evaluated calculation's value, status, and diagnostic text. |
 
 ### Other folders
 
