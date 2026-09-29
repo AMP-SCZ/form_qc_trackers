@@ -6,7 +6,7 @@
     "output_path": "/home/ob001/output/",
     "prescient_raw_csv_path": "/data/predict1/data_from_nda/Prescient/PHOENIX/PROTECTED/"
   },
-  "testing_enabled": "True",
+  "testing_enabled": "False",
   "withdrawn_enabled": true,
   "recruited_only": false,
   "longitudinal_anomaly": {
