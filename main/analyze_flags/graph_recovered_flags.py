@@ -37,6 +37,7 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(1, parent_dir)
 from utils.utils import Utils
+from analyze_flags.history_publication import assert_publication_complete
 from analyze_flags.manual_review import (
     JumpDecisionIntegrityError,
     entry_key_from_row,
@@ -85,6 +86,7 @@ class ResolvedGrapher():
         }
 
     def run_script(self):
+        assert_publication_complete(self.analyze_flags_dir)
         for network in self.NETWORKS:
             csv_path = os.path.join(
                 self.analyze_flags_dir,
@@ -126,7 +128,7 @@ class ResolvedGrapher():
             if self.apply_jump_exclusions:
                 try:
                     decisions = load_jump_decisions(
-                        self.analyze_flags_dir, network
+                        self.analyze_flags_dir, network, history=df
                     )
                 except JumpDecisionIntegrityError as e:
                     print(
@@ -196,6 +198,7 @@ class ResolvedGrapher():
         entry per (Subject, Timepoint, General_Flag, variable,
         canonical_template)), so the per-day count below counts
         episodes rather than tracker rows."""
+        assert_publication_complete(os.path.dirname(os.path.abspath(csv_path)))
         df = pd.read_csv(csv_path, keep_default_na=False)
         df.columns = df.columns.str.replace(' ', '_')
         required = (

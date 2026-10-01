@@ -41,6 +41,7 @@ from analyze_flags.manual_review import (  # noqa: E402
     load_jump_decisions,
 )
 from analyze_flags.canonicalize import normalize_form_name  # noqa: E402
+from analyze_flags.history_publication import assert_publication_complete  # noqa: E402
 
 try:
     from analyze_flags.flag_analytics import FlagAnalytics
@@ -87,6 +88,7 @@ def parse_dates(series):
 
 def load_network(network, template_to_cat, apply_exclusions=True, run_dir=RUN_DIR):
     run_dir = Path(run_dir).expanduser().resolve()
+    assert_publication_complete(run_dir)
     csv_path = run_dir / f"open_tracker_row_history_{network}.csv"
     df = pd.read_csv(csv_path, keep_default_na=False)
     df.columns = df.columns.str.replace(" ", "_")
@@ -97,7 +99,7 @@ def load_network(network, template_to_cat, apply_exclusions=True, run_dir=RUN_DI
     # --- operator jump decisions (same as FlagAnalytics._apply_jump_decisions)
     df["resolution_excluded"] = False
     if apply_exclusions:
-        decisions = load_jump_decisions(str(run_dir), network)
+        decisions = load_jump_decisions(str(run_dir), network, history=df)
         print(f"jumps: {decisions['n_jumps']} total, "
               f"{decisions['n_undecided']} undecided (undecided => excluded)")
         keys = [entry_key_from_row(r) for r in df.itertuples(index=False)]

@@ -1,4 +1,4 @@
-"""Walk every Dropbox revision of the combined network trackers and
+"""Collect the newest daily Dropbox snapshots of the combined trackers and
 emit a deduplicated **entry-level** history per network — one row per
 contiguous occurrence of a unique
 (Subject, Timepoint, General_Flag, variable, canonical_template) flag,
@@ -21,8 +21,16 @@ whichever entry persisted longest, so downstream
 ``currently_outstanding`` and resolved-value stats over-counted.
 Keying at the entry level fixes this at the source.
 
-Every recognized report worksheet is read from each revision, and the default
-walk processes every revision so short-lived flags remain observable. A
+Only the ``Main Report`` worksheet is read from each selected revision. By
+default, one snapshot per source per America/New_York calendar day is processed:
+the newest available revision that day. Intraday changes between those snapshots
+are intentionally omitted. Unreadable historical workbooks are skipped and
+recorded in ``history_gaps_{network}.csv``; the newest snapshot must be readable.
+Skipped snapshots are unknown observations, not empty reports. Episodes describe
+the readable observations: flags or disappearance/reappearance events visible
+only inside a gap cannot be recovered. ``skip_unreadable_history=False`` restores
+strict rejection of any unreadable selected workbook. ``sample_every_days=0``
+retains every revision. A
 companion tracker metadata file records the newest successfully processed
 revision per source. Openness, Latest_seen, and the raw message used for
 before-value recovery are aligned to the network's production source
@@ -48,14 +56,22 @@ Manual-review artifacts (see ``manual_review.py``):
 
 import copy
 import hashlib
+import heapq
+from functools import lru_cache
 
 import pandas as pd
 import os
 import sys
 import json
+import shutil
+import tempfile
+from pathlib import Path
 import dropbox
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+from zipfile import BadZipFile
+from xml.etree.ElementTree import ParseError
 
 # Splitting a Windows path on ``/`` yields an empty repository root because the
 # resolved path uses backslashes.  ``dirname`` is platform-aware on both Windows
@@ -80,6 +96,11 @@ from analyze_flags.paths import (
     tracker_metadata_json_basename,
 )
 from analyze_flags.value_extraction import infer_before_value
+from analyze_flags.history_coverage import validate_revision_coverage
+from analyze_flags.history_publication import (
+    atomic_write_csv, atomic_write_json, file_fingerprint, publish_staged_files,
+)
+from analyze_flags.paths import jumps_workbook_basename, template_mapping_basename
 from analyze_flags.manual_review import (
     load_template_mapping,
     update_template_mapping,
@@ -118,18 +139,20 @@ class ResolvedEstimator():
         'PRONET': SOURCE_V1,
     }
 
-    # Only sheets generated as tracker review surfaces are authoritative.
-    # Schema matching alone is unsafe: an operator-created backup tab can carry
-    # the same columns and would otherwise keep obsolete flags open forever.
-    AUTHORITATIVE_REPORT_SHEETS = frozenset({
-        'Main Report', 'Secondary Report', 'Date Report', 'Cross Checks',
-        'Proposed Checks', 'Medication Flags', 'Non Team Forms',
-        'Cognition Report', 'Blood Report', 'Fluids Report', 'Scid Report',
-        'MRI Report', 'EEG Report', 'Digital Report',
-        'Incomplete Forms', 'Missingness Report', 'Conversion Report',
-    })
+    # History represents the Main Report only. Other report and backup tabs
+    # must not contribute flags or affect whether a revision is usable.
+    HISTORY_REPORT_SHEET = 'Main Report'
+    HISTORY_DAY_TIMEZONE = 'America/New_York'
 
-    def __init__(self, sample_every_days=0, jump_threshold=50):
+    # Bound temporary parsing work to one revision. Flag entries frequently
+    # repeat verbatim across subjects; mapping and episode state stay uncached.
+    _PARSED_FLAGS_CACHE_SIZE = 1024
+
+    def __init__(self, sample_every_days=1, jump_threshold=50,
+                 day_timezone=HISTORY_DAY_TIMEZONE, skip_unreadable_history=True):
+        # Validate before accessing configuration or creating output folders.
+        ZoneInfo(day_timezone)
+        self.day_timezone = day_timezone
         self.utils = Utils()
         self.absolute_path = self.utils.absolute_path
         with open(f'{self.absolute_path}/config.json', 'r') as file:
@@ -142,10 +165,11 @@ class ResolvedEstimator():
         self.comb_csv_path = self.config_info['paths']['combined_csv_path']
         self.depend_path = self.config_info['paths']['dependencies_path']
         self.analyze_flags_dir = ensure_analyze_flags_artifact_dir(self.output_path)
-        # Default 0 processes every revision so a short-lived, correctable flag
-        # cannot disappear between daily samples. Raise this to speed runs at
-        # the explicit cost of incomplete episode/value coverage.
+        # Default 1 selects the newest snapshot per local calendar day. Zero
+        # processes every revision; values >1 retain the legacy elapsed-day gap.
         self.sample_every_days = sample_every_days
+        self.skip_unreadable_history = skip_unreadable_history
+        self._history_gaps_by_network = {}
         # Minimum entries added OR removed between two consecutive
         # processed revisions of one source for the change to be
         # recorded as a reviewable jump in jumps_{network}.xlsx.
@@ -162,136 +186,176 @@ class ResolvedEstimator():
         self._current_network = None
 
     def run_script(self):
-        for network in self.NETWORKS:
-            previously_recorded_sources = self._previously_recorded_sources(
-                network)
-            network_seen_templates_before = copy.deepcopy(self._seen_templates)
-            network_seen_variables_before = copy.deepcopy(self._seen_variables)
-            # unique_rows is now keyed at the specific-flag entry level.
-            # newest_per_source tracks the latest revision timestamp
-            # SUCCESSFULLY PROCESSED per (V1, V2) so we can write the
-            # metadata JSON and compute is_currently_open against the
-            # right source. (Using the newest *seen* revision here was
-            # a bug: one corrupt/undownloadable latest snapshot marked
-            # every entry resolved.)
-            unique_rows = {}
-            newest_per_source = {self.SOURCE_V1: None, self.SOURCE_V2: None}
-            rejected_entries = 0
-            any_fresh_walk_completed = False
-            # Per-network manual-review accumulators, filled by the
-            # revision-delta tracking inside _walk_revisions.
-            jump_rows = []
-            affected_rows = []
-            revision_rows = []
-            self._current_network = network
-            live_source = self.LIVE_SOURCE_PER_NETWORK[network]
-            for base, basename, source_label in self._tracker_paths(network):
-                full_path = f'{base}{network}/combined/{basename}'
-                # Stage each source transactionally. A partial walk can mutate
-                # existing cross-source records, jump rows, and mapping counts;
-                # none of those changes are valid if its newest snapshot failed.
-                candidate_rows = copy.deepcopy(unique_rows)
-                candidate_jumps = list(jump_rows)
-                candidate_affected = list(affected_rows)
-                candidate_revisions = list(revision_rows)
-                seen_templates_before = copy.deepcopy(self._seen_templates)
-                seen_variables_before = copy.deepcopy(self._seen_variables)
-                try:
-                    rejected, newest_processed, newest_listed = (
-                        self._walk_revisions(
-                            full_path, source_label, candidate_rows,
-                            candidate_jumps, candidate_affected,
-                            candidate_revisions, days_back=None,
-                        )
-                    )
-                    is_fresh = (
-                        newest_processed is not None
-                        and (
-                            newest_listed is None
-                            or newest_processed >= newest_listed
-                        )
-                    )
-                    if not is_fresh:
-                        self._seen_templates = seen_templates_before
-                        self._seen_variables = seen_variables_before
-                        print(
-                            f"WARNING: rejecting stale/incomplete {source_label} "
-                            f"history for {network}; newest listed revision "
-                            f"{newest_listed} was not successfully processed."
-                        )
-                        continue
-                    unique_rows = candidate_rows
-                    jump_rows = candidate_jumps
-                    affected_rows = candidate_affected
-                    revision_rows = candidate_revisions
-                    rejected_entries += rejected
-                    newest_per_source[source_label] = newest_processed
-                    any_fresh_walk_completed = True
-                except Exception as e:
-                    self._seen_templates = seen_templates_before
-                    self._seen_variables = seen_variables_before
-                    # Missing file / transient API error shouldn't kill the
-                    # other source or network, but this source contributes
-                    # nothing unless its complete newest snapshot is usable.
-                    print(
-                        f"WARNING: failed walking revisions for {full_path}: "
-                        f"{type(e).__name__}: {str(e)[:200]}"
-                    )
-                    continue
-            fresh_sources = {
-                source for source, newest in newest_per_source.items()
-                if newest is not None
-            }
-            missing_previous_sources = (
-                previously_recorded_sources - fresh_sources)
-            if missing_previous_sources:
-                self._seen_templates = network_seen_templates_before
-                self._seen_variables = network_seen_variables_before
-                print(
-                    f"Previously recorded tracker source(s) "
-                    f"{sorted(missing_previous_sources)} were not freshly "
-                    f"processed for {network}; preserving the complete prior "
-                    "history / metadata (no write)."
-                )
+        """Stage history and gap audits together; preserve prior outputs on failure."""
+        artifact_dir = Path(self.analyze_flags_dir).resolve()
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        if (artifact_dir / '.history-publication.json').exists():
+            raise RuntimeError(
+                'Interrupted history publication requires recovery from '
+                f"{artifact_dir / '.history-publication.json'}")
+        lock_path = artifact_dir / '.history-collection.lock'
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError as error:
+            raise RuntimeError(
+                f'Another history collection is active, or an interrupted run '
+                f'left its lock: {lock_path}') from error
+        os.close(lock_fd)
+        original_dir = self.analyze_flags_dir
+        failures = []
+        seen_before = (copy.deepcopy(self._seen_templates),
+                       copy.deepcopy(self._seen_variables))
+        published = False
+        try:
+            with tempfile.TemporaryDirectory(
+                    prefix='.history-stage-', dir=artifact_dir) as stage_dir:
+                manual_names = [template_mapping_basename()] + [
+                    jumps_workbook_basename(network) for network in self.NETWORKS]
+                manual_fingerprints = {}
+                for name in manual_names:
+                    source = artifact_dir / name
+                    manual_fingerprints[name] = file_fingerprint(source)
+                    if source.exists():
+                        shutil.copy2(source, Path(stage_dir) / name)
+                # Use precisely the mapping snapshot that will be reseeded.
+                if manual_fingerprints[template_mapping_basename()] is not None:
+                    self.template_map, self.variable_map = load_template_mapping(stage_dir)
+                self._seen_templates, self._seen_variables = {}, {}
+                staged_names = []
+                for network in self.NETWORKS:
+                    network_seen = (copy.deepcopy(self._seen_templates),
+                                    copy.deepcopy(self._seen_variables))
+                    self._current_network = network
+                    try:
+                        result = self._collect_network(network)
+                        rows, newest, jumps, affected, revisions = result
+                        validate_revision_coverage(
+                            artifact_dir, network, revisions,
+                            sample_every_days=getattr(self, 'sample_every_days', 1),
+                            day_timezone=getattr(
+                                self, 'day_timezone', self.HISTORY_DAY_TIMEZONE))
+                        self._seen_templates, self._seen_variables = (
+                            copy.deepcopy(network_seen[0]),
+                            copy.deepcopy(network_seen[1]))
+                        self._track_reconciled_episodes(rows)
+                        self.analyze_flags_dir = stage_dir
+                        self._write_history_csv(network, rows, newest)
+                        self._write_history_gaps(network)
+                        self._write_metadata_json(network, newest)
+                        write_jumps_workbook(stage_dir, network, jumps, affected)
+                        self._write_revision_counts(network, revisions)
+                        staged_names.extend([
+                            open_tracker_row_history_csv_basename(network),
+                            tracker_metadata_json_basename(network),
+                            jumps_workbook_basename(network),
+                            revision_counts_csv_basename(network),
+                            self._history_gaps_basename(network),
+                        ])
+                    except Exception as error:
+                        self._seen_templates, self._seen_variables = network_seen
+                        failures.append(f'{network}: {type(error).__name__}: {error}')
+                        print(f'WARNING: {failures[-1]}; prior artifacts preserved.')
+                    finally:
+                        self.analyze_flags_dir = original_dir
+                if failures:
+                    # Mapping counts span both networks. Publishing only one
+                    # network would lose the failed network's contribution and
+                    # produce a mixed generation, so retain the whole bundle.
+                    raise RuntimeError(
+                        'History collection failed for ' + '; '.join(failures))
+                if staged_names:
+                    update_template_mapping(
+                        stage_dir, self._seen_templates, self._seen_variables)
+                    staged_names.append(template_mapping_basename())
+                    publish_staged_files(
+                        artifact_dir, stage_dir, staged_names, manual_fingerprints)
+                    published = True
+                    gap_count = sum(len(gaps) for network, gaps in
+                                    getattr(self, '_history_gaps_by_network', {}).items()
+                                    if network in self.NETWORKS)
+                    if gap_count:
+                        print('Published history bundle for ' + ', '.join(self.NETWORKS)
+                              + f' with {gap_count} unreadable historical snapshots '
+                              'skipped. See history_gaps_<network>.csv; flags or '
+                              'changes confined to those gaps may be missing.')
+                    else:
+                        print('Published complete history bundle for '
+                              + ', '.join(self.NETWORKS))
+        finally:
+            self.analyze_flags_dir = original_dir
+            if not published:
+                self._seen_templates, self._seen_variables = seen_before
+            lock_path.unlink(missing_ok=True)
+
+    def _collect_network(self, network):
+        """Collect in memory, allowing only explicitly audited historical read gaps."""
+        if not hasattr(self, '_history_gaps_by_network'):
+            self._history_gaps_by_network = {}
+        self._history_gaps_by_network.pop(network, None)
+        previous_sources = self._previously_recorded_sources(network)
+        unique_rows = {}
+        newest_per_source = {self.SOURCE_V1: None, self.SOURCE_V2: None}
+        jump_rows, affected_rows, revision_rows = [], [], []
+        errors = []
+        network_gaps = []
+        failed_selected_sources = set()
+        for base, basename, source_label in self._tracker_paths(network):
+            full_path = f'{base}{network}/combined/{basename}'
+            candidate_rows = copy.deepcopy(unique_rows)
+            candidate_jumps = list(jump_rows)
+            candidate_affected = list(affected_rows)
+            candidate_revisions = list(revision_rows)
+            seen_before = (copy.deepcopy(self._seen_templates),
+                           copy.deepcopy(self._seen_variables))
+            revision_failures = []
+            source_gaps = []
+            walk_progress = {}
+            try:
+                rejected, processed, listed = self._walk_revisions(
+                    full_path, source_label, candidate_rows, candidate_jumps,
+                    candidate_affected, candidate_revisions, days_back=None,
+                    revision_failures=revision_failures, revision_gaps=source_gaps,
+                    walk_progress=walk_progress)
+                if (rejected or processed is None
+                        or (listed is not None and processed < listed)):
+                    raise RuntimeError(
+                        f'incomplete {source_label} history '
+                        f'(processed={processed}, listed={listed}, rejected={rejected})')
+            except Exception as error:
+                self._seen_templates, self._seen_variables = seen_before
+                # An absent optional tracker can remain absent, but a known
+                # listed history with a fatal error must not be hidden by
+                # dropping that source from a first-time collection.
+                if revision_failures or walk_progress.get('listed_revisions', 0):
+                    failed_selected_sources.add(source_label)
+                details = ''
+                if revision_failures:
+                    details = (
+                        f'; failed selected revisions={len(revision_failures)}; '
+                        + '; '.join(revision_failures[:5]))
+                    if len(revision_failures) > 5:
+                        details += (
+                            f'; {len(revision_failures) - 5} additional failures '
+                            '(see WARNING lines above)')
+                errors.append(f'{source_label}: {type(error).__name__}: {error}' + details)
+                print(f'WARNING: failed walking {full_path}: {errors[-1]}')
                 continue
-            if not any_fresh_walk_completed:
-                self._seen_templates = network_seen_templates_before
-                self._seen_variables = network_seen_variables_before
-                print(
-                    f"No complete, fresh tracker walk for {network}; "
-                    f"preserving existing CSV / metadata (no write)."
-                )
-                continue
-            if newest_per_source[live_source] is None:
-                self._seen_templates = network_seen_templates_before
-                self._seen_variables = network_seen_variables_before
-                # Resolution state is defined by the production tracker. A
-                # successful walk of only the non-live/testing source cannot
-                # prove that a production flag disappeared. Preserve the last
-                # good artifacts instead of manufacturing resolved episodes.
-                print(
-                    f"No {live_source} production revision was successfully "
-                    f"processed for {network}; preserving existing history / "
-                    "metadata and derived revision artifacts (no write)."
-                )
-                continue
-            if rejected_entries:
-                print(
-                    f"{network}: dropped {rejected_entries} malformed "
-                    f"Specific_Flags entries (no colon found)."
-                )
-            self._write_history_csv(network, unique_rows, newest_per_source)
-            self._write_metadata_json(network, newest_per_source)
-            write_jumps_workbook(
-                self.analyze_flags_dir, network, jump_rows, affected_rows,
-            )
-            self._write_revision_counts(network, revision_rows)
-        # One cross-network mapping workbook, re-seeded with everything
-        # observed this run (operator maps_to entries preserved).
-        update_template_mapping(
-            self.analyze_flags_dir,
-            self._seen_templates, self._seen_variables,
-        )
+            unique_rows = candidate_rows
+            jump_rows, affected_rows = candidate_jumps, candidate_affected
+            revision_rows = candidate_revisions
+            newest_per_source[source_label] = processed
+            network_gaps.extend({**gap, 'network': network} for gap in source_gaps)
+        fresh_sources = {source for source, newest in newest_per_source.items()
+                         if newest is not None}
+        required = (previous_sources | failed_selected_sources
+                    | {self.LIVE_SOURCE_PER_NETWORK[network]})
+        missing = required - fresh_sources
+        if missing:
+            raise RuntimeError(
+                f'No complete, fresh history for required sources {sorted(missing)}; '
+                + '; '.join(errors))
+        self._history_gaps_by_network[network] = network_gaps
+        return unique_rows, newest_per_source, jump_rows, affected_rows, revision_rows
 
     def _previously_recorded_sources(self, network):
         """Sources that must remain represented in a replacement history.
@@ -313,8 +377,11 @@ class ResolvedEstimator():
             for source in (self.SOURCE_V1, self.SOURCE_V2):
                 if metadata.get(f'newest_revision_{source}'):
                     sources.add(source)
-        except (OSError, ValueError, TypeError):
+        except FileNotFoundError:
             pass
+        except (OSError, ValueError, TypeError) as error:
+            raise RuntimeError(
+                f'Cannot validate prior metadata for {network}: {error}') from error
 
         history_path = os.path.join(
             self.analyze_flags_dir,
@@ -329,8 +396,11 @@ class ResolvedEstimator():
             )['source']
             for rendered in history_sources:
                 sources.update(str(rendered).split('+'))
-        except (OSError, ValueError, pd.errors.ParserError):
+        except FileNotFoundError:
             pass
+        except (OSError, ValueError, pd.errors.ParserError) as error:
+            raise RuntimeError(
+                f'Cannot validate prior history for {network}: {error}') from error
         return sources.intersection({self.SOURCE_V1, self.SOURCE_V2})
 
     def _tracker_paths(self, network):
@@ -369,9 +439,10 @@ class ResolvedEstimator():
 
     def _walk_revisions(self, path, source_label, unique_rows,
                         jump_rows, affected_rows, revision_rows,
-                        days_back=None, page_limit=100):
-        """Walk every revision of ``path`` (paging beyond 100 via
-        before_rev) and merge unresolved-row entries into
+                        days_back=None, page_limit=100, revision_failures=None,
+                        revision_gaps=None, walk_progress=None):
+        """List revisions of ``path`` (paging beyond 100 via before_rev),
+        select the newest per calendar day by default, and merge Main Report entries into
         ``unique_rows`` in place. Schema is normalized V1 -> V2 before
         any exploding so the rest of the loop only sees one shape.
 
@@ -383,10 +454,38 @@ class ResolvedEstimator():
 
         Returns the rejected-entry count, newest processed revision, and newest
         listed revision. The processed value is None when any in-scope revision
-        was incomplete, so the caller rejects the entire staged source.
+        failed outside the allowed historical-read-gap policy, so the caller
+        rejects the entire staged source.
         Rebuilding history from a partial walk can erase episodes that existed
         only in the skipped revision, even when the newest snapshot was readable.
+        When supplied, ``revision_failures`` receives the failed revision IDs,
+        timestamps, stages, and reasons so the caller can preserve the actual
+        cause in its final error instead of reporting only ``processed=None``.
+        ``revision_gaps`` receives structured records for allowed historical
+        workbook read failures. These do not synthesize absence or alter the
+        selected day's snapshot. The first listed revision is always required,
+        including when other revisions share its timestamp.
+        ``walk_progress`` identifies a source whose revision history is known
+        to exist, even if a later pagination error interrupts the walk.
         """
+        if revision_failures is None:
+            revision_failures = []
+        if revision_gaps is None:
+            revision_gaps = []
+        if walk_progress is None:
+            walk_progress = {}
+        walk_progress['listed_revisions'] = 0
+        failure_indices = {}
+
+        def record_failure(rev, when, stage, reason):
+            detail = f'revision {rev} from {when} during {stage}: {reason}'
+            if rev in failure_indices:
+                revision_failures[failure_indices[rev]] += f'; during {stage}: {reason}'
+            else:
+                failure_indices[rev] = len(revision_failures)
+                revision_failures.append(detail)
+            print(f'WARNING: Skipping {detail}')
+
         dbx = self.utils.collect_dropbox_credentials()
         if hasattr(dbx, "check_and_refresh_access_token"):
             dbx.check_and_refresh_access_token()
@@ -452,9 +551,12 @@ class ResolvedEstimator():
         before_rev = None
         has_more = True
         last_kept_when = None
+        last_selected_day = None
+        skipped_same_day = 0
         kept = 0
         oldest_revision = None
         newest_revision = None
+        newest_revision_id = None
         newest_processed = None
         rejected_entries = 0
         walk_complete = True
@@ -464,6 +566,11 @@ class ResolvedEstimator():
         # revision, i.e. when the change became visible).
         pending_when = None
         pending_keys = None
+        pending_revision = None
+        pending_active = None
+        listed_revisions = set()
+        previous_listed_when = None
+        affected_start = len(affected_rows)
         # The Dropbox walk is newest -> oldest.  ``active`` maps each logical
         # flag key in the immediately newer processed snapshot to the concrete
         # occurrence record it belongs to.  If the same key is absent for one
@@ -482,15 +589,35 @@ class ResolvedEstimator():
             data = requester.request_json_object(
                 "api", "files/list_revisions", "rpc", req, USER_AUTH, None,
             )
-
+            if not isinstance(data, dict):
+                raise RuntimeError('Invalid Dropbox revision response')
+            if data.get('is_deleted', False):
+                raise RuntimeError(f'Tracker is deleted: {path}')
+            if not isinstance(data.get('has_more'), bool):
+                raise RuntimeError('Missing or invalid has_more in Dropbox revision response')
             entries = data.get("entries", [])
-            has_more = bool(data.get("has_more", False))
+            if not isinstance(entries, list):
+                raise RuntimeError('Invalid entries in Dropbox revision response')
+            has_more = data["has_more"]
             if not entries:
+                if has_more:
+                    raise RuntimeError('Empty revision page claims more revisions')
                 break
 
             for entry in entries:
+                walk_progress['listed_revisions'] += 1
                 rev = entry["rev"]
                 when = datetime.fromisoformat(entry["server_modified"].replace("Z", "+00:00"))
+                if not isinstance(rev, str) or not rev or rev in listed_revisions:
+                    raise RuntimeError(f'Duplicate or invalid revision ID: {rev!r}')
+                if when.tzinfo is None or when.utcoffset() is None:
+                    raise RuntimeError(f'Revision {rev} has no timestamp timezone')
+                if previous_listed_when is not None and when > previous_listed_when:
+                    raise RuntimeError('Revisions are not ordered newest to oldest')
+                listed_revisions.add(rev)
+                if newest_revision_id is None:
+                    newest_revision_id = rev
+                previous_listed_when = when
 
                 if oldest_revision is None or when < oldest_revision:
                     oldest_revision = when
@@ -502,81 +629,67 @@ class ResolvedEstimator():
                     print(f"Reached cutoff date ({cutoff}), stopping retrieval")
                     break
 
-                # Sampling skip — newest revision always processes because
-                # last_kept_when starts at None.
-                if self.sample_every_days and last_kept_when is not None:
+                # Responses are newest-first, so the first revision encountered
+                # on a calendar date is that day's selected snapshot. Reserve
+                # the date BEFORE reading it: even an allowed read gap must
+                # not silently substitute an older same-day version. This
+                # selection state survives pagination boundaries.
+                if self.sample_every_days == 1:
+                    revision_day = self._revision_day(when)
+                    if revision_day == last_selected_day:
+                        skipped_same_day += 1
+                        continue
+                    last_selected_day = revision_day
+                elif self.sample_every_days and last_kept_when is not None:
                     if (last_kept_when - when).days < self.sample_every_days:
                         continue
 
+                stage = 'download'
                 try:
-                    _, resp = dbx.files_download(path=path, rev=rev)
-                    workbook_sheets = pd.read_excel(
+                    download_metadata, resp = dbx.files_download(path=path, rev=rev)
+                    downloaded_rev = getattr(download_metadata, 'rev', rev)
+                    if downloaded_rev != rev:
+                        raise RuntimeError(
+                            f'Requested revision {rev}, received {downloaded_rev}')
+                    stage = f'read {self.HISTORY_REPORT_SHEET!r}'
+                    df = pd.read_excel(
                         BytesIO(resp.content),
                         keep_default_na=False,
-                        sheet_name=None,
+                        sheet_name=self.HISTORY_REPORT_SHEET,
                     )
-                    normalized_sheets = []
-                    malformed_sheets = []
-                    for sheet_name, sheet_df in workbook_sheets.items():
-                        if sheet_name not in self.AUTHORITATIVE_REPORT_SHEETS:
-                            print(
-                                f"WARNING: Skipping non-authoritative sheet "
-                                f"{sheet_name!r} in revision {rev}.")
-                            continue
-                        normalized = self._coalesce_tracker_columns(
-                            sheet_df, rename_v1_to_v2)
-                        if all(col in normalized.columns for col in v2_cols):
-                            normalized_sheets.append(normalized)
-                        else:
-                            missing_sheet_columns = [
-                                col for col in v2_cols
-                                if col not in normalized.columns
-                            ]
-                            malformed_sheets.append(
-                                (sheet_name, missing_sheet_columns))
-                    if malformed_sheets:
-                        walk_complete = False
-                        details = '; '.join(
-                            f"{name!r} missing {missing}"
-                            for name, missing in malformed_sheets
-                        )
-                        print(
-                            f"WARNING: Rejecting revision {rev} from {when}; "
-                            f"present authoritative report sheet(s) were "
-                            f"malformed: {details}."
-                        )
-                        continue
-                    if not normalized_sheets:
-                        walk_complete = False
-                        print(f"WARNING: No recognized report sheets in revision {rev}.")
-                        continue
-                    df = pd.concat(normalized_sheets, ignore_index=True, sort=False)
-
-
+                    stage = 'normalize tracker columns'
+                    df = self._coalesce_tracker_columns(df, rename_v1_to_v2)
+                    stage = 'validate tracker columns'
                     missing = [c for c in v2_cols if c not in df.columns]
                     if missing:
-                        walk_complete = False
-                        print(
-                            f"WARNING: Skipping revision {rev} from {when} "
-                            f"- missing columns {missing} (have {list(df.columns)})"
+                        raise ValueError(
+                            f"{self.HISTORY_REPORT_SHEET!r} missing columns "
+                            f"{missing} (have {list(df.columns)})"
                         )
-                        continue
 
                     # Unresolved-only filter — both resolved-status cols
                     # must be blank.
+                    stage = 'filter unresolved rows'
                     date_blank = df["Date Resolved"].fillna("").astype(str).str.strip() == ""
                     manual_blank = df["Manually Marked as Resolved"].fillna("").astype(str).str.strip() == ""
                     df_open = df[date_blank & manual_blank]
 
+                    stage = 'merge flag entries'
                     rev_keys, added, dropped = self._merge_revision_rows(
                         df_open, when, source_label, unique_rows,
                         episode_state=episode_state,
                         resolution_observed=pending_when,
+                        revision_id=rev,
                     )
                     rejected_entries += dropped
                     if dropped:
                         walk_complete = False
+                        record_failure(
+                            rev, when, stage,
+                            f'{dropped} entries rejected because subject, '
+                            'general flag, or variable identity was missing')
 
+                    stage = 'record revision delta'
                     if newest_processed is None or when > newest_processed:
                         newest_processed = when
                     if pending_keys is not None:
@@ -584,8 +697,15 @@ class ResolvedEstimator():
                             source_label, pending_when, pending_keys,
                             when, rev_keys, jump_rows, affected_rows,
                             revision_rows,
+                            newer_revision_id=pending_revision,
+                            older_revision_id=rev,
+                            newer_active=pending_active,
+                            older_active=episode_state['active'],
+                            source_path=path,
                         )
                     pending_when, pending_keys = when, rev_keys
+                    pending_revision = rev
+                    pending_active = dict(episode_state['active'])
 
                     last_kept_when = when
                     kept += 1
@@ -594,11 +714,31 @@ class ResolvedEstimator():
                         f"(+{added} new keys; total {len(unique_rows)})"
                     )
                 except Exception as e:
+                    if (stage == f'read {self.HISTORY_REPORT_SHEET!r}'
+                            and rev != newest_revision_id
+                            and getattr(self, 'skip_unreadable_history', True)
+                            and self._is_unreadable_workbook_error(e)):
+                        gap = {
+                            'network': getattr(self, '_current_network', None),
+                            'source': source_label,
+                            'source_path': path,
+                            'revision_id': rev,
+                            'revision_when': when.isoformat(),
+                            'revision_day': self._revision_day(when).isoformat(),
+                            'day_timezone': getattr(
+                                self, 'day_timezone', self.HISTORY_DAY_TIMEZONE),
+                            'error_type': type(e).__name__,
+                            'error_message': str(e),
+                        }
+                        revision_gaps.append(gap)
+                        print(f'WARNING: Historical snapshot gap for {path}: '
+                              f'revision {rev} from {when}: {type(e).__name__}: {e}')
+                        # Keep the last readable snapshot as the observation
+                        # boundary. No empty report or observed disappearance
+                        # can be inferred from an unreadable workbook.
+                        continue
                     walk_complete = False
-                    print(
-                        f"WARNING: Skipping revision {rev} from {when} "
-                        f"- {type(e).__name__}: {str(e)[:100]}"
-                    )
+                    record_failure(rev, when, stage, f'{type(e).__name__}: {e}')
                     continue
 
             before_rev = entries[-1]["rev"]
@@ -608,11 +748,22 @@ class ResolvedEstimator():
         if pending_keys is not None:
             revision_rows.append({
                 'source': source_label,
+                'source_path': path,
+                'revision_id': pending_revision,
                 'revision_when': pending_when.isoformat(),
                 'open_entries': len(pending_keys),
                 'added_since_prev': '',
                 'removed_since_prev': '',
             })
+
+        # The oldest sighting (and therefore stable source episode ID) is only
+        # known after the complete source walk, particularly for removal jumps.
+        for affected in affected_rows[affected_start:]:
+            storage_key = affected.pop('_storage_key', None)
+            if storage_key is not None:
+                affected['source_episode_id'] = self._source_episode_id(
+                    storage_key[:5], source_label, unique_rows[storage_key])
+                affected['lifecycle_source'] = source_label
 
         if oldest_revision and newest_revision:
             days_span = (newest_revision - oldest_revision).days
@@ -622,6 +773,12 @@ class ResolvedEstimator():
             )
         else:
             print(f"Done with {path}. Kept {kept} revisions.")
+        if self.sample_every_days == 1:
+            print(
+                f'Newest-per-day selection '
+                f'({getattr(self, "day_timezone", self.HISTORY_DAY_TIMEZONE)}): '
+                f'skipped {skipped_same_day} older same-day revisions '
+                'without downloading them.')
         if not walk_complete:
             print(
                 f"WARNING: at least one in-scope revision of {path} was not "
@@ -639,9 +796,31 @@ class ResolvedEstimator():
 
         return rejected_entries, newest_processed, newest_revision
 
+    @classmethod
+    def _is_unreadable_workbook_error(cls, error):
+        """Only known input-file failures; dependency and code errors still fail."""
+        if isinstance(error, (BadZipFile, ParseError)):
+            return True
+        if isinstance(error, ValueError):
+            return str(error) in {
+                f"Worksheet named '{cls.HISTORY_REPORT_SHEET}' not found",
+                f'Worksheet named {cls.HISTORY_REPORT_SHEET} not found',
+                'Excel file format cannot be determined, you must specify '
+                'an engine manually.',
+            }
+        return False
+
+    def _revision_day(self, when):
+        """Calendar date used for daily selection, independent of machine zone."""
+        return when.astimezone(ZoneInfo(getattr(
+            self, 'day_timezone', self.HISTORY_DAY_TIMEZONE))).date()
+
     def _record_revision_delta(self, source_label, newer_when, newer_keys,
                                older_when, older_keys, jump_rows,
-                               affected_rows, revision_rows):
+                               affected_rows, revision_rows, *,
+                               newer_revision_id=None, older_revision_id=None,
+                               newer_active=None, older_active=None,
+                               source_path=None):
         """Diff two consecutive processed revisions of one source.
         ``newer_keys - older_keys`` = entries that APPEARED at
         ``newer_when``; ``older_keys - newer_keys`` = entries that
@@ -653,6 +832,8 @@ class ResolvedEstimator():
         removed_keys = older_keys - newer_keys
         revision_rows.append({
             'source': source_label,
+            'source_path': source_path or '',
+            'revision_id': newer_revision_id or '',
             'revision_when': newer_when.isoformat(),
             'open_entries': len(newer_keys),
             'added_since_prev': len(added_keys),
@@ -660,18 +841,26 @@ class ResolvedEstimator():
         })
         for direction, keys in (('added', added_keys),
                                 ('removed', removed_keys)):
-            if len(keys) < self.jump_threshold:
+            if not keys or len(keys) < self.jump_threshold:
                 continue
-            jump_id = (
+            legacy_jump_id = (
                 f"{source_label}_{newer_when.strftime('%Y%m%dT%H%M%SZ')}"
                 f"_{direction}"
             )
+            jump_id = legacy_jump_id
+            if newer_revision_id is not None:
+                boundary = json.dumps([newer_revision_id, older_revision_id])
+                token = hashlib.sha256(boundary.encode('utf-8')).hexdigest()[:16]
+                jump_id = f'{legacy_jump_id}_{token}'
             sorted_keys = sorted(keys)
             sample = '; '.join(
                 f"{k[0]}/{k[1]}/{k[2]}/{k[3]}" for k in sorted_keys[:10]
             )
             jump_rows.append({
                 'jump_id': jump_id,
+                'legacy_jump_id': legacy_jump_id,
+                'revision_id': newer_revision_id or '',
+                'previous_revision_id': older_revision_id or '',
                 'source': source_label,
                 'direction': direction,
                 'observed_at': newer_when.isoformat(),
@@ -684,14 +873,18 @@ class ResolvedEstimator():
                 'sample_entries': sample,
             })
             for k in sorted_keys:
-                affected_rows.append({
+                affected = {
                     'jump_id': jump_id,
                     'Subject': k[0],
                     'Timepoint': k[1],
                     'General_Flag': k[2],
                     'variable': k[3],
                     'canonical_template': k[4],
-                })
+                }
+                active = newer_active if direction == 'added' else older_active
+                if active is not None:
+                    affected['_storage_key'] = active[k]
+                affected_rows.append(affected)
 
     @staticmethod
     def _observation_before(observation):
@@ -794,7 +987,8 @@ class ResolvedEstimator():
         rec['message_source'] = source
 
     def _merge_revision_rows(self, df_open, when, source_label, unique_rows,
-                             episode_state=None, resolution_observed=None):
+                             episode_state=None, resolution_observed=None,
+                             revision_id=None):
         """Merge one revision's unresolved rows into unique_rows.
 
         Each Specific Flags entry is keyed independently. Raw messages are kept
@@ -806,8 +1000,10 @@ class ResolvedEstimator():
         ``episode_state`` is supplied by the newest-to-oldest revision walk.  A
         logical key is reused only while it is present in consecutive processed
         snapshots.  Reappearance after an absent snapshot allocates a distinct
-        occurrence record and records that newer absent snapshot as the first
-        time resolution was observed.  Omitting the state preserves the legacy
+        occurrence record within that source and records the newer absent
+        snapshot as the first observed resolution. Cross-source matching is
+        deferred until both complete lifecycles are known. Omitting the state
+        preserves the legacy
         helper behavior used by direct callers that merge isolated frames.
         """
 
@@ -815,6 +1011,8 @@ class ResolvedEstimator():
         rejected = 0
         rev_keys = set()
         lifecycle_mode = episode_state is not None
+        revision_index = (episode_state.get('processed_count', 0)
+                          if lifecycle_mode else None)
         if lifecycle_mode:
             newer_active = dict(episode_state.get('active', {}))
             next_ordinal = episode_state.setdefault('next_ordinal', {})
@@ -823,26 +1021,79 @@ class ResolvedEstimator():
             newer_active = {}
             next_ordinal = {}
             current_active = {}
-        for _, row in df_open.iterrows():
-            subject = str(row["Subject"]).strip()
-            if not subject:
+
+        @lru_cache(maxsize=self._PARSED_FLAGS_CACHE_SIZE)
+        def parsed_entry(raw):
+            var, msg = split_entry(raw)
+            canonical_raw = canonicalize_message(var, msg) if var else None
+            return var, msg, canonical_raw
+
+        row_columns = ('Subject', 'Timepoint', 'General Flag', 'Specific Flags')
+        row_values = None
+        if (df_open.columns.nlevels == 1 and df_open.columns.is_unique
+                and all(column in df_open.columns for column in row_columns)):
+            row_values = df_open.to_numpy()
+        if row_values is not None and row_values.dtype.kind not in {'M', 'm'}:
+            # iterrows() builds a Series for every row from this same common-
+            # dtype array. Rows with string flags cannot be inferred as a
+            # datetime/timedelta Series, so their scalars can be read directly.
+            subject_col, timepoint_col, general_col, specific_col = (
+                df_open.columns.get_loc(column) for column in row_columns)
+            rows = (
+                values if isinstance(values[specific_col], str)
+                else pd.Series(values).array
+                for values in row_values
+            )
+        else:
+            # Preserve the existing lazy access/error behavior for malformed
+            # frames and direct callers (including an empty, columnless frame).
+            # Homogeneous datetime/timedelta arrays also need Series' scalar
+            # boxing to retain the original Timestamp/Timedelta string values.
+            rows = (row for _, row in df_open.iterrows())
+            subject_col, timepoint_col, general_col, specific_col = row_columns
+
+        for row in rows:
+            raw_subject = row[subject_col]
+            subject = str(raw_subject).strip()
+            subject_missing = (
+                not subject or (lifecycle_mode
+                    and not isinstance(raw_subject, str)
+                    and pd.api.types.is_scalar(raw_subject)
+                    and pd.isna(raw_subject)))
+            if subject_missing:
+                if lifecycle_mode:
+                    raw_specific = row[specific_col]
+                    if (raw_specific is not None
+                            and not (pd.api.types.is_scalar(raw_specific)
+                                     and pd.isna(raw_specific))):
+                        rejected += len(split_specific_flag_entries(str(raw_specific)))
                 continue
-            tp = normalize_timepoint(row["Timepoint"])
-            general_flag = normalize_general_flag(row["General Flag"])
-            if not general_flag:
+            tp = normalize_timepoint(row[timepoint_col])
+            raw_general = row[general_col]
+            general_flag = normalize_general_flag(raw_general)
+            general_missing = (
+                not general_flag or (lifecycle_mode
+                    and not isinstance(raw_general, str)
+                    and pd.api.types.is_scalar(raw_general)
+                    and pd.isna(raw_general)))
+            if general_missing:
+                if lifecycle_mode:
+                    raw_specific = row[specific_col]
+                    if (raw_specific is not None
+                            and not (pd.api.types.is_scalar(raw_specific)
+                                     and pd.isna(raw_specific))):
+                        rejected += len(split_specific_flag_entries(str(raw_specific)))
                 continue
             specific = (
-                str(row["Specific Flags"])
-                if row["Specific Flags"] is not None else '')
+                str(row[specific_col])
+                if row[specific_col] is not None else '')
             if not specific.strip():
                 continue
-            raw_entries = split_specific_flag_entries(specific)
-            for raw in raw_entries:
-                var, msg = split_entry(raw)
+            for raw in split_specific_flag_entries(specific):
+                var, msg, canonical_raw = parsed_entry(raw)
                 if not var:
                     rejected += 1
                     continue
-                canonical_raw = canonicalize_message(var, msg)
                 canonical = self.template_map.get(canonical_raw, canonical_raw)
                 var_mapped = self.variable_map.get(var, var)
                 logical_key = (
@@ -857,7 +1108,7 @@ class ResolvedEstimator():
                     if key is None:
                         ordinal = next_ordinal.get(logical_key, 0)
                         next_ordinal[logical_key] = ordinal + 1
-                        key = (*logical_key, ordinal)
+                        key = (*logical_key, source_label, ordinal)
                         new_episode = True
                     current_active[logical_key] = key
                 else:
@@ -888,17 +1139,60 @@ class ResolvedEstimator():
                     if src_latest is None or when > src_latest:
                         rec['latest_per_source'][source_label] = when
                     observations = rec.setdefault('messages_per_source', {})
-                    observations[source_label] = self._merge_message_observation(
-                        observations.get(source_label), candidate)
+                    current_observation = observations.get(source_label)
+                    # Distinct revisions can share a server timestamp. The
+                    # newest-to-oldest walk supplies order; only duplicates
+                    # within one revision participate in a value-conflict tie.
+                    same_revision = (
+                        not lifecycle_mode
+                        or rec.get('latest_revision_index_per_source', {}).get(
+                            source_label) == revision_index)
+                    if (same_revision or current_observation is None
+                            or current_observation['when'] != when):
+                        observations[source_label] = self._merge_message_observation(
+                            current_observation, candidate)
                     rec['sources'].add(source_label)
+
+                rec.setdefault('raw_identity_per_source', {}).setdefault(
+                    source_label, {
+                        'canonical_raw': canonical_raw,
+                        'variable_raw': var,
+                        'general_flag': general_flag,
+                    })
+                if lifecycle_mode:
+                    rec.setdefault('episode_ordinal_per_source', {}).setdefault(
+                        source_label, key[-1])
+                    rec.setdefault('open_in_latest_per_source', {}).setdefault(
+                        source_label, revision_index == 0)
+                    rec.setdefault('latest_revision_index_per_source', {}).setdefault(
+                        source_label, revision_index)
+                    rec.setdefault('latest_revision_per_source', {}).setdefault(
+                        source_label, revision_id)
+                    # Each next processed snapshot is older, including when
+                    # its timestamp equals the immediately newer snapshot.
+                    rec.setdefault('earliest_revision_per_source', {})[
+                        source_label] = revision_id
 
                 if new_episode and resolution_observed is not None:
                     rec.setdefault('resolution_per_source', {})[
                         source_label] = resolution_observed
+                    rec.setdefault('resolution_revision_per_source', {})[
+                        source_label] = episode_state.get('newer_revision_id')
 
                 self._refresh_representative_message(rec)
         if lifecycle_mode:
+            # This older absence bounds the beginning of the newer episode.
+            # Retain it so reconciliation cannot join across an observed gap.
+            for logical_key, storage_key in newer_active.items():
+                if logical_key not in current_active:
+                    rec = unique_rows.get(storage_key)
+                    if rec is None:
+                        continue
+                    rec.setdefault('absence_before_per_source', {})[
+                        source_label] = when
             episode_state['active'] = current_active
+            episode_state['processed_count'] = revision_index + 1
+            episode_state['newer_revision_id'] = revision_id
         return rev_keys, len(unique_rows) - before, rejected
 
     def _track_seen(self, canonical_raw, variable_raw, general_flag):
@@ -942,6 +1236,146 @@ class ResolvedEstimator():
         digest = hashlib.sha256(identity.encode('utf-8')).hexdigest()[:20]
         return f'ep_{digest}'
 
+    @classmethod
+    def _source_episode_id(cls, logical_key, source_label, record):
+        """Stable source occurrence ID, independent of newer recurrences.
+
+        Dropbox revision tokens identify the earliest positive snapshot even
+        when several revisions have an identical server timestamp. Direct
+        helper callers without revision tokens retain a deterministic fallback.
+        """
+        earliest = record['earliest_per_source'][source_label]
+        revision = record.get('earliest_revision_per_source', {}).get(source_label)
+        if revision is not None:
+            anchor = f'revision:{revision}'
+        else:
+            timestamp = pd.Timestamp(earliest).isoformat()
+            ordinal = record.get('episode_ordinal_per_source', {}).get(source_label)
+            anchor = f'timestamp:{timestamp}'
+            if ordinal is not None:
+                anchor += f':occurrence:{ordinal}'
+        identity = json.dumps(
+            [*map(str, logical_key), str(source_label), anchor],
+            ensure_ascii=False, separators=(',', ':'))
+        digest = hashlib.sha256(identity.encode('utf-8')).hexdigest()[:20]
+        return f'ep_{digest}'
+
+    @staticmethod
+    def _source_episodes_overlap(first, second):
+        """Require overlapping positive spans without a known separating gap."""
+        if len(first['sources']) != 1 or len(second['sources']) != 1:
+            return False
+        first_source = next(iter(first['sources']))
+        second_source = next(iter(second['sources']))
+        if first_source == second_source:
+            return False
+        first_start = first['earliest_per_source'][first_source]
+        first_end = first['latest_per_source'][first_source]
+        second_start = second['earliest_per_source'][second_source]
+        second_end = second['latest_per_source'][second_source]
+        if max(first_start, second_start) > min(first_end, second_end):
+            return False
+        for record, source, other_start, other_end in (
+                (first, first_source, second_start, second_end),
+                (second, second_source, first_start, first_end)):
+            resolved = record.get('resolution_per_source', {}).get(source)
+            absent_before = record.get('absence_before_per_source', {}).get(source)
+            if resolved is not None and resolved <= other_start:
+                return False
+            if absent_before is not None and absent_before >= other_end:
+                return False
+        return True
+
+    def _history_episode_records(self, unique_rows):
+        """Yield source episodes reconciled only by unambiguous overlap.
+
+        All source lifecycles are complete before this runs. A stale episode
+        spanning two recurrences therefore has two candidate matches and is
+        kept separate, rather than joining either recurrence or joining both.
+        The collector's source-qualified records are never mutated here.
+        """
+        groups = {}
+        for storage_key, record in unique_rows.items():
+            groups.setdefault(tuple(storage_key[:5]), []).append(record)
+        map_fields = (
+            'earliest_per_source', 'latest_per_source', 'messages_per_source',
+            'resolution_per_source', 'earliest_revision_per_source',
+            'latest_revision_per_source', 'resolution_revision_per_source',
+            'latest_revision_index_per_source', 'open_in_latest_per_source',
+            'episode_ordinal_per_source', 'absence_before_per_source',
+            'raw_identity_per_source',
+        )
+        for logical_key, records in groups.items():
+            candidates = {index: [] for index in range(len(records))}
+            # Sweep positive spans instead of comparing every recurrence pair.
+            # Disjoint spans and same-source recurrences need no pair checks.
+            spans = []
+            for index, record in enumerate(records):
+                if ('episode_ordinal_per_source' in record
+                        and len(record['sources']) == 1):
+                    source = next(iter(record['sources']))
+                    spans.append((record['earliest_per_source'][source],
+                                  record['latest_per_source'][source], index, source))
+            active = {}
+            endings = []
+            for start, end, index, source in sorted(spans):
+                while endings and endings[0][0] < start:
+                    _, expired_index, expired_source = heapq.heappop(endings)
+                    active[expired_source].pop(expired_index, None)
+                for other_source, source_active in active.items():
+                    if other_source == source:
+                        continue
+                    for other_index in source_active:
+                        # Two matches already establish ambiguity. Further
+                        # edges between two ambiguous records cannot change it.
+                        if (len(candidates[index]) >= 2
+                                and len(candidates[other_index]) >= 2):
+                            continue
+                        if self._source_episodes_overlap(
+                                records[index], records[other_index]):
+                            if len(candidates[index]) < 2:
+                                candidates[index].append(other_index)
+                            if len(candidates[other_index]) < 2:
+                                candidates[other_index].append(index)
+                active.setdefault(source, {})[index] = True
+                heapq.heappush(endings, (end, index, source))
+            emitted = set()
+            for index, record in enumerate(records):
+                if index in emitted:
+                    continue
+                emitted.add(index)
+                matches = candidates[index]
+                if len(matches) == 1 and candidates[matches[0]] == [index]:
+                    other_index = matches[0]
+                    other = records[other_index]
+                    combined = copy.deepcopy(record)
+                    combined['sources'].update(other['sources'])
+                    for field in map_fields:
+                        if field in other:
+                            combined.setdefault(field, {}).update(other[field])
+                    self._refresh_representative_message(combined)
+                    emitted.add(other_index)
+                    yield logical_key, combined
+                else:
+                    yield logical_key, record
+
+    def _track_reconciled_episodes(self, unique_rows):
+        """Add this network's output episodes to restored template counters.
+
+        The caller restores counters from before this network's source walks
+        first. Use the earliest constituent's original identity so aliases are
+        represented deterministically without counting a reconciled pair twice.
+        """
+        for logical_key, record in self._history_episode_records(unique_rows):
+            source = min(record['sources'], key=lambda label: (
+                record['earliest_per_source'][label], label))
+            raw = record.get('raw_identity_per_source', {}).get(source)
+            if raw is None:
+                self._track_seen(logical_key[4], logical_key[3], logical_key[2])
+            else:
+                self._track_seen(
+                    raw['canonical_raw'], raw['variable_raw'], raw['general_flag'])
+
     def _write_history_csv(self, network, unique_rows, newest_per_source):
         """Materialize ``unique_rows`` for one network as an entry-level
         CSV.
@@ -958,11 +1392,11 @@ class ResolvedEstimator():
         non-live source's dates so they still get plotted, just
         within their non-live lifespan and with is_currently_open=False.
 
-        is_currently_open = entry's per-source latest in the live
-        source is >= that source's newest revision. An entry that
-        lingered in a non-live (testing) tracker but isn't in the
-        live tracker isn't really "currently open" from the QC team's
-        perspective — which was the previous logic's failure mode.
+        is_currently_open comes from membership in the live source's newest
+        processed snapshot, independent of timestamp precision. Historical
+        source records are joined only when their positive observation spans
+        overlap unambiguously, with no known separating absence. A non-live
+        episode without an observed disappearance cannot establish resolution.
         """
         cols = [
             "Subject", "Timepoint", "General_Flag", "variable",
@@ -971,6 +1405,7 @@ class ResolvedEstimator():
             "source", "is_currently_open",
             "message_variable", "message_source",
             "message_value_conflict", "resolution_eligible",
+            "lifecycle_source", "source_episode_ids",
         ]
         live_source = self.LIVE_SOURCE_PER_NETWORK.get(network)
         live_cutoff = newest_per_source.get(live_source) if live_source else None
@@ -980,8 +1415,7 @@ class ResolvedEstimator():
             out_df = pd.DataFrame(columns=cols)
         else:
             rows = []
-            for storage_key, rec in unique_rows.items():
-                logical_key = tuple(storage_key[:5])
+            for logical_key, rec in self._history_episode_records(unique_rows):
                 subject, tp, general_flag, var, canonical = logical_key
                 sources = rec['sources']
                 source_str = '+'.join(sorted(sources))
@@ -1020,9 +1454,13 @@ class ResolvedEstimator():
                 # definition not currently open.
                 if live_source and live_cutoff is not None:
                     live_latest = rec['latest_per_source'].get(live_source)
-                    is_open = bool(
-                        live_latest is not None and live_latest >= live_cutoff
-                    )
+                    membership = rec.get('open_in_latest_per_source', {})
+                    if live_source in membership:
+                        is_open = bool(membership[live_source])
+                    else:
+                        # Compatibility for hand-built/legacy helper records.
+                        is_open = bool(
+                            live_latest is not None and live_latest >= live_cutoff)
                 else:
                     is_open = False
 
@@ -1032,6 +1470,23 @@ class ResolvedEstimator():
                     # A currently open occurrence has not resolved even if a
                     # non-live source recorded an earlier disappearance.
                     resolution_observed = None
+                if ('episode_ordinal_per_source' in rec
+                        and latest_source != live_source
+                        and resolution_observed is None):
+                    # An unmatched stale/test tracker cannot establish a live
+                    # resolution merely because it is not the live source.
+                    resolution_eligible = False
+
+                source_ids = {
+                    source: self._source_episode_id(logical_key, source, rec)
+                    for source in sorted(sources)
+                }
+                if 'episode_ordinal_per_source' in rec:
+                    # A non-live partner can later become an ambiguous stale
+                    # span. Its attachment must never rename the live episode.
+                    episode_id = source_ids[latest_source]
+                else:
+                    episode_id = self._stable_episode_id(logical_key, earliest_csv)
 
                 rows.append({
                     "Subject": subject,
@@ -1040,8 +1495,7 @@ class ResolvedEstimator():
                     "variable": var,
                     "message": message_observation['message'],
                     "canonical_template": canonical,
-                    "episode_id": self._stable_episode_id(
-                        logical_key, earliest_csv),
+                    "episode_id": episode_id,
                     "Earliest_seen": earliest_csv,
                     "Latest_seen": latest_csv,
                     "Resolution_observed": resolution_observed,
@@ -1053,6 +1507,8 @@ class ResolvedEstimator():
                     "message_value_conflict": message_observation.get(
                         'message_value_conflict', False),
                     "resolution_eligible": resolution_eligible,
+                    "lifecycle_source": latest_source,
+                    "source_episode_ids": json.dumps(source_ids, sort_keys=True),
                 })
             out_df = pd.DataFrame(rows, columns=cols)
 
@@ -1060,7 +1516,7 @@ class ResolvedEstimator():
             self.analyze_flags_dir,
             open_tracker_row_history_csv_basename(network),
         )
-        out_df.to_csv(out_csv, index=False)
+        atomic_write_csv(out_df, out_csv)
         print(
             f"Wrote {len(out_df)} entries for {network}: {out_csv} "
             f"(live source: {live_source or 'none'})"
@@ -1076,12 +1532,12 @@ class ResolvedEstimator():
             self.analyze_flags_dir,
             revision_counts_csv_basename(network),
         )
-        cols = ['source', 'revision_when', 'open_entries',
+        cols = ['source', 'source_path', 'revision_id', 'revision_when', 'open_entries',
                 'added_since_prev', 'removed_since_prev']
         df = pd.DataFrame(revision_rows, columns=cols)
         if not df.empty:
             df = df.sort_values(['source', 'revision_when']).reset_index(drop=True)
-        df.to_csv(path, index=False)
+        atomic_write_csv(df, path)
         print(f"Wrote {path}: {len(df)} revision rows.")
 
     def _write_metadata_json(self, network, newest_per_source):
@@ -1101,16 +1557,47 @@ class ResolvedEstimator():
                 continue
             if overall is None or v > overall:
                 overall = v
+        gaps = getattr(self, '_history_gaps_by_network', {}).get(network, [])
         metadata = {
+            'history_schema_version': 2,
+            'sample_every_days': getattr(self, 'sample_every_days', 1),
+            'revision_sampling': (
+                'newest_per_calendar_day' if getattr(self, 'sample_every_days', 1) == 1
+                else 'all_revisions' if getattr(self, 'sample_every_days', 1) == 0
+                else 'elapsed_day_interval'),
+            'day_timezone': getattr(self, 'day_timezone', self.HISTORY_DAY_TIMEZONE),
             'network': network,
             'live_source': self.LIVE_SOURCE_PER_NETWORK.get(network),
             'newest_revision_V1': v1.isoformat() if v1 else None,
             'newest_revision_V2': v2.isoformat() if v2 else None,
             'newest_revision_overall': overall.isoformat() if overall else None,
+            'skip_unreadable_history': getattr(self, 'skip_unreadable_history', True),
+            'history_complete': not gaps,
+            'skipped_unreadable_revisions': len(gaps),
+            'skipped_unreadable_revisions_per_source': {
+                source: sum(gap['source'] == source for gap in gaps)
+                for source in (self.SOURCE_V1, self.SOURCE_V2)},
+            'history_gaps_file': self._history_gaps_basename(network),
         }
-        with open(path, 'w') as f:
-            json.dump(metadata, f, indent=2)
+        atomic_write_json(metadata, path)
         print(f"Wrote metadata: {path}")
+
+    @staticmethod
+    def _history_gaps_basename(network):
+        return f'history_gaps_{network}.csv'
+
+    def _write_history_gaps(self, network):
+        """Publish the gap audit with the matching history, even when empty."""
+        columns = ['network', 'source', 'source_path', 'revision_id',
+                   'revision_when', 'revision_day', 'day_timezone',
+                   'error_type', 'error_message']
+        gaps = getattr(self, '_history_gaps_by_network', {}).get(network, [])
+        path = os.path.join(self.analyze_flags_dir, self._history_gaps_basename(network))
+        frame = pd.DataFrame(gaps, columns=columns)
+        if not frame.empty:
+            frame = frame.sort_values(['source', 'revision_when', 'revision_id'])
+        atomic_write_csv(frame, path)
+        print(f'Wrote {path}: {len(frame)} unreadable historical snapshots.')
 
 
 if __name__ == '__main__':

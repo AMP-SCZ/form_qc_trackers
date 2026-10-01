@@ -54,6 +54,7 @@ from analyze_flags.paths import (
 )
 from analyze_flags.canonicalize import normalize_form_name, normalize_timepoint
 from analyze_flags.value_extraction import infer_before_value
+from analyze_flags.history_publication import assert_publication_complete
 
 
 class FlagAnalytics():
@@ -186,6 +187,7 @@ class FlagAnalytics():
             self._run_for_network(network)
 
     def _run_for_network(self, network):
+        assert_publication_complete(self.analyze_flags_dir)
         csv_path = os.path.join(
             self.analyze_flags_dir,
             open_tracker_row_history_csv_basename(network),
@@ -277,6 +279,7 @@ class FlagAnalytics():
         Jump exclusions are applied here, BEFORE the followup-merge
         below, because the operator workbook's entry keys carry the
         raw (pre-merge) General_Flag values."""
+        assert_publication_complete(os.path.dirname(os.path.abspath(csv_path)))
         df = pd.read_csv(csv_path, keep_default_na=False)
         df.columns = df.columns.str.replace(' ', '_')
         required = ('Subject', 'Earliest_seen', 'Latest_seen', 'General_Flag',
@@ -402,7 +405,7 @@ class FlagAnalytics():
         df['resolution_excluded'] = False
         if not self.apply_jump_exclusions or df.empty:
             return df
-        decisions = load_jump_decisions(self.analyze_flags_dir, network)
+        decisions = load_jump_decisions(self.analyze_flags_dir, network, history=df)
         if decisions['n_jumps'] == 0:
             return df
         if decisions['n_undecided']:

@@ -1,8 +1,8 @@
 """Shared helpers for parsing and canonicalizing Specific_Flags
-entries. Used by ``estimate_resolved.py`` when building the entry-
-level merged history and by downstream consumers
-(``flag_analytics.py``, ``graph_recovered_flags.py``) when re-doing
-the same parsing on already-canonicalized rows.
+entries. Used by ``estimate_resolved.py`` when building entry-level history,
+and by workbook readers such as ``extract_blank_flags.py`` and
+``flag_distribution_dashboard.py``. History analytics use the stored entries
+and their lifetimes; parser corrections require rebuilding that history.
 
 Centralized here so a regex tweak affects both sides of the producer/
 consumer boundary at once.
@@ -26,15 +26,47 @@ _ENTRY_SPLIT_RE = re.compile(r'^\s*([^:]+?)\s*:\s*(.*?)\s*$', re.DOTALL)
 # A Specific Flags cell is a sequence of ``variable : message`` entries joined
 # by a literal pipe.  Raw GUID/barcode values can themselves contain pipes, so
 # splitting every pipe corrupts both the message and every following entry.
-# REDCap variable names are lowercase identifiers; treating a pipe as a
-# boundary only when the next token has that shape preserves legacy unescaped
-# values such as ``NDAR|bad`` while retaining whitespace-tolerant entry parsing.
+# Entry boundaries do not require spaces or sentence punctuation: historical
+# cells also contain ``field_a:Missing|field_b:Invalid``. Accept capitalized
+# identifiers too, without changing their spelling. Value spans are protected
+# separately below so ``Observed (bad|field_b:value)`` remains one message.
 # New producers additionally encode transport-risk values with ``@qcv1:`` (see
 # ``escape_specific_flag_value``), which also makes the otherwise ambiguous
 # ``bad|field_a:value`` case lossless.
 _SPECIFIC_FLAG_BOUNDARY_RE = re.compile(
-    r'(?:(?<=\s)|(?<=[.!?\)]))\|'
-    r'(?=\s*[a-z][A-Za-z0-9_]*\s*:)',
+    r'\|(?=\s*[A-Za-z][A-Za-z0-9_]*\s*:)',
+)
+_FLAG_VALUE_DELIMITER_RE = re.compile(r'''[()[\]{}'"]''')
+_QUOTED_FLAG_VALUE_RE = re.compile(
+    r'''(?<!\w)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'(?!\w))''',
+    re.DOTALL,
+)
+# Old GUID messages interpolate an unquoted value that can look exactly like
+# another entry. Keep the previous conservative boundary rule in this known
+# value position; new producers encode such values with @qcv1 instead.
+_GUID_RAW_VALUE_PREFIX_RE = re.compile(
+    r'\s*[^:|]+\s*:\s*GUID in incorrect format\.\s*'
+    r'GUID was reported to be\s+',
+    re.IGNORECASE,
+)
+_GUID_FLAG_RE = re.compile(
+    r'(?:^|(?<=\|))' + _GUID_RAW_VALUE_PREFIX_RE.pattern
+    + r'(?P<value>.*?)'
+    r'(?=(?<=[\s.!?)])\|(?=\s*[A-Za-z][A-Za-z0-9_]*\s*:)|\Z)',
+    re.IGNORECASE | re.DOTALL,
+)
+# Barcode values can contain unmatched brackets/quotes. Their producer-owned
+# suffix gives an unambiguous end to the value even when balancing punctuation
+# would accidentally pair it with punctuation in a later, independent flag.
+_BARCODE_FLAG_RE = re.compile(
+    r'(?:^|(?<=\|))\s*[A-Za-z][A-Za-z0-9_]*\s*:\s*'
+    # Never search through another pipe-delimited entry for a known suffix.
+    # Current encoded values contain no pipes; legacy literal-pipe values
+    # continue through the generic balanced-value handling.
+    r'Barcode \((?P<value>[^|]*?)\) '
+    r'(?:length is not \d+ characters|contains non-numeric characters)\.'
+    r'(?=\s*(?:\||$))',
+    re.IGNORECASE | re.DOTALL,
 )
 
 _QCV1_PREFIX = '@qcv1:'
@@ -156,22 +188,108 @@ def unescape_specific_flag_text(text):
     return _QCV1_TOKEN_RE.sub(decode_match, rendered)
 
 
+def _protected_flag_value_spans(text):
+    """Find balanced quoted/bracketed spans without hiding unmatched suffixes."""
+
+    spans = []
+    opening = {')': '(', ']': '[', '}': '{'}
+
+    def scan(start, end):
+        brackets = []
+        quote_end = start
+        for match in _FLAG_VALUE_DELIMITER_RE.finditer(text, start, end):
+            position = match.start()
+            if position < quote_end:
+                continue
+            token = match.group()
+            if token in ('"', "'"):
+                # Escaped quotes cannot open a value. Besides correctness,
+                # skipping them avoids retrying an unterminated quote match
+                # against successively shorter suffixes of a large value.
+                previous = position - 1
+                while previous >= start and text[previous] == '\\':
+                    previous -= 1
+                if (position - previous - 1) % 2:
+                    continue
+                # Only a complete quotation is protected. Word apostrophes and
+                # unfinished quotations must not swallow subsequent entries.
+                quoted = _QUOTED_FLAG_VALUE_RE.match(text, position, end)
+                if quoted is not None:
+                    quote_end = quoted.end()
+                    spans.append((position, quote_end))
+            elif token in '([{':
+                brackets.append((token, position))
+            elif brackets and brackets[-1][0] == opening[token]:
+                _, value_start = brackets.pop()
+                spans.append((value_start, position + 1))
+
+    known_values = sorted(
+        [*_BARCODE_FLAG_RE.finditer(text), *_GUID_FLAG_RE.finditer(text)],
+        key=lambda match: match.start(),
+    )
+    cursor = 0
+    for flag in known_values:
+        if flag.start() < cursor:
+            continue
+        scan(cursor, flag.start())
+        spans.append(flag.span('value'))
+        cursor = flag.end()
+    scan(cursor, len(text))
+
+    # Nested values and quotes may overlap. Merge once so all candidate entry
+    # boundaries can be checked in a single forward pass.
+    merged = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
 def split_specific_flag_entries(specific_flags_str):
     """Return structural entries without splitting raw value pipes.
 
     This is the shared transport parser for current encoded messages and
-    historical unencoded messages.  Empty fragments are omitted; validation of
-    each entry's ``variable : message`` shape remains ``split_entry``'s job.
+    historical unencoded messages, including compact separators and capitalized
+    variable labels. Balanced quoted/bracketed values and the legacy GUID value
+    position are protected. Other unquoted, unescaped ``|identifier:`` text is
+    inherently ambiguous and follows the entry-separator convention. Decode
+    @qcv1 values only after splitting. Empty fragments are omitted; validation
+    of each entry's shape remains ``split_entry``'s job.
     """
 
     if not specific_flags_str:
         return []
-    return [
-        entry.strip()
-        for entry in _SPECIFIC_FLAG_BOUNDARY_RE.split(
-            str(specific_flags_str))
-        if entry.strip()
-    ]
+    text = str(specific_flags_str)
+    boundaries = list(_SPECIFIC_FLAG_BOUNDARY_RE.finditer(text))
+    if not boundaries:
+        return [text.strip()] if text.strip() else []
+    protected = _protected_flag_value_spans(text)
+    span_index = 0
+    start = 0
+    entries = []
+    guid_value = _GUID_RAW_VALUE_PREFIX_RE.match(text, start)
+    for boundary in boundaries:
+        position = boundary.start()
+        while span_index < len(protected) and protected[span_index][1] <= position:
+            span_index += 1
+        if (span_index < len(protected)
+                and protected[span_index][0] <= position < protected[span_index][1]):
+            continue
+        if (guid_value is not None and position >= guid_value.end()
+                and not (text[position - 1].isspace()
+                         or text[position - 1] in '.!?)')):
+            continue
+        entry = text[start:position].strip()
+        if entry:
+            entries.append(entry)
+        start = boundary.end()
+        guid_value = _GUID_RAW_VALUE_PREFIX_RE.match(text, start)
+    entry = text[start:].strip()
+    if entry:
+        entries.append(entry)
+    return entries
 
 
 def split_entry(entry):
